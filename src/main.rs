@@ -1,4 +1,6 @@
 use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
+use vulkano::image::attachment::AttachmentImage;
+use vulkano::format::Format;
 use vulkano::descriptor::descriptor_set::PersistentDescriptorSet;
 use vulkano::buffer::cpu_pool::CpuBufferPool;
 use vulkano::command_buffer::{AutoCommandBufferBuilder, DynamicState};
@@ -17,6 +19,9 @@ use vulkano_win::VkSurfaceBuild;
 
 use winit::{KeyboardInput, VirtualKeyCode, EventsLoop, Window, WindowBuilder, Event, WindowEvent};
 
+use cgmath::{Matrix3, Matrix4, Point3, Vector3, Rad};
+
+use std::time::{Duration, Instant};
 use std::sync::Arc;
 
 struct Sprite {
@@ -150,10 +155,10 @@ fn main() {
 
     let triangle1 = Sprite::new(device.clone(), vertex_buffer.clone(), vec![0, 1, 2]);
     let triangle2 = Sprite::new(device.clone(), vertex_buffer.clone(), vec![3, 4, 5]);
+    
+    let uniform_buffer = CpuBufferPool::<vs::ty::Data>::new(device.clone(), BufferUsage::all());
     let vs = vs::Shader::load(device.clone()).unwrap();
     let fs = fs::Shader::load(device.clone()).unwrap();
-
-    let uniform_buffer = CpuBufferPool::<vs::ty::Data>::new(device.clone(), BufferUsage::all());
 
     // at this point opengl init would be finished but vulkna requires more.
     // Render pass is an object that describes where the output of the graphic
@@ -177,13 +182,18 @@ fn main() {
                     format: swapchain.format(),
                     // TODO:
                     samples: 1,
+                },
+                depth: {
+                    load: Clear,
+                    store: DontCare,
+                    format: Format::D16Unorm,
+                    samples: 1,
                 }
             },
             pass: {
                 // We use the attachment named `color` as the one and only color attachment.
                 color: [color],
-                // No depth-stencil attachment is indicated with empty brackets.
-                depth_stencil: {}
+                depth_stencil: {depth}
             }
     ).unwrap());
 
@@ -206,11 +216,15 @@ fn main() {
     // can draw we also need to create the actual framebuffers.
     // Since we need to draw to multiple images, we are going to create a different framebuffer for
     // each image.
-    let mut framebuffers = window_size_dependent_setup(&images, render_pass.clone(), &mut dynamic_state);
+    let mut framebuffers = window_size_dependent_setup(device.clone(), &images, render_pass.clone(), &mut dynamic_state);
 
 
     // Initialization is finally finished!
     let mut recreate_swapchain = false;
+
+    let dimensions = dynamic_state.viewports.as_ref().unwrap()[0].dimensions;
+    let aspect_ratio = dimensions[0] as f32 / dimensions[1] as f32;
+    let rotation_start = Instant::now();
     // In the loop below we are going to submit commands to the GPU. Submitting a command produces
     // an object that implements the `GpuFuture` trait, which holds the resources for as long as
     // they are in use by the GPU.
@@ -244,23 +258,20 @@ fn main() {
             swapchain = new_swapchain;
             // Because framebuffers contains an Arc on the old swapchain, we need to
             // recreate framebuffers as well.
-            framebuffers = window_size_dependent_setup(&new_images, render_pass.clone(), &mut dynamic_state);
+            framebuffers = window_size_dependent_setup(device.clone(), &new_images, render_pass.clone(), &mut dynamic_state);
 
             recreate_swapchain = false;
         }
 
         let uniform_buffer_subbuffer = {
-            let uniform_data = vs::ty::Data {
-                offset: [offset_x, offset_y, offset_z],
-            };
-
+            let uniform_data = create_mvp(rotation_start.elapsed(), aspect_ratio);
             uniform_buffer.next(uniform_data).unwrap()
         };
 
-        let set = Arc::new(
-            PersistentDescriptorSet::start(pipeline.clone(), 0)
+        let set = Arc::new(PersistentDescriptorSet::start(pipeline.clone(), 0)
             .add_buffer(uniform_buffer_subbuffer).unwrap()
-            .build().unwrap());
+            .build().unwrap()
+        );
 
         // Before we can draw on the output, we have to *acquire* an image from the
         // swapchain. If no image is available, (which happens if you submit draw
@@ -277,7 +288,7 @@ fn main() {
         };
 
         // Specify the color to clear the framebuffer with.
-        let clear_values = vec!([0.0, 0.0, 1.0, 1.0].into());
+        let clear_values = vec!([0.0, 0.0, 1.0, 1.0].into(), 1f32.into());
 
         // In order to draw, we have to build a *command buffer*. The command buffer object holds
         // the list of commands that are going to be executed.
@@ -388,52 +399,55 @@ fn main() {
                             _ => (),
                         }
                     },
-                    _ => (),
+                            _ => (),
                 }
             }});
 
-            if done { return; }
+        if done { return; }
 
 
-        }
     }
+}
 
-    /// This method is called once during initialization, then again whenever the window is resized
-    fn window_size_dependent_setup(
-        images: &[Arc<SwapchainImage<Window>>],
-        render_pass: Arc<RenderPassAbstract + Send + Sync>,
-        dynamic_state: &mut DynamicState
-    ) -> Vec<Arc<FramebufferAbstract + Send + Sync>> {
-        let dimensions = images[0].dimensions();
+/// This method is called once during initialization, then again whenever the window is resized
+fn window_size_dependent_setup(
+    device: Arc<Device>,
+    images: &[Arc<SwapchainImage<Window>>],
+    render_pass: Arc<RenderPassAbstract + Send + Sync>,
+    dynamic_state: &mut DynamicState
+) -> Vec<Arc<FramebufferAbstract + Send + Sync>> {
+    let dimensions = images[0].dimensions();
 
-        let viewport = Viewport {
-            origin: [0.0, 0.0],
-            dimensions: [dimensions[0] as f32, dimensions[1] as f32],
-            depth_range: 0.0 .. 1.0,
-        };
-        dynamic_state.viewports = Some(vec!(viewport));
+    let viewport = Viewport {
+        origin: [0.0, 0.0],
+        dimensions: [dimensions[0] as f32, dimensions[1] as f32],
+        depth_range: 0.0 .. 1.0,
+    };
+    dynamic_state.viewports = Some(vec!(viewport));
 
-        images.iter().map(|image| {
-            Arc::new(
-                Framebuffer::start(render_pass.clone())
-                .add(image.clone()).unwrap()
-                .build().unwrap()
-            ) as Arc<FramebufferAbstract + Send + Sync>
-        }).collect::<Vec<_>>()
-    }   
+    let depth_buffer = AttachmentImage::transient(device.clone(), dimensions, Format::D16Unorm).unwrap();
+    images.iter().map(|image| {
+        Arc::new(
+            Framebuffer::start(render_pass.clone())
+            .add(image.clone()).unwrap()
+            .add(depth_buffer.clone()).unwrap()
+            .build().unwrap()
+        ) as Arc<FramebufferAbstract + Send + Sync>
+    }).collect::<Vec<_>>()
+}   
 
-    mod vs {
+mod vs {
 
-        vulkano_shaders::shader!{
-            ty: "vertex",
-            path: "shaders/triangle.vert"
-        }
+    vulkano_shaders::shader!{
+        ty: "vertex",
+        path: "shaders/mvp.vert"
     }
+}
 
-    mod fs {
-        vulkano_shaders::shader!{
-            ty: "fragment",
-            src: "
+mod fs {
+    vulkano_shaders::shader!{
+        ty: "fragment",
+        src: "
 #version 450
 
 layout(location = 0) out vec4 f_color;
@@ -444,6 +458,23 @@ void main() {
 }
 "
 }
+}
+
+fn create_mvp(elapsed_time: Duration, aspect_ratio: f32) -> vs::ty::Data {
+    let rotation = elapsed_time.as_secs() as f64 + elapsed_time.subsec_nanos() as f64 / 1_000_000_000.0;
+    let rotation = Matrix3::from_angle_y(Rad(rotation as f32));            
+
+    let proj = cgmath::perspective(Rad(std::f32::consts::FRAC_PI_2), 1.0, 0.01, 100.0);
+
+    let view = Matrix4::look_at(Point3::new(0.0, 0.0, 1.0), Point3::new(0.0, 0.0, 0.0), Vector3::new(0.0, -1.0, 0.0));
+
+    vs::ty::Data {
+        model: Matrix4::from(rotation).into(),
+        view: view.into(),
+        proj: proj.into(),
+    }
+
+
 }
 
 
