@@ -6,18 +6,20 @@ use vulkano::buffer::cpu_pool::CpuBufferPool;
 use vulkano::command_buffer::{AutoCommandBufferBuilder, DynamicState};
 use vulkano::device::{Device, DeviceExtensions};
 use vulkano::framebuffer::{Framebuffer, FramebufferAbstract, Subpass, RenderPassAbstract};
-use vulkano::image::SwapchainImage;
+use vulkano::image::{ImmutableImage, Dimensions, SwapchainImage};
 use vulkano::instance::{Instance, PhysicalDevice};
 use vulkano::pipeline::GraphicsPipeline;
 use vulkano::pipeline::viewport::Viewport;
 use vulkano::swapchain::{AcquireError, PresentMode, SurfaceTransform, Swapchain, SwapchainCreationError};
 use vulkano::swapchain;
+use vulkano::sampler::{Sampler, SamplerAddressMode, Filter, MipmapMode};
 use vulkano::sync::{GpuFuture, FlushError};
 use vulkano::sync;
 
 use vulkano_win::VkSurfaceBuild;
 
 use winit::{KeyboardInput, VirtualKeyCode, EventsLoop, Window, WindowBuilder, Event, WindowEvent};
+use image::ImageFormat;
 
 use cgmath::{Matrix3, Matrix4, Point3, Vector3, Rad};
 
@@ -48,9 +50,10 @@ impl Sprite {
 #[derive(Debug, Clone)]
 struct Vertex { 
     position: [f32; 2],
-    color: [f32; 4]
+    color: [f32; 4],
+    tex_coords: [f32; 2],
 }
-vulkano::impl_vertex!(Vertex, position, color);
+vulkano::impl_vertex!(Vertex, position, color, tex_coords);
 
 pub mod camera;
 use crate::camera::{CameraDirection, Camera};
@@ -147,23 +150,23 @@ fn main() {
     // Now let's create a buffer that will store the shape of our triangle.
     let vertex_buffer = {
         CpuAccessibleBuffer::from_iter(device.clone(), BufferUsage::all(), [
+                                       Vertex { position: [-0.5, -0.5],
+                                       color: [0.0, 1.0, 0.0, 0.5],
+                                       tex_coords: [1.0, 0.0],},
+                                       Vertex { position: [0.5, -0.5],
+                                       color: [0.2, 1.0, 0.1, 1.0],
+                                       tex_coords: [0.0, 0.0],},
                                        Vertex { position: [0.5, 0.5],
-                                       color: [0.0, 1.0, 0.0, 0.5],},
-                                       Vertex { position: [0.5, 0.25],
-                                       color: [0.2, 1.0, 0.1, 1.0],},
-                                       Vertex { position: [0.0, 0.5],
-                                       color: [0.3, 0.9, 0.9, 1.0],},
-                                       Vertex { position: [-0.25, -0.1],
-                                       color: [0.0, 1.0, 0.0, 1.0],},
-                                       Vertex { position: [-0.5, -0.25],
-                                       color: [1.0, 0.4, 0.0, 1.0],},
-                                       Vertex { position: [0.0, -0.5],
-                                       color: [0.0, 1.0, 0.1, 1.0],},
+                                       color: [0.3, 0.9, 0.9, 1.0],
+                                       tex_coords: [0.0, 1.0],},
+                                       Vertex { position: [-0.5, 0.5],
+                                       color: [0.0, 1.0, 0.0, 1.0],
+                                       tex_coords: [1.0, 1.0],},
         ].iter().cloned()).unwrap()
     };
 
-    let triangle1 = Sprite::new(device.clone(), vertex_buffer.clone(), vec![0, 1, 2]);
-    let triangle2 = Sprite::new(device.clone(), vertex_buffer.clone(), vec![3, 4, 5]);
+    let triangle1 = Sprite::new(device.clone(), vertex_buffer.clone(), vec![0, 1, 2, 2, 3, 0]);
+//    let triangle2 = Sprite::new(device.clone(), vertex_buffer.clone(), vec![3, 4, 5]);
     
     let uniform_buffer = CpuBufferPool::<vs::ty::Data>::new(device.clone(), BufferUsage::all());
     let vs = vs::Shader::load(device.clone()).unwrap();
@@ -206,6 +209,23 @@ fn main() {
             }
     ).unwrap());
 
+    // Load texture.
+    let (texture, tex_future) = {
+        let image = image::load_from_memory_with_format(include_bytes!("image_img.png"),
+            ImageFormat::PNG).unwrap().to_rgba();
+        let image_data = image.into_raw().clone();
+
+        ImmutableImage::from_iter(
+            image_data.iter().cloned(),
+            Dimensions::Dim2d { width: 93, height: 93 },
+            Format::R8G8B8A8Srgb,
+            queue.clone()
+        ).unwrap()
+    };
+
+    let sampler = Sampler::new(device.clone(), Filter::Linear, Filter::Linear,
+    MipmapMode::Nearest, SamplerAddressMode::Repeat, SamplerAddressMode::Repeat,
+    SamplerAddressMode::Repeat, 0.0, 1.0, 0.0, 0.0).unwrap();
     // Define the pipeline
     let pipeline = Arc::new(GraphicsPipeline::start()
                             // need to indicate the layout of vertices.
@@ -217,6 +237,12 @@ fn main() {
                             .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
                             .build(device.clone())
                             .unwrap());
+    let tex_set = Arc::new(PersistentDescriptorSet::start(pipeline.clone(), 1)
+        .add_sampled_image(texture.clone(), sampler.clone()).unwrap()
+        .build().unwrap()
+    );
+
+
     // Dynamic viewports allow us to recreate just the viewport when the window is resized
     // Otherwise we would have to recreate the whole pipeline.
     let mut dynamic_state = DynamicState { line_width: None, viewports: None, scissors: None };
@@ -240,7 +266,7 @@ fn main() {
     //
     // Destroying the `GpuFuture` blocks until the GPU is finished executing it. In order to avoid
     // that, we store the submission of the previous frame here.
-    let mut previous_frame_end = Box::new(sync::now(device.clone())) as Box<GpuFuture>;
+    let mut previous_frame_end = Box::new(tex_future) as Box<GpuFuture>;
 
     let mut offset_x = 0.0;
     let mut offset_y = 0.0;
@@ -336,17 +362,17 @@ fn main() {
             &dynamic_state,
             triangle1.vertex_buffer.clone(),
             triangle1.index_buffer.clone(),
-            set.clone(),
+            (set.clone(), tex_set.clone()),
             ())
-            .unwrap();
-
-        command_buffer = command_buffer.draw_indexed(pipeline.clone(),
-        &dynamic_state,
-        triangle2.vertex_buffer.clone(),
-        triangle2.index_buffer.clone(),
-        set.clone(),
-        ())
             .unwrap()
+
+        //command_buffer = command_buffer.draw_indexed(pipeline.clone(),
+        //&dynamic_state,
+        //triangle2.vertex_buffer.clone(),
+        //triangle2.index_buffer.clone(),
+        //set.clone(),
+        //())
+        //    .unwrap()
 
             // We leave the render pass by calling `draw_end`. Note that if we had multiple
             // subpasses we could have called `next_inline` (or `next_secondary`) to jump to the
@@ -473,9 +499,11 @@ mod fs {
 
 layout(location = 0) out vec4 f_color;
 layout(location = 0) in vec4 frag_color;
+layout(location = 1) in vec2 frag_text_coords;
+layout(set = 1, binding = 0) uniform sampler2D texSampler;
 
 void main() {
-    f_color = frag_color;
+    f_color = texture(texSampler, frag_text_coords);
 }
 "
 }
