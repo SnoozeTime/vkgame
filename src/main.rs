@@ -52,6 +52,15 @@ struct Vertex {
 }
 vulkano::impl_vertex!(Vertex, position, color);
 
+pub mod camera;
+use crate::camera::{CameraDirection, Camera};
+
+#[derive(Debug, Clone)]
+pub struct Transform {
+    pub position: Point3<f32>,
+    pub rotation: Vector3<f32>,
+    pub scale: Point3<f32>,
+}
 
 fn main() {
 
@@ -236,6 +245,15 @@ fn main() {
     let mut offset_x = 0.0;
     let mut offset_y = 0.0;
     let mut offset_z = 0.0;
+
+
+    let mut direction = Vector3::new(0.0, 0.0, -1.0);
+    let mut camera_transform = Transform {
+        position: Point3::new(0.0, 0.0, 1.0),
+        rotation: Vector3::new(0.0, 0.0, 0.0),
+        scale: Point3::new(0.0, 0.0, 0.0),
+    };
+    let mut camera = Camera::new(camera_transform);
     loop {
         previous_frame_end.cleanup_finished();
 
@@ -264,7 +282,7 @@ fn main() {
         }
 
         let uniform_buffer_subbuffer = {
-            let uniform_data = create_mvp(rotation_start.elapsed(), aspect_ratio);
+            let uniform_data = create_mvp(rotation_start.elapsed(), aspect_ratio, &camera);
             uniform_buffer.next(uniform_data).unwrap()
         };
 
@@ -382,6 +400,9 @@ fn main() {
                 match event {
                     WindowEvent::CloseRequested => done = true,
                     WindowEvent::Resized(_) => recreate_swapchain = true,
+                    WindowEvent::CursorMoved { position: position, ..} => {
+                        camera.process_mouse(position.x, position.y);
+                    },
                     WindowEvent::KeyboardInput {
                         input:
                             KeyboardInput {
@@ -392,10 +413,10 @@ fn main() {
                     } => {
                         match keycode {
                             VirtualKeyCode::Escape => done = true,
-                            VirtualKeyCode::D => offset_x += 0.05,
-                            VirtualKeyCode::W => offset_y -= 0.05,
-                            VirtualKeyCode::A => offset_x -= 0.05,
-                            VirtualKeyCode::S => offset_y += 0.05,
+                            VirtualKeyCode::W => camera.process_keyboard(CameraDirection::Forward),
+                            VirtualKeyCode::S => camera.process_keyboard(CameraDirection::Backward),
+                            VirtualKeyCode::A => camera.process_keyboard(CameraDirection::Left),
+                            VirtualKeyCode::D => camera.process_keyboard(CameraDirection::Right),
                             _ => (),
                         }
                     },
@@ -460,13 +481,13 @@ void main() {
 }
 }
 
-fn create_mvp(elapsed_time: Duration, aspect_ratio: f32) -> vs::ty::Data {
+fn create_mvp(elapsed_time: Duration, aspect_ratio: f32, camera: &Camera) -> vs::ty::Data {
     let rotation = elapsed_time.as_secs() as f64 + elapsed_time.subsec_nanos() as f64 / 1_000_000_000.0;
     let rotation = Matrix3::from_angle_y(Rad(rotation as f32));            
 
     let proj = cgmath::perspective(Rad(std::f32::consts::FRAC_PI_2), 1.0, 0.01, 100.0);
 
-    let view = Matrix4::look_at(Point3::new(0.0, 0.0, 1.0), Point3::new(0.0, 0.0, 0.0), Vector3::new(0.0, -1.0, 0.0));
+    let view = camera.look_at();
 
     vs::ty::Data {
         model: Matrix4::from(rotation).into(),
