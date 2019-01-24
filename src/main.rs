@@ -75,9 +75,9 @@ struct RenderSystem<'a> {
     render_pass: Arc<RenderPassAbstract + Send + Sync>,
     pipeline: PipelineState,
     framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
-    
+
     recreate_swapchain: bool,
-    previous_frame_end: Box<GpuFuture>,
+    previous_frame_end: Option<Box<GpuFuture>>,
 }
 
 impl<'a> RenderSystem<'a> {
@@ -185,8 +185,8 @@ impl<'a> RenderSystem<'a> {
         ).unwrap());
 
 
-    let vs = vs::Shader::load(device.clone()).unwrap();
-    let fs = fs::Shader::load(device.clone()).unwrap();
+        let vs = vs::Shader::load(device.clone()).unwrap();
+        let fs = fs::Shader::load(device.clone()).unwrap();
 
 
         // The render pass we created above only describes the layout of our framebuffers. Before we
@@ -197,14 +197,7 @@ impl<'a> RenderSystem<'a> {
 
         // Initialization is finally finished!
         let recreate_swapchain = false;
-    // In the loop below we are going to submit commands to the GPU. Submitting a command produces
-    // an object that implements the `GpuFuture` trait, which holds the resources for as long as
-    // they are in use by the GPU.
-    //
-    // Destroying the `GpuFuture` blocks until the GPU is finished executing it. In order to avoid
-    // that, we store the submission of the previous frame here.
-    let previous_frame_end = Box::new(sync::now(device.clone())) as Box<GpuFuture>;
-
+        let previous_frame_end = Some(Box::new(sync::now(device.clone())) as Box<GpuFuture>);
 
         RenderSystem {
             surface,
@@ -222,10 +215,10 @@ impl<'a> RenderSystem<'a> {
         }
     }
 
-
+    // To be called at every main loop iteration.
     pub fn render(&mut self) {
 
-        self.previous_frame_end.cleanup_finished();
+        self.previous_frame_end.as_mut().unwrap().cleanup_finished();
         let window = self.surface.window();
 
         if self.recreate_swapchain {
@@ -249,15 +242,15 @@ impl<'a> RenderSystem<'a> {
             // Because framebuffers contains an Arc on the old swapchain, we need to
             // recreate framebuffers as well.
             let (new_pipeline, new_framebuffers) = window_size_dependent_setup(self.device.clone(),
-                &self.pipeline.vs, 
-                &self.pipeline.fs, 
-                &self.images, 
-                self.render_pass.clone());
+            &self.pipeline.vs, 
+            &self.pipeline.fs, 
+            &self.images, 
+            self.render_pass.clone());
             self.pipeline.pipeline = new_pipeline;
             self.framebuffers = new_framebuffers;
             self.recreate_swapchain = false;
         }
-        
+
         // Before we can draw on the output, we have to *acquire* an image from the
         // swapchain. If no image is available, (which happens if you submit draw
         // commands too quickly), then the function will block.
@@ -308,7 +301,7 @@ impl<'a> RenderSystem<'a> {
         let command_buffer = command_buffer_builder.build().unwrap();
 
 
-        let reference = self.previous_frame_end.by_ref();
+        let reference = self.previous_frame_end.take().expect("There should be a Future in there");
         let future = reference.join(acquire_future)
             .then_execute(self.queue.clone(), command_buffer).unwrap()
 
@@ -323,15 +316,15 @@ impl<'a> RenderSystem<'a> {
 
         match future {
             Ok(future) => {
-                self.previous_frame_end = Box::new(future) as Box<_>;
+                self.previous_frame_end = Some(Box::new(future) as Box<_>);
             }
             Err(FlushError::OutOfDate) => {
                 self.recreate_swapchain = true;
-                self.previous_frame_end = Box::new(sync::now(self.device.clone())) as Box<_>;
+                self.previous_frame_end = Some(Box::new(sync::now(self.device.clone())) as Box<_>);
             }
             Err(e) => {
                 println!("{:?}", e);
-                self.previous_frame_end = Box::new(sync::now(self.device.clone())) as Box<_>;
+                self.previous_frame_end = Some(Box::new(sync::now(self.device.clone())) as Box<_>);
             }
         }
 
@@ -398,7 +391,6 @@ fn main() {
                                            physical.supported_features(),
                                            &device_ext,
                                            [(queue_family, 0.5)].iter().cloned()).expect("Could not create device");
-
     let queue = queues.next().unwrap();
     // Create the swapchain. Creating a swapchain allocates the color buffers that
     // will contain the image that will be visible on screen.
