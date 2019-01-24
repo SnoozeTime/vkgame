@@ -22,3 +22,5 @@ vulkano-win = "0.11"
 cgmath = "0.16.1"
 image = "0.20.0"
 time = "0.1.38"
+
+tobj = "0.1.6"
