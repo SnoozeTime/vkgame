@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2018"
 publish = false
 
+[lib]
+name = "twgraph"
+
 [dependencies]
 # The `vulkano` crate is the main crate that you must use to use Vulkan.
 vulkano = "0.11"
