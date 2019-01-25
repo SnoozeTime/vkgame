@@ -270,18 +270,21 @@ impl<'a> RenderSystem<'a> {
         let clear_values = vec!([0.0, 0.0, 1.0, 1.0].into(), 1f32.into());
 
         // UPDATE MVP
-        let uniform_buffer_subbuffer = {
-            let uniform_data = create_mvp(dt, aspect_ratio, &scene.camera);
-            self.uniform_buffer.next(uniform_data).unwrap()
-        };
+        let mut sets: Vec<Arc<DescriptorSet + Sync + Send>> = Vec::new();
+        {
+            let uniform_buffer_subbuffer = {
+                let uniform_data = create_mvp(dt, aspect_ratio, &scene.camera);
+                self.uniform_buffer.next(uniform_data).unwrap()
+            };
 
-        let set = Arc::new(PersistentDescriptorSet::start(self.pipeline.pipeline.clone(), 0)
-                           .add_buffer(uniform_buffer_subbuffer).unwrap()
-                           .build().unwrap()
-        );
+            let set = Arc::new(PersistentDescriptorSet::start(self.pipeline.pipeline.clone(), 0)
+                               .add_buffer(uniform_buffer_subbuffer).unwrap()
+                               .build().unwrap()
+            );
 
+            sets.push(set);
+        }
 
-        let indices: [u16; 3] = [0, 1, 2];
         let mut command_buffer_builder = AutoCommandBufferBuilder::primary_one_time_submit(self.device.clone(), self.queue.family()).unwrap()
             // Before we can draw, we have to *enter a render pass*. There are two methods to do
             // this: `draw_inline` and `draw_secondary`. The latter is a bit more advanced and is
@@ -298,7 +301,7 @@ impl<'a> RenderSystem<'a> {
             &DynamicState::none(),
             vec![model.vertex_buffer.clone()],
             model.index_buffer.clone(),
-            (set.clone(), tex_set.clone()),
+            (sets[0].clone(), tex_set.clone()),
             ()).unwrap()
             // We leave the render pass by calling `draw_end`. Note that if we had multiple
             // subpasses we could have called `next_inline` (or `next_secondary`) to jump to the
