@@ -21,34 +21,7 @@ use winit::{KeyboardInput, VirtualKeyCode, EventsLoop, Window, WindowBuilder, Ev
 use std::sync::Arc;
 use std::iter;
 
-struct Sprite {
-    vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
-    index_buffer: Arc<CpuAccessibleBuffer<[u16]>>,
-}
-
-impl Sprite {
-
-    fn new(device: Arc<Device>, vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>, indices: Vec<u16>) -> Sprite {
-
-        let index_buffer = CpuAccessibleBuffer::from_iter(
-            device.clone(), 
-            BufferUsage::all(), 
-            indices.iter().cloned()).unwrap();
-
-        Sprite {
-            vertex_buffer,
-            index_buffer 
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-struct Vertex { 
-    position: [f32; 2],
-    color: [f32; 4]
-}
-vulkano::impl_vertex!(Vertex, position, color);
-
+use twgraph::model::Vertex;
 // Can have multiple pipelines in an application. In
 // particular, you need a pipeline for each combinaison
 // of shaders.

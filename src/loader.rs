@@ -1,11 +1,6 @@
 use std::path::Path;
 use tobj;
-
-#[derive(Debug)]
-enum TwError {
-    ModelLoading(String),
-}
-
+use crate::error::{TwResult, TwError};
 #[derive(Debug, Copy, Clone)]
 struct Vertex {
     position: [f32; 3],
@@ -31,7 +26,7 @@ struct Mesh {
     indices: Vec<u32>,
 }
 
-fn create_mesh_from_tobj(mut model: tobj::Model) -> Result<Mesh, TwError> {
+fn create_mesh_from_tobj(mut model: tobj::Model) -> TwResult<Mesh> {
     let mesh = &mut model.mesh;
     let mut indices = Vec::new();
     indices.append(&mut mesh.indices);
@@ -67,7 +62,6 @@ fn create_mesh_from_tobj(mut model: tobj::Model) -> Result<Mesh, TwError> {
 
 
 fn main() {
-
     let box_obj = tobj::load_obj(&Path::new("cube.obj"));
     let (mut models, materials) = box_obj.unwrap();
     println!("# of models:  {}", models.len());
@@ -77,5 +71,4 @@ fn main() {
     let model = models.pop().unwrap();
     let mesh = create_mesh_from_tobj(model).unwrap();
     println!("{:?}", mesh);
-
 }
