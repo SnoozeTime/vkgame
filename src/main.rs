@@ -21,6 +21,7 @@ use winit::{KeyboardInput, VirtualKeyCode, EventsLoop, Window, WindowBuilder, Ev
 use std::sync::Arc;
 use std::iter;
 
+use twgraph::error::{TwError, TwResult};
 use twgraph::model::Vertex;
 // Can have multiple pipelines in an application. In
 // particular, you need a pipeline for each combinaison
@@ -40,7 +41,6 @@ struct RenderSystem<'a> {
     // command queue for our system. Supports graphics for the window.
     queue: Arc<Queue>,
 
-
     // Swapchain stuff
     swapchain: Arc<Swapchain<winit::Window>>,
     images: Vec<Arc<SwapchainImage<winit::Window>>>,
@@ -56,7 +56,7 @@ struct RenderSystem<'a> {
 impl<'a> RenderSystem<'a> {
 
 
-    pub fn new(instance: &'a Arc<Instance>, surface: Arc<Surface<winit::Window>>) -> Self {
+    pub fn new(instance: &'a Arc<Instance>, surface: Arc<Surface<winit::Window>>) -> TwResult<Self> {
 
         let window = surface.window();
         // List of device.
@@ -64,14 +64,15 @@ impl<'a> RenderSystem<'a> {
         // choice to the user... Here we get the first one that comes
         let physical = PhysicalDevice::enumerate(&instance)
             .next()
-            .expect("Cannot get PhysicalDevice");
+            .ok_or(TwError::RenderingSystemInitialization("Cannot get physical device".to_owned()))?;
 
         // Get the queue to write command to the GPU. queues should support graphics
         // and should be able to write to our surface
         let queue_family = physical.queue_families()
             .find(|&q| {
                 q.supports_graphics() && surface.is_supported(q).unwrap_or(false)
-            }).expect("Cannot find queue family");
+            })
+            .ok_or(TwError::RenderingSystemInitialization("Cannot find graphic queue family".to_owned()))?;
 
         // Now we can initialize the vulkan device. Needs five parameters
         // - which physical device to connect to
@@ -87,16 +88,19 @@ impl<'a> RenderSystem<'a> {
                                                &device_ext,
                                                [(queue_family, 0.5)].iter().cloned()).expect("Could not create device");
 
-        let queue = queues.next().unwrap();
+        let queue = queues.next()
+            .ok_or(TwError::RenderingSystemInitialization("Cannot find queue".to_owned()))?;
+
         // Create the swapchain. Creating a swapchain allocates the color buffers that
         // will contain the image that will be visible on screen.
         let (mut swapchain, images) = {
 
-            let caps = surface.capabilities(physical).unwrap();
+            let caps = surface.capabilities(physical)?;
             println!("{:?}", caps);
             let usage = caps.supported_usage_flags;
             // alpha mode indicates how the alpha value of the final image will behave.
-            let alpha = caps.supported_composite_alpha.iter().next().unwrap();
+            let alpha = caps.supported_composite_alpha.iter().next()
+                .ok_or(TwError::RenderingSystemInitialization("Cannot find supported composite alpha when creating swapchain".to_owned()))?;
             let format = caps.supported_formats[0].0;
             let initial_dimensions = if let Some(dimensions) = window.get_inner_size() {
                 // convert to physical pixels
@@ -120,7 +124,7 @@ impl<'a> RenderSystem<'a> {
             alpha,
             PresentMode::Fifo,
             true,
-            None).unwrap()
+            None)?
 
         };
 
@@ -172,7 +176,7 @@ impl<'a> RenderSystem<'a> {
         let recreate_swapchain = false;
         let previous_frame_end = Some(Box::new(sync::now(device.clone())) as Box<GpuFuture>);
 
-        RenderSystem {
+        Ok(RenderSystem {
             surface,
             physical,
             device, 
@@ -185,7 +189,7 @@ impl<'a> RenderSystem<'a> {
             framebuffers,
             recreate_swapchain,
             previous_frame_end,
-        }
+        })
     }
 
     // To be called at every main loop iteration.
@@ -318,7 +322,7 @@ fn main() {
         .build_vk_surface(&events_loop, instance.clone())
         .expect("Cannot create vk_surface");
     let window = surface.window();
-    let mut render_system = RenderSystem::new(&instance, surface.clone());
+    let mut render_system = RenderSystem::new(&instance, surface.clone()).unwrap();
 
     loop {
 
