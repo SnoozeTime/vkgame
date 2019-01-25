@@ -1,6 +1,6 @@
 
-use cgmath::{InnerSpace, Matrix3, Matrix4, Point3, Vector3, Rad, Angle};
-use crate::Transform;
+use cgmath::{InnerSpace, Matrix4, Vector3, Rad, Angle};
+use crate::gameobject::Transform;
 
 #[derive(Debug, Clone)]
 pub struct Camera {

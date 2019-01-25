@@ -31,14 +31,14 @@ vulkano::impl_vertex!(Vertex, position, texcoords);
  * */
 #[derive(Debug)]
 pub struct Model {
-    vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
-    index_buffer: Arc<CpuAccessibleBuffer<[u32]>>,
+    pub vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
+    pub index_buffer: Arc<CpuAccessibleBuffer<[u32]>>,
 }
 
 impl Model {
 
     // Uses the tinyobj library to load mesh from obj file.
-    fn load_from_obj(device: Arc<Device>, filepath: &str) -> TwResult<Model> {
+    pub fn load_from_obj(device: Arc<Device>, filepath: &str) -> TwResult<Model> {
 
         // TODO just support one mesh
         let box_obj = tobj::load_obj(&Path::new(filepath));
@@ -75,7 +75,7 @@ impl Model {
         Self::load_from_vec(device, vertices, indices) 
     }
 
-    fn load_from_vec(device: Arc<Device>, vertices: Vec<Vertex>, indices: Vec<u32>) -> TwResult<Model> {
+    pub fn load_from_vec(device: Arc<Device>, vertices: Vec<Vertex>, indices: Vec<u32>) -> TwResult<Model> {
 
         let vertex_buffer = CpuAccessibleBuffer::from_iter(
             device.clone(),
@@ -94,3 +94,6 @@ impl Model {
     }
 
 }
+
+
+
