@@ -3,5 +3,6 @@ pub mod error;
 pub mod model;
 pub mod render;
 pub mod gameobject;
+pub mod texture;
 
 

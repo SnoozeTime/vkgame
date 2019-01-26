@@ -6,6 +6,11 @@ use std::fmt;
 // vulkano errors...
 use vulkano::memory::DeviceMemoryAllocError;
 use vulkano::swapchain::{CapabilitiesError, SwapchainCreationError};
+use image::ImageError;
+use vulkano::image::sys::ImageCreationError;
+use vulkano::sampler::SamplerCreationError;
+use vulkano::sync::FlushError;
+
 
 pub type TwResult<T> = Result<T, TwError>;
 
@@ -19,6 +24,14 @@ pub enum TwError {
     VkDeviceMemoryAlloc(DeviceMemoryAllocError),
     VkCapabilities(CapabilitiesError),
     VkSwapchainCreation(SwapchainCreationError),
+
+    // Image and texture
+    ImageLoading(ImageError),
+    VkImageCreation(ImageCreationError),
+    VkSamplerCreation(SamplerCreationError),
+
+    // GpuFuture error
+    VkFutureFlush(FlushError),
 }
 
 impl fmt::Display for TwError {
@@ -29,6 +42,10 @@ impl fmt::Display for TwError {
             TwError::VkDeviceMemoryAlloc(ref x) => write!(f, "{}", x),
             TwError::VkCapabilities(ref x) => write!(f, "{}", x),
             TwError::VkSwapchainCreation(ref x) => write!(f, "{}", x),
+            TwError::ImageLoading(ref x) => write!(f, "{}", x),
+            TwError::VkImageCreation(ref x) => write!(f, "{}", x),
+            TwError::VkSamplerCreation(ref x) => write!(f, "{}", x),
+            TwError::VkFutureFlush(ref x) => write!(f, "{}", x),
         }
     }
 }
@@ -42,6 +59,10 @@ impl Error for TwError {
             TwError::VkDeviceMemoryAlloc(ref x) => x.description(),  
             TwError::VkCapabilities(ref x) => x.description(),  
             TwError::VkSwapchainCreation(ref x) => x.description(),  
+            TwError::ImageLoading(ref x) => x.description(),  
+            TwError::VkImageCreation(ref x) => x.description(),  
+            TwError::VkSamplerCreation(ref x) => x.description(),  
+            TwError::VkFutureFlush(ref x) => x.description(),  
         }
     }
 }
@@ -64,3 +85,26 @@ impl From<SwapchainCreationError> for TwError {
     }
 }
 
+impl From<ImageError> for TwError {
+    fn from(err: ImageError) -> Self {
+        TwError::ImageLoading(err)
+    }
+}
+
+impl From<ImageCreationError> for TwError {
+    fn from(err: ImageCreationError) -> Self {
+        TwError::VkImageCreation(err)
+    }
+}
+
+impl From<SamplerCreationError> for TwError {
+    fn from(err: SamplerCreationError) -> Self {
+        TwError::VkSamplerCreation(err)
+    }
+}
+
+impl From<FlushError> for TwError {
+    fn from(err: FlushError) -> Self {
+        TwError::VkFutureFlush(err)
+    }
+}

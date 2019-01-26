@@ -1,5 +1,5 @@
 use vulkano::image::attachment::AttachmentImage;
-use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
+use vulkano::buffer::BufferUsage;
 use vulkano::format::Format;
 use vulkano::pipeline::GraphicsPipelineAbstract;
 use vulkano::descriptor::descriptor_set::{DescriptorSet, PersistentDescriptorSet};
@@ -16,20 +16,19 @@ use vulkano::swapchain;
 use vulkano::sync::{GpuFuture, FlushError};
 use vulkano::sync;
 
-use vulkano_win::VkSurfaceBuild;
 use vulkano_win;
 
-use winit::{KeyboardInput, VirtualKeyCode, EventsLoop, Window, WindowBuilder, Event, WindowEvent};
+use winit::Window;
 use std::sync::Arc;
 use std::iter;
 use std::time::Duration;
 
-use cgmath::{Matrix3, Matrix4, Point3, Vector3, Rad};
+use cgmath::{Matrix3, Matrix4, Rad};
 use crate::error::{TwError, TwResult};
 use crate::model::{Vertex, Model};
 use crate::gameobject::Scene;
 use crate::camera::Camera;
-
+use crate::texture::TextureManager;
 
 // Can have multiple pipelines in an application. In
 // particular, you need a pipeline for each combinaison
@@ -61,6 +60,9 @@ pub struct RenderSystem<'a> {
 
     pub recreate_swapchain: bool,
     pub previous_frame_end: Option<Box<GpuFuture>>,
+
+    // RESOURCES
+    textures: TextureManager,
 }
 
 impl<'a> RenderSystem<'a> {
@@ -103,7 +105,7 @@ impl<'a> RenderSystem<'a> {
 
         // Create the swapchain. Creating a swapchain allocates the color buffers that
         // will contain the image that will be visible on screen.
-        let (mut swapchain, images) = {
+        let (swapchain, images) = {
 
             let caps = surface.capabilities(physical)?;
             println!("{:?}", caps);
@@ -186,7 +188,7 @@ impl<'a> RenderSystem<'a> {
         // can draw we also need to create the actual framebuffers.
         // Since we need to draw to multiple images, we are going to create a different framebuffer for
         // each image.
-        let (mut pipeline, mut framebuffers) = window_size_dependent_setup(device.clone(), &vs, &fs, &images, render_pass.clone());
+        let (pipeline, framebuffers) = window_size_dependent_setup(device.clone(), &vs, &fs, &images, render_pass.clone());
 
         // Initialization is finally finished!
         let recreate_swapchain = false;
@@ -207,20 +209,42 @@ impl<'a> RenderSystem<'a> {
             uniform_buffer,
             recreate_swapchain,
             previous_frame_end,
+            textures: TextureManager::new(),
         })
+    }
+
+    pub fn load_texture(&mut self,
+                        texture_name: String,
+                        texture_path: &std::path::Path,
+                        width: u32,
+                        height: u32) -> TwResult<()> {
+
+        self.textures.load_texture(
+            texture_name,
+            texture_path,
+            width,
+            height,
+            self.device.clone(),
+            self.queue.clone())?;
+        Ok(())
     }
 
     // To be called at every main loop iteration.
     pub fn render(&mut self,
                   dt: Duration,
                   scene: &Scene,
-                  model: &Model,
-                  tex_set: Arc<DescriptorSet + Send + Sync>) {
+                  model: &Model) {
 
         self.previous_frame_end.as_mut().unwrap().cleanup_finished();
         let window = self.surface.window();
 
-        let aspect_ratio = 1f32;
+        let texture = self.textures.textures.get(&"bonjour".to_owned()).unwrap();
+        let tex_set = Arc::new(PersistentDescriptorSet::start(self.pipeline.pipeline.clone(), 1)
+
+                               .add_sampled_image(texture.texture.clone(), texture.sampler.clone()).unwrap()
+                               .build().unwrap()
+        );
+
 
         if self.recreate_swapchain {
             let dimensions = if let Some(dimensions) = window.get_inner_size() {
@@ -273,7 +297,7 @@ impl<'a> RenderSystem<'a> {
         let mut sets: Vec<Arc<DescriptorSet + Sync + Send>> = Vec::new();
         {
             let uniform_buffer_subbuffer = {
-                let uniform_data = create_mvp(dt, aspect_ratio, &scene.camera);
+                let uniform_data = create_mvp(dt, &scene.camera);
                 self.uniform_buffer.next(uniform_data).unwrap()
             };
 
@@ -285,7 +309,7 @@ impl<'a> RenderSystem<'a> {
             sets.push(set);
         }
 
-        let mut command_buffer_builder = AutoCommandBufferBuilder::primary_one_time_submit(self.device.clone(), self.queue.family()).unwrap()
+        let command_buffer_builder = AutoCommandBufferBuilder::primary_one_time_submit(self.device.clone(), self.queue.family()).unwrap()
             // Before we can draw, we have to *enter a render pass*. There are two methods to do
             // this: `draw_inline` and `draw_secondary`. The latter is a bit more advanced and is
             // not covered here.
@@ -409,7 +433,7 @@ void main() {
 
 
 
-fn create_mvp(elapsed_time: Duration, aspect_ratio: f32, camera: &Camera) -> vs::ty::Data {
+fn create_mvp(elapsed_time: Duration, camera: &Camera) -> vs::ty::Data {
     let rotation = elapsed_time.as_secs() as f64 + elapsed_time.subsec_nanos() as f64 / 1_000_000_000.0;
     let rotation = Matrix3::from_angle_y(Rad(rotation as f32));            
 

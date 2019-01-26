@@ -1,4 +1,4 @@
-use cgmath::{Matrix3, Matrix4, Point3, Vector3, Rad};
+use cgmath::{Point3, Vector3};
 use crate::camera::Camera;
 
 #[derive(Debug, Clone)]

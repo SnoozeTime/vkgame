@@ -1,16 +1,9 @@
-use vulkano::sync::GpuFuture;
 use vulkano::instance::Instance;
-use vulkano::format::Format;
-use vulkano::descriptor::descriptor_set::PersistentDescriptorSet;
-use vulkano::image::{ImmutableImage, Dimensions, SwapchainImage};
 use vulkano_win::VkSurfaceBuild;
-use vulkano::sampler::{Sampler, SamplerAddressMode, Filter, MipmapMode};
 use vulkano_win;
 use winit::{KeyboardInput, VirtualKeyCode, EventsLoop, WindowBuilder, Event, WindowEvent};
 use cgmath::{Point3, Vector3};
 
-use image::ImageFormat;
-use std::sync::Arc;
 use std::time::Instant;
 
 use twgraph::camera::{CameraDirection, Camera};
@@ -59,45 +52,18 @@ fn main() {
         .expect("Cannot create vk_surface");
     let _window = surface.window();
     let mut render_system = RenderSystem::new(&instance, surface.clone()).unwrap();
+    render_system.load_texture("bonjour".to_string(),
+        std::path::Path::new("src/image_img.png"),
+        93, 93).unwrap();
 
     let box_obj = Model::load_from_obj(render_system.device.clone(), "cube.obj").unwrap();
-    let (texture, tex_future) = {
-        let image = image::load_from_memory_with_format(include_bytes!("image_img.png"),
-            ImageFormat::PNG).unwrap().to_rgba();
-        let image_data = image.into_raw().clone();
-
-        ImmutableImage::from_iter(
-            image_data.iter().cloned(),
-            Dimensions::Dim2d { width: 93, height: 93 },
-            Format::R8G8B8A8Srgb,
-            render_system.queue.clone()
-        ).unwrap()
-    };
-
-
-    let sampler = Sampler::new(
-        render_system.device.clone(),
-        Filter::Linear,
-        Filter::Linear,
-        MipmapMode::Nearest,
-        SamplerAddressMode::Repeat,
-        SamplerAddressMode::Repeat,
-        SamplerAddressMode::Repeat, 0.0, 1.0, 0.0, 0.0).unwrap();
-    let tex_set = Arc::new(PersistentDescriptorSet::start(render_system.pipeline.pipeline.clone(), 1)
-        .add_sampled_image(texture.clone(), sampler.clone()).unwrap()
-        .build().unwrap()
-    );
-
-
     let rotation_start = Instant::now();
     let mut scene = new_scene();
 
-    render_system.previous_frame_end.take().unwrap();
-    render_system.previous_frame_end = Some(Box::new(tex_future) as Box<GpuFuture>);
     loop {
 
          
-        render_system.render(rotation_start.elapsed(), &scene, &box_obj, tex_set.clone());
+        render_system.render(rotation_start.elapsed(), &scene, &box_obj);
     
         let mut done = false;
         events_loop.poll_events(|ev| {
@@ -105,7 +71,7 @@ fn main() {
                 match event {
                     WindowEvent::CloseRequested => done = true,
                     WindowEvent::Resized(_) => render_system.recreate_swapchain = true,
-                    WindowEvent::CursorMoved { position: position, ..} => {
+                    WindowEvent::CursorMoved { position, ..} => {
                         scene.camera.process_mouse(position.x, position.y);
                     },
                     WindowEvent::KeyboardInput {

@@ -42,7 +42,7 @@ impl Model {
 
         // TODO just support one mesh
         let box_obj = tobj::load_obj(&Path::new(filepath));
-        let (mut models, materials) = box_obj.unwrap();
+        let (mut models, _materials) = box_obj.unwrap();
         let mut model = models.pop().unwrap();
 
         let mesh = &mut model.mesh;
