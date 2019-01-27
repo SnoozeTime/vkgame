@@ -56,14 +56,14 @@ pub struct RenderSystem<'a> {
     pub pipeline: PipelineState,
     framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
 
-    uniform_buffer: CpuBufferPool<vs::ty::Data>,
+    pub uniform_buffer: CpuBufferPool<vs::ty::Data>,
 
     pub recreate_swapchain: bool,
     pub previous_frame_end: Option<Box<GpuFuture>>,
 
     // RESOURCES
-    texture_manager: TextureManager,
-    model_manager: ModelManager,
+    pub texture_manager: TextureManager,
+    pub model_manager: ModelManager,
 }
 
 impl<'a> RenderSystem<'a> {
@@ -324,28 +324,15 @@ impl<'a> RenderSystem<'a> {
             sets.push(set);
         }
 
-        let command_buffer_builder = AutoCommandBufferBuilder::primary_one_time_submit(self.device.clone(), self.queue.family()).unwrap()
-            // Before we can draw, we have to *enter a render pass*. There are two methods to do
-            // this: `draw_inline` and `draw_secondary`. The latter is a bit more advanced and is
-            // not covered here.
-            //
-            // The third parameter builds the list of values to clear the attachments with. The API
-            // is similar to the list of attachments when building the framebuffers, except that
-            // only the attachments that use `load: Clear` appear in the list.
+        let mut command_buffer_builder = AutoCommandBufferBuilder::primary_one_time_submit(self.device.clone(), self.queue.family()).unwrap()
             .begin_render_pass(self.framebuffers[image_num].clone(), false, clear_values)
-            .unwrap()
+            .unwrap();
 
-            // TODO Draw objects.
-            .draw_indexed(self.pipeline.pipeline.clone(),
-            &DynamicState::none(),
-            vec![model.vertex_buffer.clone()],
-            model.index_buffer.clone(),
-            (sets[0].clone(), tex_set.clone()),
-            ()).unwrap()
-            // We leave the render pass by calling `draw_end`. Note that if we had multiple
-            // subpasses we could have called `next_inline` (or `next_secondary`) to jump to the
-            // next subpass.
-            .end_render_pass()
+        // TODO --- Render all objects 
+        command_buffer_builder = scene.render(dt, command_buffer_builder, &self).unwrap();
+        
+        // Finish render pass
+        command_buffer_builder = command_buffer_builder.end_render_pass()
             .unwrap();
 
         // Finish building the command buffer by calling `build`.
@@ -355,7 +342,6 @@ impl<'a> RenderSystem<'a> {
         let reference = self.previous_frame_end.take().expect("There should be a Future in there");
         let future = reference.join(acquire_future)
             .then_execute(self.queue.clone(), command_buffer).unwrap()
-
             // The color output is now expected to contain our triangle. But in order to show it on
             // the screen, we have to *present* the image by calling `present`.
             //
@@ -420,7 +406,7 @@ fn window_size_dependent_setup(
     (pipeline, framebuffers)
 }   
 
-mod vs {
+pub mod vs {
 
     vulkano_shaders::shader!{
         ty: "vertex",

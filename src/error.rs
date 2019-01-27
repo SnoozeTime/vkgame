@@ -10,6 +10,7 @@ use image::ImageError;
 use vulkano::image::sys::ImageCreationError;
 use vulkano::sampler::SamplerCreationError;
 use vulkano::sync::FlushError;
+use vulkano::command_buffer::DrawIndexedError;
 
 
 pub type TwResult<T> = Result<T, TwError>;
@@ -32,6 +33,10 @@ pub enum TwError {
 
     // GpuFuture error
     VkFutureFlush(FlushError),
+
+
+    // Drawing
+    VkDrawIndexed(DrawIndexedError),
 }
 
 impl fmt::Display for TwError {
@@ -46,6 +51,7 @@ impl fmt::Display for TwError {
             TwError::VkImageCreation(ref x) => write!(f, "{}", x),
             TwError::VkSamplerCreation(ref x) => write!(f, "{}", x),
             TwError::VkFutureFlush(ref x) => write!(f, "{}", x),
+            TwError::VkDrawIndexed(ref x) => write!(f, "{}", x),
         }
     }
 }
@@ -63,6 +69,7 @@ impl Error for TwError {
             TwError::VkImageCreation(ref x) => x.description(),  
             TwError::VkSamplerCreation(ref x) => x.description(),  
             TwError::VkFutureFlush(ref x) => x.description(),  
+            TwError::VkDrawIndexed(ref x) => x.description(),  
         }
     }
 }
@@ -108,3 +115,11 @@ impl From<FlushError> for TwError {
         TwError::VkFutureFlush(err)
     }
 }
+
+impl From<DrawIndexedError> for TwError {
+    fn from(err: DrawIndexedError) -> Self {
+        TwError::VkDrawIndexed(err)
+    }
+}
+
+
