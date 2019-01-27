@@ -25,7 +25,7 @@ use std::time::Duration;
 
 use cgmath::{Matrix3, Matrix4, Rad};
 use crate::error::{TwError, TwResult};
-use crate::model::{Vertex, Model};
+use crate::model::{Vertex, Model, ModelManager};
 use crate::gameobject::Scene;
 use crate::camera::Camera;
 use crate::texture::TextureManager;
@@ -62,7 +62,8 @@ pub struct RenderSystem<'a> {
     pub previous_frame_end: Option<Box<GpuFuture>>,
 
     // RESOURCES
-    textures: TextureManager,
+    texture_manager: TextureManager,
+    model_manager: ModelManager,
 }
 
 impl<'a> RenderSystem<'a> {
@@ -209,17 +210,21 @@ impl<'a> RenderSystem<'a> {
             uniform_buffer,
             recreate_swapchain,
             previous_frame_end,
-            textures: TextureManager::new(),
+            texture_manager: TextureManager::new(),
+            model_manager: ModelManager::new(),
         })
     }
 
+    /*
+     * Store a new texture in the texture manager
+     * */
     pub fn load_texture(&mut self,
                         texture_name: String,
                         texture_path: &std::path::Path,
                         width: u32,
                         height: u32) -> TwResult<()> {
 
-        self.textures.load_texture(
+        self.texture_manager.load_texture(
             texture_name,
             texture_path,
             width,
@@ -229,16 +234,26 @@ impl<'a> RenderSystem<'a> {
         Ok(())
     }
 
+    /*
+     * Store a new model in the model manager
+     * */
+    pub fn load_model(&mut self,
+                      model_name: String,
+                      model_path: &std::path::Path) -> TwResult<()> {
+        self.model_manager.load_model(model_name, model_path, self.device.clone())?;
+        Ok(())
+    }
+
     // To be called at every main loop iteration.
     pub fn render(&mut self,
                   dt: Duration,
-                  scene: &Scene,
-                  model: &Model) {
+                  scene: &Scene) {
 
         self.previous_frame_end.as_mut().unwrap().cleanup_finished();
         let window = self.surface.window();
 
-        let texture = self.textures.textures.get(&"bonjour".to_owned()).unwrap();
+        let texture = self.texture_manager.textures.get(&scene.mesh_components.texture_name).unwrap();
+        let model = self.model_manager.models.get(&scene.mesh_components.mesh_name).unwrap();
         let tex_set = Arc::new(PersistentDescriptorSet::start(self.pipeline.pipeline.clone(), 1)
 
                                .add_sampled_image(texture.texture.clone(), texture.sampler.clone()).unwrap()
@@ -291,7 +306,7 @@ impl<'a> RenderSystem<'a> {
         };
 
         // Specify the color to clear the framebuffer with.
-        let clear_values = vec!([0.0, 0.0, 1.0, 1.0].into(), 1f32.into());
+        let clear_values = vec!([0.0, 0.0, 0.0, 1.0].into(), 1f32.into());
 
         // UPDATE MVP
         let mut sets: Vec<Arc<DescriptorSet + Sync + Send>> = Vec::new();

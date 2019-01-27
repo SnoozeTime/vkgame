@@ -2,6 +2,7 @@ use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
 use std::path::Path;
 use vulkano::device::Device;
 use std::sync::Arc;
+use std::collections::HashMap;
 use tobj;
 use crate::error::{TwError, TwResult};
 /*
@@ -38,10 +39,10 @@ pub struct Model {
 impl Model {
 
     // Uses the tinyobj library to load mesh from obj file.
-    pub fn load_from_obj(device: Arc<Device>, filepath: &str) -> TwResult<Model> {
+    pub fn load_from_obj(device: Arc<Device>, filepath: &Path) -> TwResult<Model> {
 
         // TODO just support one mesh
-        let box_obj = tobj::load_obj(&Path::new(filepath));
+        let box_obj = tobj::load_obj(filepath);
         let (mut models, _materials) = box_obj.unwrap();
         let mut model = models.pop().unwrap();
 
@@ -95,5 +96,31 @@ impl Model {
 
 }
 
+// Just store the models so that they can be referenced by name in the scene.
+pub struct ModelManager {
+    pub models: HashMap<String, Model>,
+}
 
+impl ModelManager {
+
+    pub fn new() -> Self {
+        ModelManager {
+            models: HashMap::new(),
+        }
+    }
+
+    pub fn load_model(
+        &mut self,
+        model_name: String,
+        filename: &Path,
+        device: Arc<Device>) -> TwResult<()> {
+
+        let model = Model::load_from_obj(device, filename)?;
+
+        self.models.insert(model_name, model);
+        
+        Ok(())
+    }
+                      
+}
 

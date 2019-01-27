@@ -20,8 +20,8 @@ fn new_scene() -> Scene {
     let camera = Camera::new(camera_transform);
 
     let mesh_components = MeshComponent {
-        mesh_name: Some("cube".to_owned()),
-        texture_name: Some("The texture".to_owned()),
+        mesh_name: "cube".to_owned(),
+        texture_name: "bonjour".to_owned(),
     };
 
     let transforms = Transform {
@@ -55,15 +55,14 @@ fn main() {
     render_system.load_texture("bonjour".to_string(),
         std::path::Path::new("src/image_img.png"),
         93, 93).unwrap();
+    render_system.load_model("cube".to_string(), std::path::Path::new("cube.obj"));
 
-    let box_obj = Model::load_from_obj(render_system.device.clone(), "cube.obj").unwrap();
     let rotation_start = Instant::now();
     let mut scene = new_scene();
 
     loop {
 
-         
-        render_system.render(rotation_start.elapsed(), &scene, &box_obj);
+        render_system.render(rotation_start.elapsed(), &scene);
     
         let mut done = false;
         events_loop.poll_events(|ev| {

@@ -9,8 +9,8 @@ pub struct Transform {
 }
 
 pub struct MeshComponent {
-    pub mesh_name: Option<String>,
-    pub texture_name: Option<String>,
+    pub mesh_name: String,
+    pub texture_name: String,
 }
 
 pub struct Scene {
