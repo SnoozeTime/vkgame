@@ -1,9 +1,70 @@
 
 use cgmath::{InnerSpace, Matrix4, Vector3, Rad, Angle};
 use crate::gameobject::Transform;
+use serde_derive::{Serialize, Deserialize};
 
-#[derive(Debug, Clone)]
+pub struct CameraInputHandler {
+    keyboard_handler: Box<Fn(&mut CameraState, CameraDirection) -> ()>,
+    mouse_handler: Box<Fn(&mut CameraState, f64, f64) -> ()>,
+}
+
+impl CameraInputHandler {
+    pub fn new<FK: 'static, FM: 'static>(keyboard_handler: FK,
+                                         mouse_handler: FM) -> Self 
+        where FK: Fn(&mut CameraState, CameraDirection) -> (),
+              FM: Fn(&mut CameraState, f64, f64) -> () {
+                  CameraInputHandler {
+                      keyboard_handler: Box::new(keyboard_handler),
+                      mouse_handler: Box::new(mouse_handler),
+                  }
+              }
+
+    pub fn noop_handler() -> Self {
+        CameraInputHandler {
+            keyboard_handler: Box::new(|ref mut camera, direction| {}),
+            mouse_handler: Box::new(|ref mut camera, mouse_x, mouse_y| {}),
+        }
+    }
+
+    pub fn fps_handler() -> Self {
+        CameraInputHandler {
+            keyboard_handler: Box::new(|ref mut camera, direction| {
+
+                match direction {
+                    CameraDirection::Forward => camera.transform.position += 0.05*camera.front,
+                    CameraDirection::Backward => camera.transform.position -= 0.05 * camera.front,
+                    CameraDirection::Left => camera.transform.position -= 0.05 * camera.right,
+                    CameraDirection::Right => camera.transform.position += 0.05 * camera.right,
+                }
+
+
+            }),
+            mouse_handler: Box::new(|ref mut camera, mouse_x, mouse_y| {
+                let x_offset = (camera.previous_x - mouse_x) as f32;
+                let y_offset = (camera.previous_y - mouse_y) as f32;
+
+                camera.previous_x = mouse_x;
+                camera.previous_y = mouse_y;
+                camera.pitch += 0.02 * y_offset;
+                camera.yaw -= 0.02 * x_offset;
+                camera.update_vectors();
+
+            }),
+        }
+
+    }
+}
+
 pub struct Camera {
+    state: CameraState,
+    input_handler: CameraInputHandler,
+}
+
+impl Camera {
+
+}
+
+pub struct CameraState {
 
     // -----------------------------
     transform: Transform,
@@ -23,6 +84,20 @@ pub struct Camera {
     previous_y: f64,
 }
 
+impl CameraState {
+
+    fn update_vectors(&mut self) {
+        let front_x = Rad(self.yaw).cos() * Rad(self.pitch).cos(); 
+        let front_y = Rad(self.pitch).sin(); 
+        let front_z = Rad(self.yaw).sin() * Rad(self.pitch).cos(); 
+
+        self.front = Vector3::new(front_x, front_y, front_z).normalize();
+        self.right = self.front.cross(self.world_up).normalize();
+        self.up = self.right.cross(self.front).normalize();
+    }
+
+}
+
 pub enum CameraDirection {
     Forward,
     Backward,
@@ -31,9 +106,9 @@ pub enum CameraDirection {
 }
 
 impl Camera {
+    pub fn new(transform: Transform) -> Self {
 
-    pub fn new(transform: Transform) -> Camera {
-        
+
         let front = Vector3::new(0.0, 0.0, -1.0);
         let world_up = Vector3::new(0.0, 1.0, 0.0);
         let right = front.cross(world_up).normalize();
@@ -43,8 +118,8 @@ impl Camera {
         let yaw = 0.0;
         let previous_x = 0.0;
         let previous_y = 0.0;
-        
-        Camera {
+
+        let state = CameraState {
             transform,
             front,
             up,
@@ -54,43 +129,33 @@ impl Camera {
             pitch,
             previous_x,
             previous_y,
+        };
+        
+        let input_handler = CameraInputHandler::fps_handler();
+        Camera {
+            state,
+            input_handler,
         }
-
     }
 
-    pub fn look_at(&self) -> Matrix4<f32> {
-        Matrix4::look_at(self.transform.position, self.transform.position + self.front, self.up)  
+    pub fn get_vp(&self) -> (Matrix4<f32>, Matrix4<f32>) {
+        let proj = cgmath::perspective(Rad(std::f32::consts::FRAC_PI_2), 1.0, 0.01, 100.0);
+        let v = Matrix4::look_at(self.state.transform.position, self.state.transform.position + self.state.front, self.state.up);
+        (v, proj)
     }
 
     pub fn process_keyboard(&mut self, direction: CameraDirection) {
-        match direction {
-            CameraDirection::Forward => self.transform.position += 0.05*self.front,
-            CameraDirection::Backward => self.transform.position -= 0.05 * self.front,
-            CameraDirection::Left => self.transform.position -= 0.05 * self.right,
-            CameraDirection::Right => self.transform.position += 0.05 * self.right,
-        }
+        let handler = &self.input_handler.keyboard_handler;v
+        handler(&mut self.state, direction);
     }
 
     pub fn process_mouse(&mut self, mouse_x: f64, mouse_y: f64) {
-        let x_offset = (self.previous_x - mouse_x) as f32;
-        let y_offset = (self.previous_y - mouse_y) as f32;
-
-        self.previous_x = mouse_x;
-        self.previous_y = mouse_y;
-        self.pitch += 0.02 * y_offset;
-        self.yaw -= 0.02 * x_offset;
-        self.update_vectors();
-    }
-
-    fn update_vectors(&mut self) {
-       let front_x = Rad(self.yaw).cos() * Rad(self.pitch).cos(); 
-       let front_y = Rad(self.pitch).sin(); 
-       let front_z = Rad(self.yaw).sin() * Rad(self.pitch).cos(); 
-
-       self.front = Vector3::new(front_x, front_y, front_z).normalize();
-       self.right = self.front.cross(self.world_up).normalize();
-       self.up = self.right.cross(self.front).normalize();
+        let handler = &self.input_handler.mouse_handler;
+        handler(&mut self.state, mouse_x, mouse_y);
     }
 }
 
+// -----------------------------------------------------
+pub struct CameraBuilder {
 
+}

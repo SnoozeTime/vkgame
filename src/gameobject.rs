@@ -1,27 +1,27 @@
 use cgmath::{Point3, Vector3};
 use std::sync::Arc;
-use cgmath::{Matrix4, Rad};
+use cgmath::Matrix4;
 use vulkano::command_buffer::{DrawIndexedError, DynamicState, AutoCommandBufferBuilder};
 use vulkano::descriptor::descriptor_set::{PersistentDescriptorSet};
 
 use crate::render::{vs, RenderSystem};
 use crate::camera::Camera;
+use serde_derive::{Serialize, Deserialize};
 
-
-#[derive(Debug, Clone)]
 pub struct Transform {
     pub position: Point3<f32>,
+
     pub rotation: Vector3<f32>,
+
     pub scale: Point3<f32>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MeshComponent {
     pub mesh_name: String,
     pub texture_name: String,
 }
 
-#[derive(Debug)]
 pub struct Scene {
     pub transforms: Vec<Transform>,
     pub mesh_components: Vec<MeshComponent>,
@@ -43,14 +43,14 @@ impl Scene {
 
 
         let transform1 = Transform {
-            position: Point3::new(0.0, 0.0, 1.0),
+            position: Point3::new(5.0, -2.0, 1.0),
             rotation: Vector3::new(0.0, 0.0, 0.0),
             scale: Point3::new(0.0, 0.0, 0.0),
         };
 
 
         let transform2 = Transform {
-            position: Point3::new(10.0, -2.0, 1.0),
+            position: Point3::new(0.0, -2.0, 1.0),
             rotation: Vector3::new(0.0, 0.0, 0.0),
             scale: Point3::new(0.0, 0.0, 0.0),
         };
@@ -74,6 +74,10 @@ impl Scene {
                   mut cmd_buffer_builder: AutoCommandBufferBuilder, 
                   render_system: &RenderSystem) -> Result<AutoCommandBufferBuilder, DrawIndexedError> {
 
+        // VP Matrix are the same for all game object.
+        //
+        let (view, proj) = self.camera.get_vp(); 
+
         // Get the texture from cache
         let texture = render_system.texture_manager.textures.get(
             &self.mesh_components[0].texture_name
@@ -94,7 +98,7 @@ impl Scene {
             ).unwrap();
 
             let uniform_buffer_subbuffer = {
-                let uniform_data = create_mvp(&self.transforms[i], &self.camera);
+                let uniform_data = create_mvp(&self.transforms[i], &view, &proj);
                 render_system.uniform_buffer.next(uniform_data).unwrap()
             };
 
@@ -116,18 +120,13 @@ impl Scene {
     }
 }
 
-fn create_mvp(t: &Transform, camera: &Camera) -> vs::ty::Data {
+fn create_mvp(t: &Transform, view: &Matrix4<f32>, proj: &Matrix4<f32>) -> vs::ty::Data {
     let model = Matrix4::from_translation(
         Vector3::new(t.position.x, t.position.y, t.position.z));
-
-    let proj = cgmath::perspective(Rad(std::f32::consts::FRAC_PI_2), 1.0, 0.01, 100.0);
-
-    let view = camera.look_at();
-
     vs::ty::Data {
         model: model.into(),
-        view: view.into(),
-        proj: proj.into(),
+        view: (*view).into(),
+        proj: (*proj).into(),
     }
 
 

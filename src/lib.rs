@@ -1,3 +1,4 @@
+pub mod ser;
 pub mod camera;
 pub mod error;
 pub mod model;

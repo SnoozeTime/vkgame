@@ -30,7 +30,6 @@ fn main() {
     let mut scene = Scene::new_dummy();
 
     loop {
-
         render_system.render(&scene);
     
         let mut done = false;
