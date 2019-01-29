@@ -2,41 +2,10 @@ use vulkano::instance::Instance;
 use vulkano_win::VkSurfaceBuild;
 use vulkano_win;
 use winit::{KeyboardInput, VirtualKeyCode, EventsLoop, WindowBuilder, Event, WindowEvent};
-use cgmath::{Point3, Vector3};
 
-use std::time::Instant;
-
-use twgraph::camera::{CameraDirection, Camera};
-use twgraph::gameobject::{Scene, Transform, MeshComponent};
+use twgraph::camera::{CameraDirection};
+use twgraph::gameobject::{Scene};
 use twgraph::render::RenderSystem;
-use twgraph::model::Model;
-
-fn new_scene() -> Scene {
-    let camera_transform = Transform {
-        position: Point3::new(0.0, 0.0, 1.0),
-        rotation: Vector3::new(0.0, 0.0, 0.0),
-        scale: Point3::new(0.0, 0.0, 0.0),
-    };
-    let camera = Camera::new(camera_transform);
-
-    let mesh_components = MeshComponent {
-        mesh_name: "cube".to_owned(),
-        texture_name: "bonjour".to_owned(),
-    };
-
-    let transforms = Transform {
-        position: Point3::new(0.0, 0.0, 1.0),
-        rotation: Vector3::new(0.0, 0.0, 0.0),
-        scale: Point3::new(0.0, 0.0, 0.0),
-    };
-
-    Scene {
-        transforms,
-        mesh_components,
-        camera,
-    }
-}
-
 
 fn main() {
     // this is an Arc to instance. (non-mut dynamic ref)
@@ -55,14 +24,14 @@ fn main() {
     render_system.load_texture("bonjour".to_string(),
         std::path::Path::new("src/image_img.png"),
         93, 93).unwrap();
-    render_system.load_model("cube".to_string(), std::path::Path::new("cube.obj"));
+    render_system.load_model("cube".to_string(), std::path::Path::new("cube.obj")).expect("Cannot load model");
 
-    let rotation_start = Instant::now();
-    let mut scene = new_scene();
+    //let rotation_start = Instant::now();
+    let mut scene = Scene::new_dummy();
 
     loop {
 
-        render_system.render(rotation_start.elapsed(), &scene);
+        render_system.render(&scene);
     
         let mut done = false;
         events_loop.poll_events(|ev| {

@@ -2,9 +2,8 @@ use vulkano::image::attachment::AttachmentImage;
 use vulkano::buffer::BufferUsage;
 use vulkano::format::Format;
 use vulkano::pipeline::GraphicsPipelineAbstract;
-use vulkano::descriptor::descriptor_set::{DescriptorSet, PersistentDescriptorSet};
 use vulkano::buffer::cpu_pool::CpuBufferPool;
-use vulkano::command_buffer::{DynamicState, AutoCommandBufferBuilder};
+use vulkano::command_buffer::{AutoCommandBufferBuilder};
 use vulkano::device::{Device, DeviceExtensions, Queue};
 use vulkano::framebuffer::{Framebuffer, FramebufferAbstract, Subpass, RenderPassAbstract};
 use vulkano::image::SwapchainImage;
@@ -21,13 +20,9 @@ use vulkano_win;
 use winit::Window;
 use std::sync::Arc;
 use std::iter;
-use std::time::Duration;
-
-use cgmath::{Matrix3, Matrix4, Rad};
 use crate::error::{TwError, TwResult};
-use crate::model::{Vertex, Model, ModelManager};
+use crate::model::{Vertex, ModelManager};
 use crate::gameobject::Scene;
-use crate::camera::Camera;
 use crate::texture::TextureManager;
 
 // Can have multiple pipelines in an application. In
@@ -246,20 +241,10 @@ impl<'a> RenderSystem<'a> {
 
     // To be called at every main loop iteration.
     pub fn render(&mut self,
-                  dt: Duration,
                   scene: &Scene) {
 
         self.previous_frame_end.as_mut().unwrap().cleanup_finished();
         let window = self.surface.window();
-
-        let texture = self.texture_manager.textures.get(&scene.mesh_components.texture_name).unwrap();
-        let model = self.model_manager.models.get(&scene.mesh_components.mesh_name).unwrap();
-        let tex_set = Arc::new(PersistentDescriptorSet::start(self.pipeline.pipeline.clone(), 1)
-
-                               .add_sampled_image(texture.texture.clone(), texture.sampler.clone()).unwrap()
-                               .build().unwrap()
-        );
-
 
         if self.recreate_swapchain {
             let dimensions = if let Some(dimensions) = window.get_inner_size() {
@@ -308,28 +293,12 @@ impl<'a> RenderSystem<'a> {
         // Specify the color to clear the framebuffer with.
         let clear_values = vec!([0.0, 0.0, 0.0, 1.0].into(), 1f32.into());
 
-        // UPDATE MVP
-        let mut sets: Vec<Arc<DescriptorSet + Sync + Send>> = Vec::new();
-        {
-            let uniform_buffer_subbuffer = {
-                let uniform_data = create_mvp(dt, &scene.camera);
-                self.uniform_buffer.next(uniform_data).unwrap()
-            };
-
-            let set = Arc::new(PersistentDescriptorSet::start(self.pipeline.pipeline.clone(), 0)
-                               .add_buffer(uniform_buffer_subbuffer).unwrap()
-                               .build().unwrap()
-            );
-
-            sets.push(set);
-        }
-
         let mut command_buffer_builder = AutoCommandBufferBuilder::primary_one_time_submit(self.device.clone(), self.queue.family()).unwrap()
             .begin_render_pass(self.framebuffers[image_num].clone(), false, clear_values)
             .unwrap();
 
         // TODO --- Render all objects 
-        command_buffer_builder = scene.render(dt, command_buffer_builder, &self).unwrap();
+        command_buffer_builder = scene.render(command_buffer_builder, &self).unwrap();
         
         // Finish render pass
         command_buffer_builder = command_buffer_builder.end_render_pass()
@@ -431,24 +400,4 @@ void main() {
 "
 }
 }
-
-
-
-fn create_mvp(elapsed_time: Duration, camera: &Camera) -> vs::ty::Data {
-    let rotation = elapsed_time.as_secs() as f64 + elapsed_time.subsec_nanos() as f64 / 1_000_000_000.0;
-    let rotation = Matrix3::from_angle_y(Rad(rotation as f32));            
-
-    let proj = cgmath::perspective(Rad(std::f32::consts::FRAC_PI_2), 1.0, 0.01, 100.0);
-
-    let view = camera.look_at();
-
-    vs::ty::Data {
-        model: Matrix4::from(rotation).into(),
-        view: view.into(),
-        proj: proj.into(),
-    }
-
-
-}
-
 

@@ -77,7 +77,7 @@ impl Camera {
 
         self.previous_x = mouse_x;
         self.previous_y = mouse_y;
-        self.pitch -= 0.02 * y_offset;
+        self.pitch += 0.02 * y_offset;
         self.yaw -= 0.02 * x_offset;
         self.update_vectors();
     }
