@@ -1,4 +1,4 @@
-use cgmath::{Point3, Vector3};
+use cgmath::{Vector3};
 use std::sync::Arc;
 use cgmath::Matrix4;
 use vulkano::command_buffer::{DrawIndexedError, DynamicState, AutoCommandBufferBuilder};
@@ -6,14 +6,20 @@ use vulkano::descriptor::descriptor_set::{PersistentDescriptorSet};
 
 use crate::render::{vs, RenderSystem};
 use crate::camera::Camera;
+use crate::ser::VectorDef;
 use serde_derive::{Serialize, Deserialize};
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Transform {
-    pub position: Point3<f32>,
 
+    #[serde(with = "VectorDef")]
+    pub position: Vector3<f32>,
+
+    #[serde(with = "VectorDef")]
     pub rotation: Vector3<f32>,
 
-    pub scale: Point3<f32>,
+    #[serde(with = "VectorDef")]
+    pub scale: Vector3<f32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,22 +49,22 @@ impl Scene {
 
 
         let transform1 = Transform {
-            position: Point3::new(5.0, -2.0, 1.0),
+            position: Vector3::new(5.0, -2.0, 1.0),
             rotation: Vector3::new(0.0, 0.0, 0.0),
-            scale: Point3::new(0.0, 0.0, 0.0),
+            scale: Vector3::new(0.0, 0.0, 0.0),
         };
 
 
         let transform2 = Transform {
-            position: Point3::new(0.0, -2.0, 1.0),
+            position: Vector3::new(0.0, -2.0, 1.0),
             rotation: Vector3::new(0.0, 0.0, 0.0),
-            scale: Point3::new(0.0, 0.0, 0.0),
+            scale: Vector3::new(0.0, 0.0, 0.0),
         };
 
         let camera_transform = Transform {
-            position: Point3::new(0.0, 0.0, 1.0),
+            position: Vector3::new(0.0, 0.0, 1.0),
             rotation: Vector3::new(0.0, 0.0, 0.0),
-            scale: Point3::new(0.0, 0.0, 0.0),
+            scale: Vector3::new(0.0, 0.0, 0.0),
         };
         let camera = Camera::new(camera_transform);
 
@@ -121,8 +127,8 @@ impl Scene {
 }
 
 fn create_mvp(t: &Transform, view: &Matrix4<f32>, proj: &Matrix4<f32>) -> vs::ty::Data {
-    let model = Matrix4::from_translation(
-        Vector3::new(t.position.x, t.position.y, t.position.z));
+    let model = Matrix4::from_translation(t.position);
+        
     vs::ty::Data {
         model: model.into(),
         view: (*view).into(),

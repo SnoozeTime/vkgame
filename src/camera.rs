@@ -1,5 +1,5 @@
 
-use cgmath::{InnerSpace, Matrix4, Vector3, Rad, Angle};
+use cgmath::{InnerSpace, Matrix4, Vector3, Rad, Angle, Point3};
 use crate::gameobject::Transform;
 use serde_derive::{Serialize, Deserialize};
 
@@ -21,8 +21,8 @@ impl CameraInputHandler {
 
     pub fn noop_handler() -> Self {
         CameraInputHandler {
-            keyboard_handler: Box::new(|ref mut camera, direction| {}),
-            mouse_handler: Box::new(|ref mut camera, mouse_x, mouse_y| {}),
+            keyboard_handler: Box::new(|ref mut _camera, _direction| {}),
+            mouse_handler: Box::new(|ref mut _camera, _mouse_x, _mouse_y| {}),
         }
     }
 
@@ -140,12 +140,15 @@ impl Camera {
 
     pub fn get_vp(&self) -> (Matrix4<f32>, Matrix4<f32>) {
         let proj = cgmath::perspective(Rad(std::f32::consts::FRAC_PI_2), 1.0, 0.01, 100.0);
-        let v = Matrix4::look_at(self.state.transform.position, self.state.transform.position + self.state.front, self.state.up);
+        let position = Point3::new(self.state.transform.position.x,
+                                   self.state.transform.position.y,
+                                   self.state.transform.position.z);
+        let v = Matrix4::look_at(position, position + self.state.front, self.state.up);
         (v, proj)
     }
 
     pub fn process_keyboard(&mut self, direction: CameraDirection) {
-        let handler = &self.input_handler.keyboard_handler;v
+        let handler = &self.input_handler.keyboard_handler;
         handler(&mut self.state, direction);
     }
 
