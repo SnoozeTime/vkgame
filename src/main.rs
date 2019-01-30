@@ -6,8 +6,21 @@ use winit::{KeyboardInput, VirtualKeyCode, EventsLoop, WindowBuilder, Event, Win
 use twgraph::camera::{CameraDirection};
 use twgraph::gameobject::{Scene};
 use twgraph::render::RenderSystem;
+use std::env;
+
+fn get_scene() -> Scene {
+    let mut args = env::args();
+    if let Some(path) = args.nth(1) {
+        println!("will load: {:?}", path);
+        Scene::load(path).unwrap()
+    } else {
+        Scene::new_dummy()
+    }
+
+}
 
 fn main() {
+
     // this is an Arc to instance. (non-mut dynamic ref)
     let instance = {
         let extensions = vulkano_win::required_extensions();
@@ -27,7 +40,7 @@ fn main() {
     render_system.load_model("cube".to_string(), std::path::Path::new("cube.obj")).expect("Cannot load model");
 
     //let rotation_start = Instant::now();
-    let mut scene = Scene::new_dummy();
+    let mut scene = get_scene(); 
 
     loop {
         render_system.render(&scene);
@@ -55,6 +68,12 @@ fn main() {
                             VirtualKeyCode::S => scene.camera.process_keyboard(CameraDirection::Backward),
                             VirtualKeyCode::A => scene.camera.process_keyboard(CameraDirection::Left),
                             VirtualKeyCode::D => scene.camera.process_keyboard(CameraDirection::Right),
+                            VirtualKeyCode::Space => {
+                                match scene.save("scene.json".to_owned()) {
+                                    Ok(_) => println!("Successfully saved scene.json"),
+                                    Err(err) => println!("{}", err),
+                                }
+                            },
                             _ => (),
                         }
                     },

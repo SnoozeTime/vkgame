@@ -12,7 +12,6 @@ use vulkano::sampler::SamplerCreationError;
 use vulkano::sync::FlushError;
 use vulkano::command_buffer::DrawIndexedError;
 
-
 pub type TwResult<T> = Result<T, TwError>;
 
 #[derive(Debug)]
@@ -37,6 +36,10 @@ pub enum TwError {
 
     // Drawing
     VkDrawIndexed(DrawIndexedError),
+
+    // Saving/recovering scene.
+    Io(std::io::Error),
+    JsonSerde(serde_json::Error),
 }
 
 impl fmt::Display for TwError {
@@ -52,6 +55,8 @@ impl fmt::Display for TwError {
             TwError::VkSamplerCreation(ref x) => write!(f, "{}", x),
             TwError::VkFutureFlush(ref x) => write!(f, "{}", x),
             TwError::VkDrawIndexed(ref x) => write!(f, "{}", x),
+            TwError::Io(ref x) => write!(f, "{}", x),
+            TwError::JsonSerde(ref x) => write!(f, "{}", x),
         }
     }
 }
@@ -70,6 +75,8 @@ impl Error for TwError {
             TwError::VkSamplerCreation(ref x) => x.description(),  
             TwError::VkFutureFlush(ref x) => x.description(),  
             TwError::VkDrawIndexed(ref x) => x.description(),  
+            TwError::Io(ref x) => x.description(),  
+            TwError::JsonSerde(ref x) => x.description(),  
         }
     }
 }
@@ -119,6 +126,20 @@ impl From<FlushError> for TwError {
 impl From<DrawIndexedError> for TwError {
     fn from(err: DrawIndexedError) -> Self {
         TwError::VkDrawIndexed(err)
+    }
+}
+
+
+impl From<std::io::Error> for TwError {
+    fn from(err: std::io::Error) -> Self {
+        TwError::Io(err)
+    }
+}
+
+
+impl From<serde_json::Error> for TwError {
+    fn from(err: serde_json::Error) -> Self {
+        TwError::JsonSerde(err)
     }
 }
 

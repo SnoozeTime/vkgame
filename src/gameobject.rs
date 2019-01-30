@@ -7,6 +7,9 @@ use vulkano::descriptor::descriptor_set::{PersistentDescriptorSet};
 use crate::render::{vs, RenderSystem};
 use crate::camera::Camera;
 use crate::ser::VectorDef;
+use crate::error::TwResult;
+use std::fs::OpenOptions;
+use std::io::{Read, Write};
 use serde_derive::{Serialize, Deserialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,6 +31,7 @@ pub struct MeshComponent {
     pub texture_name: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Scene {
     pub transforms: Vec<Transform>,
     pub mesh_components: Vec<MeshComponent>,
@@ -123,6 +127,27 @@ impl Scene {
         }
 
         Ok(cmd_buffer_builder)
+    }
+
+    pub fn save<P: AsRef<std::path::Path>>(&self, path: P) -> TwResult<()> {
+       let mut file =  OpenOptions::new()
+           .write(true)
+           .truncate(true)
+           .create(true)
+           .open(path)?;
+
+        let j = serde_json::to_string(self)?;
+        write!(file, "{}", j)?;
+
+        Ok(())
+    }
+
+    pub fn load<P: AsRef<std::path::Path>>(path: P) -> TwResult<Self> {
+        let mut file = std::fs::File::open(path)?;
+        let mut content = String::new();
+        file.read_to_string(&mut content)?;
+        let scene = serde_json::from_str(&content).unwrap();
+        Ok(scene)
     }
 }
 

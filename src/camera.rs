@@ -2,10 +2,17 @@
 use cgmath::{InnerSpace, Matrix4, Vector3, Rad, Angle, Point3};
 use crate::gameobject::Transform;
 use serde_derive::{Serialize, Deserialize};
+use std::fmt;
 
 pub struct CameraInputHandler {
     keyboard_handler: Box<Fn(&mut CameraState, CameraDirection) -> ()>,
     mouse_handler: Box<Fn(&mut CameraState, f64, f64) -> ()>,
+}
+
+impl fmt::Debug for CameraInputHandler {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "CameraInputHandler")
+    }
 }
 
 impl CameraInputHandler {
@@ -55,25 +62,32 @@ impl CameraInputHandler {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Camera {
     state: CameraState,
+
+    #[serde(skip)]
+    #[serde(default = "CameraInputHandler::fps_handler")]
     input_handler: CameraInputHandler,
 }
 
-impl Camera {
 
-}
-
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CameraState {
 
     // -----------------------------
     transform: Transform,
 
+    
+    #[serde(with = "crate::ser::VectorDef")]
     front: Vector3<f32>,
+    #[serde(with = "crate::ser::VectorDef")]
     right: Vector3<f32>,
+    #[serde(with = "crate::ser::VectorDef")]
     up: Vector3<f32>,
 
     // Up of the woooorld
+    #[serde(with = "crate::ser::VectorDef")]
     world_up: Vector3<f32>,
 
     pitch: f32,
@@ -98,6 +112,7 @@ impl CameraState {
 
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CameraDirection {
     Forward,
     Backward,
