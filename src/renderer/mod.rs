@@ -1,3 +1,6 @@
+pub mod model;
+pub mod texture;
+
 use vulkano::image::attachment::AttachmentImage;
 use vulkano::buffer::BufferUsage;
 use vulkano::format::Format;
@@ -21,9 +24,9 @@ use winit::Window;
 use std::sync::Arc;
 use std::iter;
 use crate::error::{TwError, TwResult};
-use crate::model::{Vertex, ModelManager};
+use self::model::{Vertex, ModelManager};
 use crate::gameobject::Scene;
-use crate::texture::TextureManager;
+use self::texture::TextureManager;
 
 // Can have multiple pipelines in an application. In
 // particular, you need a pipeline for each combinaison
@@ -34,7 +37,7 @@ pub struct PipelineState {
     fs: fs::Shader,
 }
 
-pub struct RenderSystem<'a> {
+pub struct Renderer<'a> {
     surface: Arc<Surface<winit::Window>>,
     _physical: PhysicalDevice<'a>,
 
@@ -61,7 +64,7 @@ pub struct RenderSystem<'a> {
     pub model_manager: ModelManager,
 }
 
-impl<'a> RenderSystem<'a> {
+impl<'a> Renderer<'a> {
 
 
     pub fn new(instance: &'a Arc<Instance>, surface: Arc<Surface<winit::Window>>) -> TwResult<Self> {
@@ -191,7 +194,7 @@ impl<'a> RenderSystem<'a> {
         let previous_frame_end = Some(Box::new(sync::now(device.clone())) as Box<GpuFuture>);
 
         let uniform_buffer = CpuBufferPool::<vs::ty::Data>::new(device.clone(), BufferUsage::all());
-        Ok(RenderSystem {
+        Ok(Renderer {
             surface,
             _physical: physical,
             device, 

@@ -4,7 +4,7 @@ use cgmath::Matrix4;
 use vulkano::command_buffer::{DrawIndexedError, DynamicState, AutoCommandBufferBuilder};
 use vulkano::descriptor::descriptor_set::{PersistentDescriptorSet};
 
-use crate::render::{vs, RenderSystem};
+use crate::renderer::{vs, Renderer};
 use crate::camera::Camera;
 use crate::ser::VectorDef;
 use crate::error::TwResult;
@@ -82,7 +82,7 @@ impl Scene {
 
     pub fn render(&self,
                   mut cmd_buffer_builder: AutoCommandBufferBuilder, 
-                  render_system: &RenderSystem) -> Result<AutoCommandBufferBuilder, DrawIndexedError> {
+                  render_system: &Renderer) -> Result<AutoCommandBufferBuilder, DrawIndexedError> {
 
         // VP Matrix are the same for all game object.
         //
@@ -152,7 +152,10 @@ impl Scene {
 }
 
 fn create_mvp(t: &Transform, view: &Matrix4<f32>, proj: &Matrix4<f32>) -> vs::ty::Data {
-    let model = Matrix4::from_translation(t.position);
+    let scale = t.scale;
+    let model = Matrix4::from_nonuniform_scale(scale.x, scale.y, scale.z)
+        * Matrix4::from_translation(t.position);
+   
         
     vs::ty::Data {
         model: model.into(),

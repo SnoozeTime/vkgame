@@ -1,9 +1,7 @@
 pub mod ser;
 pub mod camera;
 pub mod error;
-pub mod model;
-pub mod render;
+pub mod renderer;
 pub mod gameobject;
-pub mod texture;
-
+pub mod ecs;
 

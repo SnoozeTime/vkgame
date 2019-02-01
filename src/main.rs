@@ -5,7 +5,7 @@ use winit::{KeyboardInput, VirtualKeyCode, EventsLoop, WindowBuilder, Event, Win
 
 use twgraph::camera::{CameraDirection};
 use twgraph::gameobject::{Scene};
-use twgraph::render::RenderSystem;
+use twgraph::renderer::Renderer;
 use std::env;
 
 fn get_scene() -> Scene {
@@ -16,6 +16,20 @@ fn get_scene() -> Scene {
     } else {
         Scene::new_dummy()
     }
+
+}
+
+fn init_textures(render_system: &mut Renderer) {
+    render_system.load_texture("bonjour".to_string(),
+    std::path::Path::new("src/image_img.png"),
+    93, 93).unwrap();
+    render_system.load_texture("white".to_string(),
+    std::path::Path::new("src/white.png"),
+    93, 93).unwrap();
+}
+
+fn init_models(render_system: &mut Renderer) {
+    render_system.load_model("cube".to_string(), std::path::Path::new("cube.obj")).expect("Cannot load model");
 
 }
 
@@ -33,18 +47,17 @@ fn main() {
         .build_vk_surface(&events_loop, instance.clone())
         .expect("Cannot create vk_surface");
     let _window = surface.window();
-    let mut render_system = RenderSystem::new(&instance, surface.clone()).unwrap();
-    render_system.load_texture("bonjour".to_string(),
-        std::path::Path::new("src/image_img.png"),
-        93, 93).unwrap();
-    render_system.load_model("cube".to_string(), std::path::Path::new("cube.obj")).expect("Cannot load model");
+
+    let mut render_system = Renderer::new(&instance, surface.clone()).unwrap();
+    init_textures(&mut render_system);
+    init_models(&mut render_system);
 
     //let rotation_start = Instant::now();
     let mut scene = get_scene(); 
 
     loop {
         render_system.render(&scene);
-    
+
         let mut done = false;
         events_loop.poll_events(|ev| {
             if let Event::WindowEvent { event, ..} = ev {
@@ -81,8 +94,8 @@ fn main() {
                 }
             }});
 
-    
-           if done { return; }
+
+        if done { return; }
 
     }
 

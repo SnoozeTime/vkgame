@@ -172,8 +172,3 @@ impl Camera {
         handler(&mut self.state, mouse_x, mouse_y);
     }
 }
-
-// -----------------------------------------------------
-pub struct CameraBuilder {
-
-}
