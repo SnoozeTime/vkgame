@@ -28,6 +28,11 @@ use self::model::{Vertex, ModelManager};
 use crate::gameobject::Scene;
 use self::texture::TextureManager;
 
+pub struct NextImageInfo {
+    image_num: usize,
+    acquire_future: Box<GpuFuture>,
+}
+
 // Can have multiple pipelines in an application. In
 // particular, you need a pipeline for each combinaison
 // of shaders.
@@ -241,6 +246,111 @@ impl<'a> Renderer<'a> {
         self.model_manager.load_model(model_name, model_path, self.device.clone())?;
         Ok(())
     }
+    
+    // Until we need to draw elements.
+    pub fn start_render(&mut self) -> Option<(AutoCommandBufferBuilder, NextImageInfo)> {
+
+        self.previous_frame_end.as_mut().unwrap().cleanup_finished();
+        let window = self.surface.window();
+
+        if self.recreate_swapchain {
+            let dimensions = if let Some(dimensions) = window.get_inner_size() {
+                let dimensions: (u32, u32) = dimensions.to_physical(window.get_hidpi_factor()).into();
+                [dimensions.0, dimensions.1]
+            } else {
+                return None;
+            };
+
+            let (new_swapchain, new_images) = match self.swapchain.recreate_with_dimension(dimensions) {
+                Ok(r) => r,
+                // This error tends to happen when the user is manually resizing the window.
+                // Simply restarting the loop is the easiest way to fix this issue.
+                Err(SwapchainCreationError::UnsupportedDimensions) => return None,
+                Err(err) => panic!("{:?}", err)
+            };
+
+            self.swapchain = new_swapchain;
+            self.images = new_images;
+            // Because framebuffers contains an Arc on the old swapchain, we need to
+            // recreate framebuffers as well.
+            let (new_pipeline, new_framebuffers) = window_size_dependent_setup(self.device.clone(),
+            &self.pipeline.vs, 
+            &self.pipeline.fs, 
+            &self.images, 
+            self.render_pass.clone());
+            self.pipeline.pipeline = new_pipeline;
+            self.framebuffers = new_framebuffers;
+            self.recreate_swapchain = false;
+        }
+
+        // Before we can draw on the output, we have to *acquire* an image from the
+        // swapchain. If no image is available, (which happens if you submit draw
+        // commands too quickly), then the function will block.
+        // This operation returns the index of the image that we are allowed to draw upon.
+        // None can be a timeout instead.
+        let (image_num, acquire_future) = match swapchain::acquire_next_image(self.swapchain.clone(), None) {
+            Ok(r) => r,
+            Err(AcquireError::OutOfDate) => {
+                self.recreate_swapchain = true;
+                return None;
+            },
+            Err(err) => panic!("{:?}", err)
+        };
+
+        // Specify the color to clear the framebuffer with.
+        let clear_values = vec!([0.0, 0.0, 0.0, 1.0].into(), 1f32.into());
+
+        Some((AutoCommandBufferBuilder::primary_one_time_submit(self.device.clone(), self.queue.family()).unwrap()
+            .begin_render_pass(self.framebuffers[image_num].clone(), false, clear_values)
+            .unwrap(),
+            NextImageInfo {
+                image_num,
+                acquire_future: Box::new(acquire_future) as Box<_>,
+            }))
+    }
+    
+
+    // Submit commands and present images.
+    pub fn finish_render(&mut self, mut command_buffer_builder: AutoCommandBufferBuilder,
+                         image_info: NextImageInfo) {
+ 
+        // Finish render pass
+        command_buffer_builder = command_buffer_builder.end_render_pass()
+            .unwrap();
+
+        // Finish building the command buffer by calling `build`.
+        let command_buffer = command_buffer_builder.build().unwrap();
+
+
+        let reference = self.previous_frame_end.take().expect("There should be a Future in there");
+        let future = reference.join(image_info.acquire_future)
+            .then_execute(self.queue.clone(), command_buffer).unwrap()
+            // The color output is now expected to contain our triangle. But in order to show it on
+            // the screen, we have to *present* the image by calling `present`.
+            //
+            // This function does not actually present the image immediately. Instead it submits a
+            // present command at the end of the queue. This means that it will only be presented once
+            // the GPU has finished executing the command buffer that draws the triangle.
+            .then_swapchain_present(self.queue.clone(), self.swapchain.clone(),
+                                    image_info.image_num)
+            .then_signal_fence_and_flush();
+
+        match future {
+            Ok(future) => {
+                self.previous_frame_end = Some(Box::new(future) as Box<_>);
+            }
+            Err(FlushError::OutOfDate) => {
+                self.recreate_swapchain = true;
+                self.previous_frame_end = Some(Box::new(sync::now(self.device.clone())) as Box<_>);
+            }
+            Err(e) => {
+                println!("{:?}", e);
+                self.previous_frame_end = Some(Box::new(sync::now(self.device.clone())) as Box<_>);
+            }
+        }
+
+    }
+   
 
     // To be called at every main loop iteration.
     pub fn render(&mut self,
