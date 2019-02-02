@@ -1,36 +1,21 @@
 use vulkano::instance::Instance;
-use vulkano_win::VkSurfaceBuild;
-use vulkano_win;
-use winit::{KeyboardInput, VirtualKeyCode, EventsLoop, WindowBuilder, Event, WindowEvent};
+use winit::{KeyboardInput, VirtualKeyCode, EventsLoop, Event, WindowEvent};
 
 use twgraph::camera::{CameraDirection};
-use twgraph::gameobject::{Scene};
-use twgraph::renderer::Renderer;
+use twgraph::ecs::{
+    ECS,
+    systems::RenderingSystem,
+};
 use std::env;
 
-fn get_scene() -> Scene {
+fn get_ecs() -> ECS {
     let mut args = env::args();
     if let Some(path) = args.nth(1) {
         println!("will load: {:?}", path);
-        Scene::load(path).unwrap()
+        ECS::load(path).unwrap()
     } else {
-        Scene::new_dummy()
+        ECS::dummy_ecs()
     }
-
-}
-
-fn init_textures(render_system: &mut Renderer) {
-    render_system.load_texture("bonjour".to_string(),
-    std::path::Path::new("src/image_img.png"),
-    93, 93).unwrap();
-    render_system.load_texture("white".to_string(),
-    std::path::Path::new("src/white.png"),
-    93, 93).unwrap();
-}
-
-fn init_models(render_system: &mut Renderer) {
-    render_system.load_model("cube".to_string(), std::path::Path::new("cube.obj")).expect("Cannot load model");
-
 }
 
 fn main() {
@@ -43,29 +28,21 @@ fn main() {
 
     // Get the surface and window. Window is from winit library
     let mut events_loop = EventsLoop::new();
-    let surface = WindowBuilder::new()
-        .build_vk_surface(&events_loop, instance.clone())
-        .expect("Cannot create vk_surface");
-    let _window = surface.window();
 
-    let mut render_system = Renderer::new(&instance, surface.clone()).unwrap();
-    init_textures(&mut render_system);
-    init_models(&mut render_system);
-
-    //let rotation_start = Instant::now();
-    let mut scene = get_scene(); 
-
+    let mut ecs = get_ecs();
+    let mut render_system = RenderingSystem::new(&instance, &events_loop);
+    
     loop {
-        render_system.render(&scene);
+        render_system.render(&ecs);
 
         let mut done = false;
         events_loop.poll_events(|ev| {
             if let Event::WindowEvent { event, ..} = ev {
                 match event {
                     WindowEvent::CloseRequested => done = true,
-                    WindowEvent::Resized(_) => render_system.recreate_swapchain = true,
+                    WindowEvent::Resized(_) => render_system.resize_window(),
                     WindowEvent::CursorMoved { position, ..} => {
-                        scene.camera.process_mouse(position.x, position.y);
+                        ecs.camera.process_mouse(position.x, position.y);
                     },
                     WindowEvent::KeyboardInput {
                         input:
@@ -77,12 +54,12 @@ fn main() {
                     } => {
                         match keycode {
                             VirtualKeyCode::Escape => done = true,
-                            VirtualKeyCode::W => scene.camera.process_keyboard(CameraDirection::Forward),
-                            VirtualKeyCode::S => scene.camera.process_keyboard(CameraDirection::Backward),
-                            VirtualKeyCode::A => scene.camera.process_keyboard(CameraDirection::Left),
-                            VirtualKeyCode::D => scene.camera.process_keyboard(CameraDirection::Right),
+                            VirtualKeyCode::W => ecs.camera.process_keyboard(CameraDirection::Forward),
+                            VirtualKeyCode::S => ecs.camera.process_keyboard(CameraDirection::Backward),
+                            VirtualKeyCode::A => ecs.camera.process_keyboard(CameraDirection::Left),
+                            VirtualKeyCode::D => ecs.camera.process_keyboard(CameraDirection::Right),
                             VirtualKeyCode::Space => {
-                                match scene.save("scene.json".to_owned()) {
+                                match ecs.save("scene.json".to_owned()) {
                                     Ok(_) => println!("Successfully saved scene.json"),
                                     Err(err) => println!("{}", err),
                                 }
@@ -96,7 +73,6 @@ fn main() {
 
 
         if done { return; }
-
     }
 
 }

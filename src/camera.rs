@@ -1,7 +1,7 @@
 
 use cgmath::{InnerSpace, Matrix4, Vector3, Rad, Angle, Point3};
-use crate::gameobject::Transform;
 use serde_derive::{Serialize, Deserialize};
+use crate::ecs::components::TransformComponent;
 use std::fmt;
 
 pub struct CameraInputHandler {
@@ -72,11 +72,11 @@ pub struct Camera {
 }
 
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CameraState {
 
     // -----------------------------
-    transform: Transform,
+    transform: TransformComponent,
 
     
     #[serde(with = "crate::ser::VectorDef")]
@@ -121,7 +121,7 @@ pub enum CameraDirection {
 }
 
 impl Camera {
-    pub fn new(transform: Transform) -> Self {
+    pub fn new(transform: TransformComponent) -> Self {
 
 
         let front = Vector3::new(0.0, 0.0, -1.0);
