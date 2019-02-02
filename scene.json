@@ -1,5 +1,0 @@
-{"transform_components":[
-        {"position":{"x":0.0,"y":2.0,"z":1.0},"rotation":{"x":0.0,"y":0.0,"z":0.0},"scale":{"x":10.0,"y":0.1,"z":10.0}}],
- "model_components":[
-         {"mesh_name":"cube","texture_name":"bonjour"}],
- "camera":{"state":{"transform":{"position":{"x":0.0,"y":0.0,"z":1.0},"rotation":{"x":0.0,"y":0.0,"z":0.0},"scale":{"x":1.0,"y":1.0,"z":1.0}},"front":{"x":0.92119455,"y":-0.3889225,"z":0.011836089},"right":{"x":-0.012847571,"y":0.0,"z":0.9999175},"up":{"x":0.38889036,"y":0.9212705,"z":0.004996709},"world_up":{"x":0.0,"y":1.0,"z":0.0},"pitch":-2.742131,"yaw":9.437626,"previous_x":471.880859375,"previous_y":137.10670689174108}}}

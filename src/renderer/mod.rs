@@ -32,7 +32,6 @@ use crate::ecs::components::{TransformComponent, ModelComponent};
 use self::model::{Vertex, ModelManager};
 use self::texture::TextureManager;
 
-
 // Can have multiple pipelines in an application. In
 // particular, you need a pipeline for each combinaison
 // of shaders.
@@ -70,7 +69,6 @@ pub struct Renderer<'a> {
 }
 
 impl<'a> Renderer<'a> {
-
 
     pub fn new(instance: &'a Arc<Instance>, surface: Arc<Surface<winit::Window>>) -> TwResult<Self> {
 
@@ -308,7 +306,6 @@ impl<'a> Renderer<'a> {
             .begin_render_pass(self.framebuffers[image_num].clone(), false, clear_values)
             .unwrap();
 
-        // TODO --- Render all objects 
         for (model, transform) in objects.iter() {
             let texture = self.texture_manager.textures.get(
                 &model.texture_name
@@ -337,7 +334,6 @@ impl<'a> Renderer<'a> {
                                .add_buffer(uniform_buffer_subbuffer).unwrap()
                                .build().unwrap()
             );
-
 
             command_buffer_builder = command_buffer_builder
                 .draw_indexed(self.pipeline.pipeline.clone(),

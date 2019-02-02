@@ -56,7 +56,8 @@ impl<'a> RenderingSystem<'a> {
             .iter()
             .zip(ecs.transform_components.iter())
             .filter(|(x, y)| x.is_some() && y.is_some())
-            .map(|(x, y)| (x.as_ref().unwrap(), y.as_ref().unwrap())).collect();
+            .map(|(x, y)| (x.as_ref().unwrap().value(),
+                           y.as_ref().unwrap().value())).collect();
 
         self.renderer.render(&ecs.camera, objs);
     }
