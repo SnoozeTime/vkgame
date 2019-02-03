@@ -4,6 +4,7 @@ use vulkano_win::VkSurfaceBuild;
 use vulkano_win;
 
 use std::sync::Arc;
+use std::path::Path;
 use crate::renderer::Renderer;
 
 use super::ECS;
@@ -19,6 +20,9 @@ impl<'a> RenderingSystem<'a> {
         let surface = WindowBuilder::new()
             .build_vk_surface(&events_loop, instance.clone())
             .expect("Cannot create vk_surface");
+
+        let window = surface.window();
+        window.grab_cursor(true).unwrap();
 
         // TODO error handling
         let mut renderer = Renderer::new(&instance, surface.clone()).unwrap();
@@ -37,15 +41,21 @@ impl<'a> RenderingSystem<'a> {
 
     fn init_textures(render_system: &mut Renderer) {
         render_system.load_texture("bonjour".to_string(),
-        std::path::Path::new("src/image_img.png"),
+        Path::new("src/image_img.png"),
         93, 93).unwrap();
         render_system.load_texture("white".to_string(),
-        std::path::Path::new("src/white.png"),
+        Path::new("src/white.png"),
         93, 93).unwrap();
+    //render_system.load_texture("chalet".to_string(),
+        //Path::new("chalet.jpg"),
+       // 4096, 4096).unwrap();
     }
 
     fn init_models(render_system: &mut Renderer) {
-        render_system.load_model("cube".to_string(), std::path::Path::new("cube.obj")).expect("Cannot load model");
+        println!("Init models!");
+        render_system.load_model("cube".to_string(), Path::new("cube.obj")).expect("Cannot load model");
+        //render_system.load_model("chalet".to_string(), Path::new("chalet.obj")).expect("Cannot load room");
+        println!("Finished reading models");
     }
 
 
@@ -57,7 +67,7 @@ impl<'a> RenderingSystem<'a> {
             .zip(ecs.transform_components.iter())
             .filter(|(x, y)| x.is_some() && y.is_some())
             .map(|(x, y)| (x.as_ref().unwrap().value(),
-                           y.as_ref().unwrap().value())).collect();
+            y.as_ref().unwrap().value())).collect();
 
         self.renderer.render(&ecs.camera, objs);
     }

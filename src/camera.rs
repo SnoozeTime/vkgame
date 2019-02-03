@@ -5,8 +5,8 @@ use crate::ecs::components::TransformComponent;
 use std::fmt;
 
 pub struct CameraInputHandler {
-    keyboard_handler: Box<Fn(&mut CameraState, CameraDirection) -> ()>,
-    mouse_handler: Box<Fn(&mut CameraState, f64, f64) -> ()>,
+    keyboard_handler: Box<FnMut(&mut CameraState, CameraDirection) -> ()>,
+    mouse_handler: Box<FnMut(&mut CameraState, f64, f64) -> ()>,
 }
 
 impl fmt::Debug for CameraInputHandler {
@@ -18,8 +18,8 @@ impl fmt::Debug for CameraInputHandler {
 impl CameraInputHandler {
     pub fn new<FK: 'static, FM: 'static>(keyboard_handler: FK,
                                          mouse_handler: FM) -> Self 
-        where FK: Fn(&mut CameraState, CameraDirection) -> (),
-              FM: Fn(&mut CameraState, f64, f64) -> () {
+        where FK: FnMut(&mut CameraState, CameraDirection) -> (),
+              FM: FnMut(&mut CameraState, f64, f64) -> () {
                   CameraInputHandler {
                       keyboard_handler: Box::new(keyboard_handler),
                       mouse_handler: Box::new(mouse_handler),
@@ -34,8 +34,10 @@ impl CameraInputHandler {
     }
 
     pub fn fps_handler() -> Self {
+
+        let mut first_mouse = true;
         CameraInputHandler {
-            keyboard_handler: Box::new(|ref mut camera, direction| {
+            keyboard_handler: Box::new(move |ref mut camera, direction| {
 
                 match direction {
                     CameraDirection::Forward => camera.transform.position += 0.05*camera.front,
@@ -46,7 +48,12 @@ impl CameraInputHandler {
 
 
             }),
-            mouse_handler: Box::new(|ref mut camera, mouse_x, mouse_y| {
+            mouse_handler: Box::new(move |ref mut camera, mouse_x, mouse_y| {
+                if first_mouse {
+                    camera.previous_x = mouse_x;
+                    camera.previous_y = mouse_y;
+                    first_mouse = false;
+                }
                 let x_offset = (camera.previous_x - mouse_x) as f32;
                 let y_offset = (camera.previous_y - mouse_y) as f32;
 
@@ -54,6 +61,13 @@ impl CameraInputHandler {
                 camera.previous_y = mouse_y;
                 camera.pitch += 0.02 * y_offset;
                 camera.yaw -= 0.02 * x_offset;
+
+                if camera.pitch > 89.0 {
+                    camera.pitch = 89.0;
+                } else if camera.pitch < -89.0 {
+                    camera.pitch = -89.0;
+                }
+
                 camera.update_vectors();
 
             }),
@@ -106,7 +120,7 @@ impl CameraState {
         let front_z = Rad(self.yaw).sin() * Rad(self.pitch).cos(); 
 
         self.front = Vector3::new(front_x, front_y, front_z).normalize();
-        self.right = self.front.cross(self.world_up).normalize();
+        self.right = -self.front.cross(self.world_up).normalize();
         self.up = self.right.cross(self.front).normalize();
     }
 
@@ -125,8 +139,11 @@ impl Camera {
 
 
         let front = Vector3::new(0.0, 0.0, -1.0);
-        let world_up = Vector3::new(0.0, 1.0, 0.0);
-        let right = front.cross(world_up).normalize();
+
+        // Vulkan y-axis is downward
+        let world_up = Vector3::new(0.0, -1.0, 0.0);
+
+        let right = -front.cross(world_up).normalize();
         let up = right.cross(front).normalize();
 
         let pitch = 0.0;
@@ -154,7 +171,10 @@ impl Camera {
     }
 
     pub fn get_vp(&self) -> (Matrix4<f32>, Matrix4<f32>) {
-        let proj = cgmath::perspective(Rad(std::f32::consts::FRAC_PI_2), 1.0, 0.01, 100.0);
+        let proj = cgmath::perspective(Rad(std::f32::consts::FRAC_PI_2),
+                                       1.0,
+                                       0.01,
+                                       100.0);
         let position = Point3::new(self.state.transform.position.x,
                                    self.state.transform.position.y,
                                    self.state.transform.position.z);
@@ -163,12 +183,12 @@ impl Camera {
     }
 
     pub fn process_keyboard(&mut self, direction: CameraDirection) {
-        let handler = &self.input_handler.keyboard_handler;
+        let handler = &mut self.input_handler.keyboard_handler;
         handler(&mut self.state, direction);
     }
 
     pub fn process_mouse(&mut self, mouse_x: f64, mouse_y: f64) {
-        let handler = &self.input_handler.mouse_handler;
+        let handler = &mut self.input_handler.mouse_handler;
         handler(&mut self.state, mouse_x, mouse_y);
     }
 }

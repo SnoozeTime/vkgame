@@ -72,16 +72,16 @@ impl ECS {
         let mut ecs = ECS::new();
 
         // First entity
-        let id1 = ecs.new_entity();
-        ecs.transform_components.set(&id1, TransformComponent {
-            position: Vector3::new(5.0, -2.0, 1.0),
-            rotation: Vector3::new(0.0, 0.0, 0.0),
-            scale: Vector3::new(1.0, 1.0, 1.0),
-        });
-        ecs.model_components.set(&id1, ModelComponent {
-            mesh_name: "cube".to_owned(),
-            texture_name: "bonjour".to_owned(),
-        });
+//        let id1 = ecs.new_entity();
+//        ecs.transform_components.set(&id1, TransformComponent {
+//            position: Vector3::new(0.0, 0.0, 1.0),
+//            rotation: Vector3::new(0.0, 0.0, 0.0),
+//            scale: Vector3::new(1.0, 1.0, 1.0),
+//        });
+//        ecs.model_components.set(&id1, ModelComponent {
+//            mesh_name: "chalet".to_owned(),
+//            texture_name: "chalet".to_owned(),
+//        });
 
         // Second entity
         let id2 = ecs.new_entity();
@@ -116,6 +116,7 @@ impl ECS {
         let mut content = String::new();
         file.read_to_string(&mut content)?;
         let ecs = serde_json::from_str(&content).unwrap();
+        println!("ECS after loading{:?}", ecs);
         Ok(ecs)
     }
 }

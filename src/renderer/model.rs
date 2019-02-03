@@ -70,7 +70,7 @@ impl Model {
                                       mesh.positions[3 * v + 1],
                                       mesh.positions[3 * v + 2],
                                       mesh.texcoords[2 * v],
-                                      mesh.texcoords[2 * v + 1]));
+                                      1.0 - mesh.texcoords[2 * v + 1]));
         }
 
         Self::load_from_vec(device, vertices, indices) 
