@@ -41,11 +41,12 @@ impl<'a> RenderingSystem<'a> {
 
     fn init_textures(render_system: &mut Renderer) {
         render_system.load_texture("bonjour".to_string(),
-        Path::new("src/image_img.png"),
+        Path::new("assets/image_img.png"),
         93, 93).unwrap();
-        render_system.load_texture("white".to_string(),
-        Path::new("src/white.png"),
-        93, 93).unwrap();
+        render_system.load_texture("white".to_string(), Path::new("assets/white.png"), 93, 93).unwrap();
+        render_system.load_texture("red".to_string(), Path::new("assets/red.png"), 93, 93).unwrap();
+        render_system.load_texture("blue".to_string(), Path::new("assets/blue.png"), 93, 93).unwrap();
+        render_system.load_texture("green".to_string(), Path::new("assets/green.png"), 93, 93).unwrap();
     //render_system.load_texture("chalet".to_string(),
         //Path::new("chalet.jpg"),
        // 4096, 4096).unwrap();
@@ -53,7 +54,7 @@ impl<'a> RenderingSystem<'a> {
 
     fn init_models(render_system: &mut Renderer) {
         println!("Init models!");
-        render_system.load_model("cube".to_string(), Path::new("cube.obj")).expect("Cannot load model");
+        render_system.load_model("cube".to_string(), Path::new("assets/cube.obj")).expect("Cannot load model");
         //render_system.load_model("chalet".to_string(), Path::new("chalet.obj")).expect("Cannot load room");
         println!("Finished reading models");
     }

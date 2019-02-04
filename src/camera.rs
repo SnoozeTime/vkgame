@@ -1,3 +1,4 @@
+use std::default::Default;
 use cgmath::SquareMatrix;
 use cgmath::{InnerSpace, Matrix4, Vector3, Rad, Angle, Point3};
 use serde_derive::{Serialize, Deserialize};
@@ -68,8 +69,9 @@ impl CameraInputHandler {
                     camera.pitch = -89.0;
                 }
 
+                println!("Before update {:?}", camera);
                 camera.update_vectors();
-
+                println!("After update {:?}", camera);
             }),
         }
 
@@ -115,10 +117,11 @@ pub struct CameraState {
 impl CameraState {
 
     fn update_vectors(&mut self) {
-        let front_x = Rad(self.yaw).cos() * Rad(self.pitch).cos(); 
+        println!("Pitch {:?}, Yaw {:?}", Rad(self.pitch), Rad(self.yaw));
+        let front_z = -Rad(self.yaw).cos() * Rad(self.pitch).cos(); 
         let front_y = Rad(self.pitch).sin(); 
-        let front_z = Rad(self.yaw).sin() * Rad(self.pitch).cos(); 
-
+        let front_x = Rad(self.yaw).sin() * Rad(self.pitch).cos(); 
+        println!("Front ({}, {}, {})", front_x, front_y, front_z);
         self.front = Vector3::new(front_x, front_y, front_z).normalize();
         self.right = self.front.cross(self.world_up).normalize();
         self.up = self.right.cross(self.front).normalize();
@@ -132,6 +135,49 @@ pub enum CameraDirection {
     Backward,
     Right,
     Left,
+}
+
+impl Default for Camera {
+
+    fn default() -> Self {
+
+
+        let front = Vector3::new(0.0, 0.0, -1.0);
+        let world_up = Vector3::new(0.0, 1.0, 0.0);
+
+        let right = front.cross(world_up).normalize();
+        let up = right.cross(front).normalize();
+
+        let pitch = 0.0;
+        let yaw = 0.0;
+        let previous_x = 0.0;
+        let previous_y = 0.0;
+
+        let transform = TransformComponent {
+            position: Vector3::new(0.0, 0.0, 1.0),
+            rotation: Vector3::new(0.0, 0.0, 0.0),
+            scale: Vector3::new(1.0, 1.0, 1.0),
+        };
+
+        let state = CameraState {
+            transform,
+            front,
+            up,
+            right,
+            world_up,
+            yaw,
+            pitch,
+            previous_x,
+            previous_y,
+        };
+        
+        println!("At creation: {:?}", state);
+        let input_handler = CameraInputHandler::fps_handler();
+        Camera {
+            state,
+            input_handler,
+        }
+    }
 }
 
 impl Camera {

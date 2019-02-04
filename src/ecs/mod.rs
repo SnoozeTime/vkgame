@@ -24,6 +24,8 @@ pub struct ECS {
     #[serde(default = "GenerationalIndexAllocator::new")]
     allocator: GenerationalIndexAllocator,
     // For now, static camera. TODO add it as a component.
+    //
+    #[serde(skip)]
     pub camera: Camera,
 }
 
@@ -35,12 +37,7 @@ impl ECS {
         let transform_components = GenerationalIndexArray(Vec::new());
 
         // ----------
-        let camera_transform = TransformComponent {
-            position: Vector3::new(0.0, 0.0, 1.0),
-            rotation: Vector3::new(0.0, 0.0, 0.0),
-            scale: Vector3::new(1.0, 1.0, 1.0),
-        };
-        let camera = Camera::new(camera_transform);
+        let camera = Camera::default();
 
         ECS {
             transform_components,
@@ -72,16 +69,16 @@ impl ECS {
         let mut ecs = ECS::new();
 
         // First entity
-//        let id1 = ecs.new_entity();
-//        ecs.transform_components.set(&id1, TransformComponent {
-//            position: Vector3::new(0.0, 0.0, 1.0),
-//            rotation: Vector3::new(0.0, 0.0, 0.0),
-//            scale: Vector3::new(1.0, 1.0, 1.0),
-//        });
-//        ecs.model_components.set(&id1, ModelComponent {
-//            mesh_name: "chalet".to_owned(),
-//            texture_name: "chalet".to_owned(),
-//        });
+        let id1 = ecs.new_entity();
+        ecs.transform_components.set(&id1, TransformComponent {
+            position: Vector3::new(0.0, 0.0, 1.0),
+            rotation: Vector3::new(0.0, 0.0, 0.0),
+            scale: Vector3::new(1.0, 1.0, 1.0),
+        });
+        ecs.model_components.set(&id1, ModelComponent {
+            mesh_name: "cube".to_owned(),
+            texture_name: "bonjour".to_owned(),
+        });
 
         // Second entity
         let id2 = ecs.new_entity();
@@ -94,6 +91,27 @@ impl ECS {
             mesh_name: "cube".to_owned(),
             texture_name: "white".to_owned(),
         });
+        let id3 = ecs.new_entity();
+        ecs.transform_components.set(&id3, TransformComponent {
+            position: Vector3::new(1.0, 0.0, 1.0),
+            rotation: Vector3::new(0.0, 0.0, 0.0),
+            scale: Vector3::new(1.0, 1.0, 1.0),
+        });
+        ecs.model_components.set(&id3, ModelComponent {
+            mesh_name: "cube".to_owned(),
+            texture_name: "bonjour".to_owned(),
+        });
+let id4 = ecs.new_entity();
+        ecs.transform_components.set(&id4, TransformComponent {
+            position: Vector3::new(1.0, 1.0, 1.0),
+            rotation: Vector3::new(0.0, 0.0, 0.0),
+            scale: Vector3::new(1.0, 1.0, 1.0),
+        });
+        ecs.model_components.set(&id4, ModelComponent {
+            mesh_name: "cube".to_owned(),
+            texture_name: "bonjour".to_owned(),
+        });
+
 
         ecs
     }
