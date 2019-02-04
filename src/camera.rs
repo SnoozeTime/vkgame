@@ -1,4 +1,4 @@
-
+use cgmath::SquareMatrix;
 use cgmath::{InnerSpace, Matrix4, Vector3, Rad, Angle, Point3};
 use serde_derive::{Serialize, Deserialize};
 use crate::ecs::components::TransformComponent;
@@ -120,7 +120,7 @@ impl CameraState {
         let front_z = Rad(self.yaw).sin() * Rad(self.pitch).cos(); 
 
         self.front = Vector3::new(front_x, front_y, front_z).normalize();
-        self.right = -self.front.cross(self.world_up).normalize();
+        self.right = self.front.cross(self.world_up).normalize();
         self.up = self.right.cross(self.front).normalize();
     }
 
@@ -139,11 +139,9 @@ impl Camera {
 
 
         let front = Vector3::new(0.0, 0.0, -1.0);
+        let world_up = Vector3::new(0.0, 1.0, 0.0);
 
-        // Vulkan y-axis is downward
-        let world_up = Vector3::new(0.0, -1.0, 0.0);
-
-        let right = -front.cross(world_up).normalize();
+        let right = front.cross(world_up).normalize();
         let up = right.cross(front).normalize();
 
         let pitch = 0.0;
@@ -179,7 +177,14 @@ impl Camera {
                                    self.state.transform.position.y,
                                    self.state.transform.position.z);
         let v = Matrix4::look_at(position, position + self.state.front, self.state.up);
-        (v, proj)
+
+        // fix projection for vulkan.
+        // See details here: https://matthewwellings.com/blog/the-new-vulkan-coordinate-system/
+        let mut the_fix = Matrix4::identity();
+        the_fix[1][1] = -1.0;
+        the_fix[2][3] = 0.5;
+        the_fix[2][2] = 0.5;
+        (v, the_fix*proj)
     }
 
     pub fn process_keyboard(&mut self, direction: CameraDirection) {
