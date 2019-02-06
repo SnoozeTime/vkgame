@@ -69,9 +69,7 @@ impl CameraInputHandler {
                     camera.pitch = -89.0;
                 }
 
-                println!("Before update {:?}", camera);
                 camera.update_vectors();
-                println!("After update {:?}", camera);
             }),
         }
 
@@ -94,7 +92,7 @@ pub struct CameraState {
     // -----------------------------
     transform: TransformComponent,
 
-    
+
     #[serde(with = "crate::ser::VectorDef")]
     front: Vector3<f32>,
     #[serde(with = "crate::ser::VectorDef")]
@@ -117,11 +115,9 @@ pub struct CameraState {
 impl CameraState {
 
     fn update_vectors(&mut self) {
-        println!("Pitch {:?}, Yaw {:?}", Rad(self.pitch), Rad(self.yaw));
         let front_z = -Rad(self.yaw).cos() * Rad(self.pitch).cos(); 
         let front_y = Rad(self.pitch).sin(); 
         let front_x = Rad(self.yaw).sin() * Rad(self.pitch).cos(); 
-        println!("Front ({}, {}, {})", front_x, front_y, front_z);
         self.front = Vector3::new(front_x, front_y, front_z).normalize();
         self.right = self.front.cross(self.world_up).normalize();
         self.up = self.right.cross(self.front).normalize();
@@ -170,8 +166,7 @@ impl Default for Camera {
             previous_x,
             previous_y,
         };
-        
-        println!("At creation: {:?}", state);
+
         let input_handler = CameraInputHandler::fps_handler();
         Camera {
             state,
@@ -206,7 +201,7 @@ impl Camera {
             previous_x,
             previous_y,
         };
-        
+
         let input_handler = CameraInputHandler::fps_handler();
         Camera {
             state,
@@ -215,10 +210,11 @@ impl Camera {
     }
 
     pub fn get_vp(&self) -> (Matrix4<f32>, Matrix4<f32>) {
-        let proj = cgmath::perspective(Rad(std::f32::consts::FRAC_PI_2),
-                                       1.0,
-                                       0.01,
-                                       100.0);
+        let proj = cgmath::perspective(Rad(0.6*std::f32::consts::FRAC_PI_2),
+        1.0,
+        0.01,
+        100.0);
+        let field_of_view = std::f32::consts::FRAC_PI_2*0.8;
         let position = Point3::new(self.state.transform.position.x,
                                    self.state.transform.position.y,
                                    self.state.transform.position.z);
