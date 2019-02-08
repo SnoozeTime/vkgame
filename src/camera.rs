@@ -89,6 +89,8 @@ pub struct Camera {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CameraState {
 
+    aspect: f32,
+
     // -----------------------------
     transform: TransformComponent,
 
@@ -155,6 +157,8 @@ impl Default for Camera {
             scale: Vector3::new(1.0, 1.0, 1.0),
         };
 
+        let aspect = 1.0;
+
         let state = CameraState {
             transform,
             front,
@@ -165,6 +169,7 @@ impl Default for Camera {
             pitch,
             previous_x,
             previous_y,
+            aspect,
         };
 
         let input_handler = CameraInputHandler::fps_handler();
@@ -176,8 +181,7 @@ impl Default for Camera {
 }
 
 impl Camera {
-    pub fn new(transform: TransformComponent) -> Self {
-
+    pub fn new(transform: TransformComponent, aspect: f32, input_handler: CameraInputHandler) -> Self {
 
         let front = Vector3::new(0.0, 0.0, -1.0);
         let world_up = Vector3::new(0.0, 1.0, 0.0);
@@ -200,18 +204,22 @@ impl Camera {
             pitch,
             previous_x,
             previous_y,
+            aspect,
         };
 
-        let input_handler = CameraInputHandler::fps_handler();
         Camera {
             state,
             input_handler,
         }
     }
 
+    pub fn set_scale(&mut self, scale: f32) {
+        self.state.scale = scale;
+    }
+
     pub fn get_vp(&self) -> (Matrix4<f32>, Matrix4<f32>) {
         let proj = cgmath::perspective(Rad(0.6*std::f32::consts::FRAC_PI_2),
-        1.0,
+        self.state.aspect,
         0.01,
         100.0);
         let field_of_view = std::f32::consts::FRAC_PI_2*0.8;

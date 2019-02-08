@@ -18,7 +18,7 @@ impl GenerationalIndex {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 struct AllocatorEntry {
     is_live: bool,
     generation: u64,
@@ -26,7 +26,7 @@ struct AllocatorEntry {
 
 /// Will allocate a new generational index.
 /// --------------------------------------
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct GenerationalIndexAllocator {
     entries: Vec<AllocatorEntry>,
     free: Vec<usize>,

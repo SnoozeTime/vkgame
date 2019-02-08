@@ -61,11 +61,10 @@ impl<'a> RenderingSystem<'a> {
 
 
     pub fn render(&mut self, ecs: &ECS) {
-
         // Naive rendering right now. Do not order or anything.
-        let objs: Vec<_> =  ecs.model_components
+        let objs: Vec<_> =  ecs.components.models
             .iter()
-            .zip(ecs.transform_components.iter())
+            .zip(ecs.components.transforms.iter())
             .filter(|(x, y)| x.is_some() && y.is_some())
             .map(|(x, y)| (x.as_ref().unwrap().value(),
             y.as_ref().unwrap().value())).collect();

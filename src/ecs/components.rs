@@ -3,6 +3,11 @@ use cgmath::Vector3;
 
 use crate::ser::VectorDef;
 
+enum ComponentType {
+    Transform,
+    Model,
+}
+
 /// This is a component that is going to be rendered
 /// by the render system.
 #[derive(Debug, Serialize, Deserialize)]
@@ -12,7 +17,6 @@ pub struct ModelComponent {
     pub mesh_name: String,
     pub texture_name: String,
 }
-
 
 /// Position of the game object. No position = no rendering.
 #[derive(Debug, Serialize, Deserialize)]
@@ -26,3 +30,4 @@ pub struct TransformComponent {
     #[serde(with = "VectorDef")]
     pub scale: Vector3<f32>,
 }
+

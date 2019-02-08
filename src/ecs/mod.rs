@@ -16,51 +16,31 @@ type EntityArray<T> = GenerationalIndexArray<T>;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ECS {
 
-    // Allllll my components.
-    transform_components: EntityArray<TransformComponent>,
-    model_components: EntityArray<ModelComponent>,
-
-    #[serde(skip)]
-    #[serde(default = "GenerationalIndexAllocator::new")]
     allocator: GenerationalIndexAllocator,
     // For now, static camera. TODO add it as a component.
     //
     #[serde(skip)]
     pub camera: Camera,
+
+    components: Components,
 }
 
 impl ECS {
 
     pub fn new() -> Self {
         // ----------
-        let model_components = GenerationalIndexArray(Vec::new());
-        let transform_components = GenerationalIndexArray(Vec::new());
-
-        // ----------
         let camera = Camera::default();
 
         ECS {
-            transform_components,
-            model_components,
             camera,
             allocator: GenerationalIndexAllocator::new(),
+            components: Components::new(),
         }
     }
 
     pub fn new_entity(&mut self) -> GenerationalIndex {
         let index = self.allocator.allocate();
-
-        // Check if index equal size of arrays. If yes, extend all of them!.
-        if index.index() == self.transform_components.len() {
-            self.model_components.push(None);
-            self.transform_components.push(None);
-        } else {
-
-            // put None everywhere :D
-            self.model_components.empty(&index);
-            self.transform_components.empty(&index);
-        }
-
+        self.components.new_entity(&index);
         index
     }
 
@@ -70,49 +50,50 @@ impl ECS {
 
         // First entity
         let id1 = ecs.new_entity();
-        ecs.transform_components.set(&id1, TransformComponent {
+        let components = &mut ecs.components;
+        components.transforms.set(&id1, TransformComponent {
             position: Vector3::new(0.0, 0.0, 1.0),
             rotation: Vector3::new(0.0, 0.0, 0.0),
             scale: Vector3::new(1.0, 1.0, 1.0),
         });
-        ecs.model_components.set(&id1, ModelComponent {
+        components.models.set(&id1, ModelComponent {
             mesh_name: "cube".to_owned(),
             texture_name: "bonjour".to_owned(),
         });
 
-        // Second entity
-        let id2 = ecs.new_entity();
-        ecs.transform_components.set(&id2, TransformComponent {
-            position: Vector3::new(1.0, -2.0, 4.0),
-            rotation: Vector3::new(0.0, 0.0, 0.0),
-            scale: Vector3::new(5.0, 2.0, 4.0),
-        });
-        ecs.model_components.set(&id2, ModelComponent {
-            mesh_name: "cube".to_owned(),
-            texture_name: "white".to_owned(),
-        });
-        let id3 = ecs.new_entity();
-        ecs.transform_components.set(&id3, TransformComponent {
-            position: Vector3::new(1.0, 0.0, 1.0),
-            rotation: Vector3::new(0.0, 0.0, 0.0),
-            scale: Vector3::new(1.0, 1.0, 1.0),
-        });
-        ecs.model_components.set(&id3, ModelComponent {
-            mesh_name: "cube".to_owned(),
-            texture_name: "bonjour".to_owned(),
-        });
-let id4 = ecs.new_entity();
-        ecs.transform_components.set(&id4, TransformComponent {
-            position: Vector3::new(1.0, 1.0, 1.0),
-            rotation: Vector3::new(0.0, 0.0, 0.0),
-            scale: Vector3::new(1.0, 1.0, 1.0),
-        });
-        ecs.model_components.set(&id4, ModelComponent {
-            mesh_name: "cube".to_owned(),
-            texture_name: "bonjour".to_owned(),
-        });
-
-
+//        // Second entity
+//        let id2 = ecs.new_entity();
+//        transform_components.set(&id2, TransformComponent {
+//            position: Vector3::new(1.0, -2.0, 4.0),
+//            rotation: Vector3::new(0.0, 0.0, 0.0),
+//            scale: Vector3::new(5.0, 2.0, 4.0),
+//        });
+//        model_components.set(&id2, ModelComponent {
+//            mesh_name: "cube".to_owned(),
+//            texture_name: "white".to_owned(),
+//        });
+//        let id3 = ecs.new_entity();
+//        transform_components.set(&id3, TransformComponent {
+//            position: Vector3::new(1.0, 0.0, 1.0),
+//            rotation: Vector3::new(0.0, 0.0, 0.0),
+//            scale: Vector3::new(1.0, 1.0, 1.0),
+//        });
+//        model_components.set(&id3, ModelComponent {
+//            mesh_name: "cube".to_owned(),
+//            texture_name: "bonjour".to_owned(),
+//        });
+//let id4 = ecs.new_entity();
+//        transform_components.set(&id4, TransformComponent {
+//            position: Vector3::new(1.0, 1.0, 1.0),
+//            rotation: Vector3::new(0.0, 0.0, 0.0),
+//            scale: Vector3::new(1.0, 1.0, 1.0),
+//        });
+//        model_components.set(&id4, ModelComponent {
+//            mesh_name: "cube".to_owned(),
+//            texture_name: "bonjour".to_owned(),
+//        });
+//
+//
         ecs
     }
 
@@ -138,3 +119,89 @@ let id4 = ecs.new_entity();
         Ok(ecs)
     }
 }
+
+/// Macro to set up the component arrays in the ECS. It should be used with
+macro_rules! register_components {
+    { $([$name:ident, $component:ty],)+ } => {
+
+        #[derive(Debug, Serialize, Deserialize)]
+        struct Components {
+            /// Size of the arrays. They all should be the same.
+            current_size: usize,
+
+            /// Arrays can be accessed with the get methods.
+            $(
+                pub $name: EntityArray<$component>,   
+            )+
+        }
+
+        impl Components {
+            pub fn new() -> Self {
+                Components {
+                    current_size: 0,
+                    $(
+                        $name: GenerationalIndexArray(Vec::new()),
+                    )+
+                }
+            }
+
+            /// We assume that this method is called by the ECS, so the index
+            /// should be safe (meaning that either all the arrays contain
+            /// the index, or the index is the next one when pushing elements
+            /// to the arrays)...
+            pub fn new_entity(&mut self, entity: &GenerationalIndex) {
+                if entity.index() == self.current_size {
+                    $(
+                        self.$name.push(None);
+                    )+
+                } else if entity.index() < self.current_size {
+                    $(
+                        self.$name.empty(entity);
+                    )+
+                } else {
+                    panic!("Tried to add an entity with index {}, but components arrays
+                    only have elements up to {} entities", entity.index(), self.current_size);
+                }
+
+            }
+
+            pub fn new_from_template(&mut self,
+                                     entity: &GenerationalIndex,
+                                     template: ComponentTemplate) {
+                self.new_entity(entity);
+
+                $(
+                if template.$name.is_some() {
+                    self.$name.set(entity, template.$name.unwrap());
+                }
+                )+
+                
+            }
+        }
+
+        #[derive(Debug, Serialize, Deserialize)]
+        pub struct ComponentTemplate {
+            $(
+                #[serde(skip_serializing_if = "Option::is_none")]
+                #[serde(default)]
+                pub $name: Option<$component>,
+            )+
+        }
+
+        impl ComponentTemplate {
+            pub fn new() -> Self {
+                ComponentTemplate {
+                    $(
+                    $name: None,
+                    )+
+                }
+            }
+
+        }
+    }
+}
+
+register_components!(
+    [transforms, TransformComponent],
+    [models, ModelComponent],
+    );
