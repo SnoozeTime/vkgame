@@ -18,6 +18,8 @@ impl<'a> RenderingSystem<'a> {
     pub fn new(instance: &'a Arc<Instance>, events_loop: &winit::EventsLoop) -> Self {
         // Get the surface and window. Window is from winit library
         let surface = WindowBuilder::new()
+            .with_dimensions((600, 600).into())
+            .with_resizable(false)
             .build_vk_surface(&events_loop, instance.clone())
             .expect("Cannot create vk_surface");
 
@@ -54,7 +56,7 @@ impl<'a> RenderingSystem<'a> {
 
     fn init_models(render_system: &mut Renderer) {
         println!("Init models!");
-        render_system.load_model("cube".to_string(), Path::new("assets/cube.obj")).expect("Cannot load model");
+        render_system.load_model("cube".to_string(), Path::new("assets/test1.obj")).expect("Cannot load model");
         //render_system.load_model("chalet".to_string(), Path::new("chalet.obj")).expect("Cannot load room");
         println!("Finished reading models");
     }

@@ -213,8 +213,8 @@ impl Camera {
         }
     }
 
-    pub fn set_scale(&mut self, scale: f32) {
-        self.state.scale = scale;
+    pub fn set_aspect(&mut self, aspect: f32) {
+        self.state.aspect = aspect;
     }
 
     pub fn get_vp(&self) -> (Matrix4<f32>, Matrix4<f32>) {

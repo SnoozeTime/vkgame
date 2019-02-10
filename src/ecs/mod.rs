@@ -50,6 +50,9 @@ impl ECS {
 
         // First entity
         let id1 = ecs.new_entity();
+        let id2 = ecs.new_entity();
+        let id3 = ecs.new_entity();
+        let id4 = ecs.new_entity();
         let components = &mut ecs.components;
         components.transforms.set(&id1, TransformComponent {
             position: Vector3::new(0.0, 0.0, 1.0),
@@ -61,39 +64,36 @@ impl ECS {
             texture_name: "bonjour".to_owned(),
         });
 
-//        // Second entity
-//        let id2 = ecs.new_entity();
-//        transform_components.set(&id2, TransformComponent {
+        // Second entity
+//        components.transforms.set(&id2, TransformComponent {
 //            position: Vector3::new(1.0, -2.0, 4.0),
 //            rotation: Vector3::new(0.0, 0.0, 0.0),
 //            scale: Vector3::new(5.0, 2.0, 4.0),
 //        });
-//        model_components.set(&id2, ModelComponent {
+//        components.models.set(&id2, ModelComponent {
 //            mesh_name: "cube".to_owned(),
 //            texture_name: "white".to_owned(),
 //        });
-//        let id3 = ecs.new_entity();
-//        transform_components.set(&id3, TransformComponent {
+//        components.transforms.set(&id3, TransformComponent {
 //            position: Vector3::new(1.0, 0.0, 1.0),
 //            rotation: Vector3::new(0.0, 0.0, 0.0),
 //            scale: Vector3::new(1.0, 1.0, 1.0),
 //        });
-//        model_components.set(&id3, ModelComponent {
+//        components.models.set(&id3, ModelComponent {
 //            mesh_name: "cube".to_owned(),
 //            texture_name: "bonjour".to_owned(),
 //        });
-//let id4 = ecs.new_entity();
-//        transform_components.set(&id4, TransformComponent {
+//        components.transforms.set(&id4, TransformComponent {
 //            position: Vector3::new(1.0, 1.0, 1.0),
 //            rotation: Vector3::new(0.0, 0.0, 0.0),
 //            scale: Vector3::new(1.0, 1.0, 1.0),
 //        });
-//        model_components.set(&id4, ModelComponent {
+//        components.models.set(&id4, ModelComponent {
 //            mesh_name: "cube".to_owned(),
 //            texture_name: "bonjour".to_owned(),
 //        });
 //
-//
+
         ecs
     }
 
@@ -154,6 +154,7 @@ macro_rules! register_components {
                     $(
                         self.$name.push(None);
                     )+
+                    self.current_size += 1;
                 } else if entity.index() < self.current_size {
                     $(
                         self.$name.empty(entity);
@@ -162,6 +163,7 @@ macro_rules! register_components {
                     panic!("Tried to add an entity with index {}, but components arrays
                     only have elements up to {} entities", entity.index(), self.current_size);
                 }
+
 
             }
 
