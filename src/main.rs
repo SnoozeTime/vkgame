@@ -1,5 +1,6 @@
 use vulkano::instance::Instance;
-use winit::{KeyboardInput, VirtualKeyCode, EventsLoop, Event, WindowEvent};
+use winit::{KeyboardInput, VirtualKeyCode, EventsLoop, Event, WindowEvent, DeviceEvent};
+
 use std::time::Instant;
 
 use twgraph::camera::{CameraDirection};
@@ -47,12 +48,22 @@ fn main() {
 
         let mut done = false;
         events_loop.poll_events(|ev| {
-            if let Event::WindowEvent { event, ..} = ev {
+
+            if let Event::DeviceEvent { event, ..} = ev {
+                if let DeviceEvent::MouseMotion { delta: (x, y) } = event {
+
+                    ecs.camera.process_mouse(frame_duration,
+                                             x,
+                                             y);
+
+
+                }
+            } else if let Event::WindowEvent { event, ..} = ev {
                 match event {
                     WindowEvent::CloseRequested => done = true,
                     WindowEvent::Resized(_) => render_system.resize_window(),
                     WindowEvent::CursorMoved { position, ..} => {
-                        ecs.camera.process_mouse(frame_duration, position.x, position.y);
+                        //ecs.camera.process_mouse(frame_duration, position.x, position.y);
                     },
                     WindowEvent::KeyboardInput {
                         input:

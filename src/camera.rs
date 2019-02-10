@@ -102,13 +102,16 @@ impl CameraInputHandler {
                     camera.previous_y = mouse_y;
                     first_mouse = false;
                 }
-                let x_offset = (camera.previous_x - mouse_x) as f32;
-                let y_offset = (camera.previous_y - mouse_y) as f32;
+                let dt = dt_as_secs(dt);
+                let mouse_x = mouse_x as f32;
+                let mouse_y = mouse_y as f32;
+                let x_offset = mouse_x * dt * 2.0;//(camera.previous_x - mouse_x) as f32;
+                let y_offset = mouse_y * dt * 2.0;//(camera.previous_y - mouse_y) as f32;
 
-                camera.previous_x = mouse_x;
-                camera.previous_y = mouse_y;
-                camera.pitch += 0.02 * y_offset;
-                camera.yaw -= 0.02 * x_offset;
+                //camera.previous_x = mouse_x;
+                //camera.previous_y = mouse_y;
+                camera.pitch -= 0.12 * y_offset;
+                camera.yaw += 0.12 * x_offset;
 
                 if camera.pitch > 89.0 {
                     camera.pitch = 89.0;

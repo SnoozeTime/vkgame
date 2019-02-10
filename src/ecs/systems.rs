@@ -28,6 +28,7 @@ impl<'a> RenderingSystem<'a> {
 
         let window = surface.window();
         window.grab_cursor(true).unwrap();
+        window.hide_cursor(true);
 
         // TODO error handling
         let mut renderer = Renderer::new(&instance, surface.clone()).unwrap();
