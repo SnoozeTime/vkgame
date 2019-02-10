@@ -34,7 +34,7 @@ impl CameraInputHandler {
         }
     }
 
-    pub fn fps_handler() -> Self {
+    pub fn free_handler() -> Self {
 
         let mut first_mouse = true;
         CameraInputHandler {
@@ -45,6 +45,51 @@ impl CameraInputHandler {
                     CameraDirection::Backward => camera.transform.position -= 0.05 * camera.front,
                     CameraDirection::Left => camera.transform.position -= 0.05 * camera.right,
                     CameraDirection::Right => camera.transform.position += 0.05 * camera.right,
+                }
+
+
+            }),
+            mouse_handler: Box::new(move |ref mut camera, mouse_x, mouse_y| {
+                if first_mouse {
+                    camera.previous_x = mouse_x;
+                    camera.previous_y = mouse_y;
+                    first_mouse = false;
+                }
+                let x_offset = (camera.previous_x - mouse_x) as f32;
+                let y_offset = (camera.previous_y - mouse_y) as f32;
+
+                camera.previous_x = mouse_x;
+                camera.previous_y = mouse_y;
+                camera.pitch += 0.02 * y_offset;
+                camera.yaw -= 0.02 * x_offset;
+
+                if camera.pitch > 89.0 {
+                    camera.pitch = 89.0;
+                } else if camera.pitch < -89.0 {
+                    camera.pitch = -89.0;
+                }
+
+                camera.update_vectors();
+            }),
+        }
+
+    }
+
+    pub fn fps_handler() -> Self {
+        let up = Vector3::new(0.0, 1.0, 0.0);
+
+        let mut first_mouse = true;
+        CameraInputHandler {
+            keyboard_handler: Box::new(move |ref mut camera, direction| {
+
+                // projection on plane.
+                let proj_front = camera.front - (camera.front.dot(up)) * up;
+                let proj_right = camera.right - (camera.right.dot(up)) * up;
+                match direction {
+                    CameraDirection::Forward => camera.transform.position += 0.05*proj_front,
+                    CameraDirection::Backward => camera.transform.position -= 0.05 * proj_front,
+                    CameraDirection::Left => camera.transform.position -= 0.05 * proj_right,
+                    CameraDirection::Right => camera.transform.position += 0.05 * proj_right,
                 }
 
 
