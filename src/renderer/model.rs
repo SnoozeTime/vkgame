@@ -13,15 +13,20 @@ use crate::error::{TwError, TwResult};
 pub struct Vertex {
     position: [f32; 3],
     texcoords: [f32; 2],
+    normals: [f32; 3],
 }
 
 impl Vertex {
-    fn new(x: f32, y: f32, z: f32, tx: f32, ty: f32) -> Self {
+    fn new(x: f32, y: f32, z: f32,
+           tx: f32, ty: f32,
+           nx: f32, ny: f32, nz: f32) -> Self {
         let position = [x, y, z];
         let texcoords = [tx, ty];
+        let normals = [nx, ny, nz];
         Vertex {
             position,
             texcoords,
+            normals,
         }
     }
 }
@@ -57,7 +62,12 @@ impl Model {
         if mesh.texcoords.len() % 2 != 0 {
             return Err(TwError::ModelLoading("Mesh texture vector length is not a multiple of 2.".to_owned()));
         }
-        if (mesh.positions.len() / 3) != (mesh.texcoords.len() /2) {
+
+        if mesh.normals.len() % 3 != 0 {
+            return Err(TwError::ModelLoading("Normals vector length is not a multiple of 3.".to_owned()));
+        }
+
+        if (mesh.positions.len() / 3) != (mesh.texcoords.len() /2) || (mesh.positions.len() != mesh.normals.len()){
             return Err(TwError::ModelLoading(
                     format!("Number of positions ({}) does not correspond to number of texture coords ({})",
                     mesh.positions.len() / 3,
@@ -70,7 +80,10 @@ impl Model {
                                       mesh.positions[3 * v + 1],
                                       mesh.positions[3 * v + 2],
                                       mesh.texcoords[2 * v],
-                                      1.0 - mesh.texcoords[2 * v + 1]));
+                                      1.0 - mesh.texcoords[2 * v + 1],
+                                      mesh.normals[3 * v],
+                                      mesh.normals[3 * v + 1],
+                                      mesh.normals[3 * v + 2]));
         }
 
         Self::load_from_vec(device, vertices, indices) 
