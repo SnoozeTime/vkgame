@@ -59,6 +59,7 @@ pub struct Renderer<'a> {
     framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
 
     pub uniform_buffer: CpuBufferPool<vs::ty::Data>,
+    pub light_buffer: CpuBufferPool<fs::ty::Data>,
 
     pub recreate_swapchain: bool,
     pub previous_frame_end: Option<Box<GpuFuture>>,
@@ -197,6 +198,7 @@ impl<'a> Renderer<'a> {
         let previous_frame_end = Some(Box::new(sync::now(device.clone())) as Box<GpuFuture>);
 
         let uniform_buffer = CpuBufferPool::<vs::ty::Data>::new(device.clone(), BufferUsage::all());
+        let light_buffer = CpuBufferPool::<fs::ty::Data>::new(device.clone(), BufferUsage::all());
         Ok(Renderer {
             surface,
             _physical: physical,
@@ -209,6 +211,7 @@ impl<'a> Renderer<'a> {
             pipeline: PipelineState { pipeline, vs, fs},
             framebuffers,
             uniform_buffer,
+            light_buffer,
             recreate_swapchain,
             previous_frame_end,
             texture_manager: TextureManager::new(),
@@ -305,7 +308,17 @@ impl<'a> Renderer<'a> {
         let mut command_buffer_builder = AutoCommandBufferBuilder::primary_one_time_submit(self.device.clone(), self.queue.family()).unwrap()
             .begin_render_pass(self.framebuffers[image_num].clone(), false, clear_values)
             .unwrap();
+        
+        let light_buffer = {
+            let data = fs::ty::Data {
+                color: [0.5, 0.5, 0.5],
+                position: [5.0, 0.5, 1.0],
+                _dummy0: [0;4], // wtf is that?
+            };
+            self.light_buffer.next(data).unwrap()
+        };
 
+        // Uniform for the light.
         for (model, transform) in objects.iter() {
             let texture = self.texture_manager.textures.get(
                 &model.texture_name
@@ -317,6 +330,7 @@ impl<'a> Renderer<'a> {
             let tex_set = Arc::new(
                 PersistentDescriptorSet::start(self.pipeline.pipeline.clone(), 1)
                 .add_sampled_image(texture.texture.clone(), texture.sampler.clone()).unwrap()
+                .add_buffer(light_buffer.clone()).unwrap()
                 .build().unwrap()
             );
 
@@ -424,25 +438,26 @@ pub mod vs {
 
     vulkano_shaders::shader!{
         ty: "vertex",
-        path: "shaders/cube.vert"
+        path: "shaders/main.vert"
     }
 }
 
 mod fs {
     vulkano_shaders::shader!{
         ty: "fragment",
-        src: "
-#version 450
-
-layout(location = 0) out vec4 f_color;
-layout(location = 0) in vec4 frag_color;
-layout(location = 1) in vec2 frag_text_coords;
-layout(set = 1, binding = 0) uniform sampler2D texSampler;
-
-void main() {
-    f_color = texture(texSampler, frag_text_coords);
-}
-"
+        path: "shaders/main.frag"
+//        src: "
+//#version 450
+//
+//layout(location = 0) out vec4 f_color;
+//layout(location = 0) in vec4 frag_color;
+//layout(location = 1) in vec2 frag_text_coords;
+//layout(set = 1, binding = 0) uniform sampler2D texSampler;
+//
+//void main() {
+//    f_color = texture(texSampler, frag_text_coords);
+//}
+//"
 }
 }
 

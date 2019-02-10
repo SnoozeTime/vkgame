@@ -30,7 +30,7 @@ impl Vertex {
         }
     }
 }
-vulkano::impl_vertex!(Vertex, position, texcoords);
+vulkano::impl_vertex!(Vertex, position, texcoords, normals);
 
 /*
  * Model that are loaded in GPU memory
