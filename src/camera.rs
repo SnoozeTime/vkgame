@@ -4,10 +4,11 @@ use cgmath::{InnerSpace, Matrix4, Vector3, Rad, Angle, Point3};
 use serde_derive::{Serialize, Deserialize};
 use crate::ecs::components::TransformComponent;
 use std::fmt;
+use std::time::Duration;
 
 pub struct CameraInputHandler {
-    keyboard_handler: Box<FnMut(&mut CameraState, CameraDirection) -> ()>,
-    mouse_handler: Box<FnMut(&mut CameraState, f64, f64) -> ()>,
+    keyboard_handler: Box<FnMut(&mut CameraState, Duration, CameraDirection) -> ()>,
+    mouse_handler: Box<FnMut(&mut CameraState, Duration, f64, f64) -> ()>,
 }
 
 impl fmt::Debug for CameraInputHandler {
@@ -16,11 +17,16 @@ impl fmt::Debug for CameraInputHandler {
     }
 }
 
+// Should be alright with the conversion. A frame duration will not exceed f32...
+fn dt_as_secs(dt: Duration) -> f32 {
+    dt.subsec_millis() as f32/1000.0 + (dt.as_secs() as f32)
+}
+
 impl CameraInputHandler {
     pub fn new<FK: 'static, FM: 'static>(keyboard_handler: FK,
                                          mouse_handler: FM) -> Self 
-        where FK: FnMut(&mut CameraState, CameraDirection) -> (),
-              FM: FnMut(&mut CameraState, f64, f64) -> () {
+        where FK: FnMut(&mut CameraState, Duration, CameraDirection) -> (),
+              FM: FnMut(&mut CameraState, Duration, f64, f64) -> () {
                   CameraInputHandler {
                       keyboard_handler: Box::new(keyboard_handler),
                       mouse_handler: Box::new(mouse_handler),
@@ -29,8 +35,8 @@ impl CameraInputHandler {
 
     pub fn noop_handler() -> Self {
         CameraInputHandler {
-            keyboard_handler: Box::new(|ref mut _camera, _direction| {}),
-            mouse_handler: Box::new(|ref mut _camera, _mouse_x, _mouse_y| {}),
+            keyboard_handler: Box::new(|ref mut _camera, _dt, _direction| {}),
+            mouse_handler: Box::new(|ref mut _camera, _dt, _mouse_x, _mouse_y| {}),
         }
     }
 
@@ -38,18 +44,18 @@ impl CameraInputHandler {
 
         let mut first_mouse = true;
         CameraInputHandler {
-            keyboard_handler: Box::new(move |ref mut camera, direction| {
+            keyboard_handler: Box::new(move |ref mut camera, dt, direction| {
 
                 match direction {
-                    CameraDirection::Forward => camera.transform.position += 0.05*camera.front,
-                    CameraDirection::Backward => camera.transform.position -= 0.05 * camera.front,
-                    CameraDirection::Left => camera.transform.position -= 0.05 * camera.right,
-                    CameraDirection::Right => camera.transform.position += 0.05 * camera.right,
+                    CameraDirection::Forward => camera.transform.position += camera.speed * dt_as_secs(dt) * camera.front,
+                    CameraDirection::Backward => camera.transform.position -= camera.speed * dt_as_secs(dt) * camera.front,
+                    CameraDirection::Left => camera.transform.position -= camera.speed * dt_as_secs(dt) * camera.right,
+                    CameraDirection::Right => camera.transform.position += camera.speed * dt_as_secs(dt)  * camera.right,
                 }
 
 
             }),
-            mouse_handler: Box::new(move |ref mut camera, mouse_x, mouse_y| {
+            mouse_handler: Box::new(move |ref mut camera, dt, mouse_x, mouse_y| {
                 if first_mouse {
                     camera.previous_x = mouse_x;
                     camera.previous_y = mouse_y;
@@ -80,21 +86,21 @@ impl CameraInputHandler {
 
         let mut first_mouse = true;
         CameraInputHandler {
-            keyboard_handler: Box::new(move |ref mut camera, direction| {
+            keyboard_handler: Box::new(move |ref mut camera, dt, direction| {
 
                 // projection on plane.
                 let proj_front = camera.front - (camera.front.dot(up)) * up;
                 let proj_right = camera.right - (camera.right.dot(up)) * up;
                 match direction {
-                    CameraDirection::Forward => camera.transform.position += 0.05*proj_front,
-                    CameraDirection::Backward => camera.transform.position -= 0.05 * proj_front,
-                    CameraDirection::Left => camera.transform.position -= 0.05 * proj_right,
-                    CameraDirection::Right => camera.transform.position += 0.05 * proj_right,
+                    CameraDirection::Forward => camera.transform.position += camera.speed * dt_as_secs(dt) *proj_front,
+                    CameraDirection::Backward => camera.transform.position -= camera.speed * dt_as_secs(dt) * proj_front,
+                    CameraDirection::Left => camera.transform.position -= camera.speed * dt_as_secs(dt) * proj_right,
+                    CameraDirection::Right => camera.transform.position += camera.speed * dt_as_secs(dt) * proj_right,
                 }
 
 
             }),
-            mouse_handler: Box::new(move |ref mut camera, mouse_x, mouse_y| {
+            mouse_handler: Box::new(move |ref mut camera, dt, mouse_x, mouse_y| {
                 if first_mouse {
                     camera.previous_x = mouse_x;
                     camera.previous_y = mouse_y;
@@ -157,6 +163,8 @@ pub struct CameraState {
     // ----------------------------
     previous_x: f64,
     previous_y: f64,
+
+    speed: f32,
 }
 
 impl CameraState {
@@ -197,12 +205,13 @@ impl Default for Camera {
         let previous_y = 0.0;
 
         let transform = TransformComponent {
-            position: Vector3::new(0.0, 0.0, 1.0),
+            position: Vector3::new(0.0, 1.0, 0.0),
             rotation: Vector3::new(0.0, 0.0, 0.0),
             scale: Vector3::new(1.0, 1.0, 1.0),
         };
 
         let aspect = 1.0;
+        let speed = 10.0; // unit/secs
 
         let state = CameraState {
             transform,
@@ -215,6 +224,7 @@ impl Default for Camera {
             previous_x,
             previous_y,
             aspect,
+            speed,
         };
 
         let input_handler = CameraInputHandler::fps_handler();
@@ -238,6 +248,7 @@ impl Camera {
         let yaw = 0.0;
         let previous_x = 0.0;
         let previous_y = 0.0;
+        let speed = 10.0;
 
         let state = CameraState {
             transform,
@@ -250,6 +261,7 @@ impl Camera {
             previous_x,
             previous_y,
             aspect,
+            speed,
         };
 
         Camera {
@@ -282,13 +294,13 @@ impl Camera {
         (v, the_fix*proj)
     }
 
-    pub fn process_keyboard(&mut self, direction: CameraDirection) {
+    pub fn process_keyboard(&mut self, dt: Duration, direction: CameraDirection) {
         let handler = &mut self.input_handler.keyboard_handler;
-        handler(&mut self.state, direction);
+        handler(&mut self.state, dt, direction);
     }
 
-    pub fn process_mouse(&mut self, mouse_x: f64, mouse_y: f64) {
+    pub fn process_mouse(&mut self, dt: Duration, mouse_x: f64, mouse_y: f64) {
         let handler = &mut self.input_handler.mouse_handler;
-        handler(&mut self.state, mouse_x, mouse_y);
+        handler(&mut self.state, dt, mouse_x, mouse_y);
     }
 }

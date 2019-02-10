@@ -49,6 +49,7 @@ impl<'a> RenderingSystem<'a> {
         render_system.load_texture("red".to_string(), Path::new("assets/red.png"), 93, 93).unwrap();
         render_system.load_texture("blue".to_string(), Path::new("assets/blue.png"), 93, 93).unwrap();
         render_system.load_texture("green".to_string(), Path::new("assets/green.png"), 93, 93).unwrap();
+        render_system.load_texture("floor".to_string(), Path::new("assets/textures/Concrete_Panels_001_COLOR.jpg"), 1024, 1024).unwrap();
     //render_system.load_texture("chalet".to_string(),
         //Path::new("chalet.jpg"),
        // 4096, 4096).unwrap();
@@ -57,6 +58,7 @@ impl<'a> RenderingSystem<'a> {
     fn init_models(render_system: &mut Renderer) {
         println!("Init models!");
         render_system.load_model("cube".to_string(), Path::new("assets/test1.obj")).expect("Cannot load model");
+        render_system.load_model("floor".to_string(), Path::new("assets/floor.obj")).expect("Cannot load model");
         //render_system.load_model("chalet".to_string(), Path::new("chalet.obj")).expect("Cannot load room");
         println!("Finished reading models");
     }

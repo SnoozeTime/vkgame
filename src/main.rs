@@ -1,5 +1,6 @@
 use vulkano::instance::Instance;
 use winit::{KeyboardInput, VirtualKeyCode, EventsLoop, Event, WindowEvent};
+use std::time::Instant;
 
 use twgraph::camera::{CameraDirection};
 use twgraph::ecs::{
@@ -32,7 +33,14 @@ fn main() {
     let mut ecs = get_ecs();
     let mut render_system = RenderingSystem::new(&instance, &events_loop);
     
+    let mut old_instant = Instant::now();
     loop {
+
+        // calculate frame time.
+        let now = Instant::now();
+        let frame_duration = now - old_instant;
+        old_instant = now;
+
         render_system.render(&ecs);
 
         let mut done = false;
@@ -42,7 +50,7 @@ fn main() {
                     WindowEvent::CloseRequested => done = true,
                     WindowEvent::Resized(_) => render_system.resize_window(),
                     WindowEvent::CursorMoved { position, ..} => {
-                        ecs.camera.process_mouse(position.x, position.y);
+                        ecs.camera.process_mouse(frame_duration, position.x, position.y);
                     },
                     WindowEvent::KeyboardInput {
                         input:
@@ -54,10 +62,14 @@ fn main() {
                     } => {
                         match keycode {
                             VirtualKeyCode::Escape => done = true,
-                            VirtualKeyCode::W => ecs.camera.process_keyboard(CameraDirection::Forward),
-                            VirtualKeyCode::S => ecs.camera.process_keyboard(CameraDirection::Backward),
-                            VirtualKeyCode::A => ecs.camera.process_keyboard(CameraDirection::Left),
-                            VirtualKeyCode::D => ecs.camera.process_keyboard(CameraDirection::Right),
+                            VirtualKeyCode::W => ecs.camera.process_keyboard(frame_duration,
+                                                                             CameraDirection::Forward),
+                            VirtualKeyCode::S => ecs.camera.process_keyboard(frame_duration,
+                                                                             CameraDirection::Backward),
+                            VirtualKeyCode::A => ecs.camera.process_keyboard(frame_duration,
+                                                                             CameraDirection::Left),
+                            VirtualKeyCode::D => ecs.camera.process_keyboard(frame_duration,
+                                                                             CameraDirection::Right),
                             VirtualKeyCode::Space => {
                                 match ecs.save("scene.json".to_owned()) {
                                     Ok(_) => println!("Successfully saved scene.json"),

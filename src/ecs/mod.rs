@@ -65,15 +65,15 @@ impl ECS {
         });
 
         // Second entity
-//        components.transforms.set(&id2, TransformComponent {
-//            position: Vector3::new(1.0, -2.0, 4.0),
-//            rotation: Vector3::new(0.0, 0.0, 0.0),
-//            scale: Vector3::new(5.0, 2.0, 4.0),
-//        });
-//        components.models.set(&id2, ModelComponent {
-//            mesh_name: "cube".to_owned(),
-//            texture_name: "white".to_owned(),
-//        });
+        components.transforms.set(&id2, TransformComponent {
+            position: Vector3::new(0.0, 0.0, 0.0),
+            rotation: Vector3::new(0.0, 0.0, 0.0),
+            scale: Vector3::new(1.0, 1.0, 1.0),
+        });
+        components.models.set(&id2, ModelComponent {
+            mesh_name: "floor".to_owned(),
+            texture_name: "floor".to_owned(),
+        });
 //        components.transforms.set(&id3, TransformComponent {
 //            position: Vector3::new(1.0, 0.0, 1.0),
 //            rotation: Vector3::new(0.0, 0.0, 0.0),
