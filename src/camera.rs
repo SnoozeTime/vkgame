@@ -38,7 +38,6 @@ impl CameraInputHandler {
 
     pub fn free_handler() -> Self {
 
-        let mut first_mouse = true;
         CameraInputHandler {
             keyboard_handler: Box::new(move |ref mut camera, dt, direction| {
 
@@ -52,18 +51,14 @@ impl CameraInputHandler {
 
             }),
             mouse_handler: Box::new(move |ref mut camera, dt, mouse_x, mouse_y| {
-                if first_mouse {
-                    camera.previous_x = mouse_x;
-                    camera.previous_y = mouse_y;
-                    first_mouse = false;
-                }
-                let x_offset = (camera.previous_x - mouse_x) as f32;
-                let y_offset = (camera.previous_y - mouse_y) as f32;
+                let dt = dt_as_secs(dt);
+                let mouse_x = mouse_x as f32;
+                let mouse_y = mouse_y as f32;
+                let x_offset = mouse_x * dt;
+                let y_offset = mouse_y * dt;
 
-                camera.previous_x = mouse_x;
-                camera.previous_y = mouse_y;
-                camera.pitch += 0.02 * y_offset;
-                camera.yaw -= 0.02 * x_offset;
+                camera.pitch -= 0.24 * y_offset;
+                camera.yaw += 0.24 * x_offset;
 
                 if camera.pitch > 89.0 {
                     camera.pitch = 89.0;
@@ -80,7 +75,6 @@ impl CameraInputHandler {
     pub fn fps_handler() -> Self {
         let up = Vector3::new(0.0, 1.0, 0.0);
 
-        let mut first_mouse = true;
         CameraInputHandler {
             keyboard_handler: Box::new(move |ref mut camera, dt, direction| {
 
@@ -97,21 +91,14 @@ impl CameraInputHandler {
 
             }),
             mouse_handler: Box::new(move |ref mut camera, dt, mouse_x, mouse_y| {
-                if first_mouse {
-                    camera.previous_x = mouse_x;
-                    camera.previous_y = mouse_y;
-                    first_mouse = false;
-                }
                 let dt = dt_as_secs(dt);
                 let mouse_x = mouse_x as f32;
                 let mouse_y = mouse_y as f32;
-                let x_offset = mouse_x * dt * 2.0;//(camera.previous_x - mouse_x) as f32;
-                let y_offset = mouse_y * dt * 2.0;//(camera.previous_y - mouse_y) as f32;
+                let x_offset = mouse_x * dt;
+                let y_offset = mouse_y * dt;
 
-                //camera.previous_x = mouse_x;
-                //camera.previous_y = mouse_y;
-                camera.pitch -= 0.12 * y_offset;
-                camera.yaw += 0.12 * x_offset;
+                camera.pitch -= 0.50 * y_offset;
+                camera.yaw += 0.50 * x_offset;
 
                 if camera.pitch > 89.0 {
                     camera.pitch = 89.0;
@@ -159,10 +146,6 @@ pub struct CameraState {
     pitch: f32,
     yaw: f32,
 
-    // ----------------------------
-    previous_x: f64,
-    previous_y: f64,
-
     speed: f32,
 }
 
@@ -200,8 +183,6 @@ impl Default for Camera {
 
         let pitch = 0.0;
         let yaw = 0.0;
-        let previous_x = 0.0;
-        let previous_y = 0.0;
 
         let transform = TransformComponent {
             position: Vector3::new(0.0, 1.0, 0.0),
@@ -220,8 +201,6 @@ impl Default for Camera {
             world_up,
             yaw,
             pitch,
-            previous_x,
-            previous_y,
             aspect,
             speed,
         };
@@ -245,8 +224,6 @@ impl Camera {
 
         let pitch = 0.0;
         let yaw = 0.0;
-        let previous_x = 0.0;
-        let previous_y = 0.0;
         let speed = 10.0;
 
         let state = CameraState {
@@ -257,8 +234,6 @@ impl Camera {
             world_up,
             yaw,
             pitch,
-            previous_x,
-            previous_y,
             aspect,
             speed,
         };

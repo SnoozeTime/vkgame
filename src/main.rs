@@ -1,5 +1,6 @@
 use vulkano::instance::Instance;
-use winit::{KeyboardInput, VirtualKeyCode, EventsLoop, Event, WindowEvent, DeviceEvent};
+use winit::EventsLoop;
+use twgraph::input::{KeyType, Input, Axis};
 
 use std::time::Instant;
 
@@ -29,14 +30,15 @@ fn main() {
     };
 
     // Get the surface and window. Window is from winit library
-    let mut events_loop = EventsLoop::new();
+    let events_loop = EventsLoop::new();
 
     let mut ecs = get_ecs();
     let mut render_system = RenderingSystem::new(&instance, &events_loop);
     let mut dummy_system = DummySystem{};
-    
+    let mut input = Input::new(events_loop);
+
     let mut old_instant = Instant::now();
-    loop {
+    'game_loop: loop {
 
         // calculate frame time.
         let now = Instant::now();
@@ -46,58 +48,43 @@ fn main() {
         render_system.render(&ecs);
         dummy_system.do_dumb_thing(frame_duration, &mut ecs);
 
-        let mut done = false;
-        events_loop.poll_events(|ev| {
 
-            if let Event::DeviceEvent { event, ..} = ev {
-                if let DeviceEvent::MouseMotion { delta: (x, y) } = event {
+        input.update();
 
-                    ecs.camera.process_mouse(frame_duration,
-                                             x,
-                                             y);
+        // HANDLE CAMERA.
+        if input.get_key(KeyType::Up) {
+            ecs.camera.process_keyboard(frame_duration,
+                                        CameraDirection::Forward);
+        }
 
+        if input.get_key(KeyType::Down) {
+            ecs.camera.process_keyboard(frame_duration,
+                                        CameraDirection::Backward);
+        }
 
-                }
-            } else if let Event::WindowEvent { event, ..} = ev {
-                match event {
-                    WindowEvent::CloseRequested => done = true,
-                    WindowEvent::Resized(_) => render_system.resize_window(),
-                    WindowEvent::CursorMoved { position, ..} => {
-                        //ecs.camera.process_mouse(frame_duration, position.x, position.y);
-                    },
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                virtual_keycode: Some(keycode),
-                                ..
-                            },
-                            ..
-                    } => {
-                        match keycode {
-                            VirtualKeyCode::Escape => done = true,
-                            VirtualKeyCode::W => ecs.camera.process_keyboard(frame_duration,
-                                                                             CameraDirection::Forward),
-                            VirtualKeyCode::S => ecs.camera.process_keyboard(frame_duration,
-                                                                             CameraDirection::Backward),
-                            VirtualKeyCode::A => ecs.camera.process_keyboard(frame_duration,
-                                                                             CameraDirection::Left),
-                            VirtualKeyCode::D => ecs.camera.process_keyboard(frame_duration,
-                                                                             CameraDirection::Right),
-                            VirtualKeyCode::Space => {
-                                match ecs.save("scene.json".to_owned()) {
-                                    Ok(_) => println!("Successfully saved scene.json"),
-                                    Err(err) => println!("{}", err),
-                                }
-                            },
-                            _ => (),
-                        }
-                    },
-                            _ => (),
-                }
-            }});
+        if input.get_key(KeyType::Left) {
+            ecs.camera.process_keyboard(frame_duration,
+                                        CameraDirection::Left);
+        }
+
+        if input.get_key(KeyType::Right) {
+            ecs.camera.process_keyboard(frame_duration,
+                                        CameraDirection::Right);
+        }
+
+        let (h_axis, v_axis) = (input.get_axis(Axis::Horizontal),
+        input.get_axis(Axis::Vertical));
+        if h_axis != 0.0 || v_axis != 0.0 {
+            ecs.camera.process_mouse(frame_duration,
+                                     h_axis,
+                                     v_axis);
+        }
 
 
-        if done { return; }
+        // To quit
+        if input.close_request || input.get_key_down(KeyType::Escape) {
+            break 'game_loop;
+        }
     }
 
 }

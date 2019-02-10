@@ -51,8 +51,6 @@ impl ECS {
         // First entity
         let id1 = ecs.new_entity();
         let id2 = ecs.new_entity();
-        let id3 = ecs.new_entity();
-        let id4 = ecs.new_entity();
         let components = &mut ecs.components;
         components.transforms.set(&id1, TransformComponent {
             position: Vector3::new(0.0, 0.0, 1.0),
