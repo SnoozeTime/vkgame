@@ -5,7 +5,7 @@ use std::time::Instant;
 use twgraph::camera::{CameraDirection};
 use twgraph::ecs::{
     ECS,
-    systems::RenderingSystem,
+    systems::{DummySystem, RenderingSystem},
 };
 use std::env;
 
@@ -32,6 +32,7 @@ fn main() {
 
     let mut ecs = get_ecs();
     let mut render_system = RenderingSystem::new(&instance, &events_loop);
+    let mut dummy_system = DummySystem{};
     
     let mut old_instant = Instant::now();
     loop {
@@ -42,6 +43,7 @@ fn main() {
         old_instant = now;
 
         render_system.render(&ecs);
+        dummy_system.do_dumb_thing(frame_duration, &mut ecs);
 
         let mut done = false;
         events_loop.poll_events(|ev| {

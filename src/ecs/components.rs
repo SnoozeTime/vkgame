@@ -31,3 +31,7 @@ pub struct TransformComponent {
     pub scale: Vector3<f32>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DummyComponent {
+    pub speed: f32,
+}

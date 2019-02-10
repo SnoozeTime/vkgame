@@ -46,44 +46,45 @@ impl Model {
     // Uses the tinyobj library to load mesh from obj file.
     pub fn load_from_obj(device: Arc<Device>, filepath: &Path) -> TwResult<Model> {
 
-        // TODO just support one mesh
         let box_obj = tobj::load_obj(filepath);
         let (mut models, _materials) = box_obj.unwrap();
-        let mut model = models.pop().unwrap();
 
-        let mesh = &mut model.mesh;
         let mut indices = Vec::new();
-        indices.append(&mut mesh.indices);
-
-        // Verify everything is consistent
-        if mesh.positions.len() % 3 != 0 {
-            return Err(TwError::ModelLoading("Mesh position vector length is not a multiple of 3.".to_owned()));
-        }
-        if mesh.texcoords.len() % 2 != 0 {
-            return Err(TwError::ModelLoading("Mesh texture vector length is not a multiple of 2.".to_owned()));
-        }
-
-        if mesh.normals.len() % 3 != 0 {
-            return Err(TwError::ModelLoading("Normals vector length is not a multiple of 3.".to_owned()));
-        }
-
-        if (mesh.positions.len() / 3) != (mesh.texcoords.len() /2) || (mesh.positions.len() != mesh.normals.len()){
-            return Err(TwError::ModelLoading(
-                    format!("Number of positions ({}) does not correspond to number of texture coords ({})",
-                    mesh.positions.len() / 3,
-                    mesh.texcoords.len() / 2)));
-        }
-
         let mut vertices = Vec::new();
-        for v in 0..mesh.positions.len() / 3 {
-            vertices.push(Vertex::new(mesh.positions[3 * v],
-                                      mesh.positions[3 * v + 1],
-                                      mesh.positions[3 * v + 2],
-                                      mesh.texcoords[2 * v],
-                                      1.0 - mesh.texcoords[2 * v + 1],
-                                      mesh.normals[3 * v],
-                                      mesh.normals[3 * v + 1],
-                                      mesh.normals[3 * v + 2]));
+        
+        for model in &mut models {
+            let mesh = &mut model.mesh;
+            indices.append(&mut mesh.indices);
+
+            // Verify everything is consistent
+            if mesh.positions.len() % 3 != 0 {
+                return Err(TwError::ModelLoading("Mesh position vector length is not a multiple of 3.".to_owned()));
+            }
+            if mesh.texcoords.len() % 2 != 0 {
+                return Err(TwError::ModelLoading("Mesh texture vector length is not a multiple of 2.".to_owned()));
+            }
+
+            if mesh.normals.len() % 3 != 0 {
+                return Err(TwError::ModelLoading("Normals vector length is not a multiple of 3.".to_owned()));
+            }
+
+            if (mesh.positions.len() / 3) != (mesh.texcoords.len() /2) || (mesh.positions.len() != mesh.normals.len()){
+                return Err(TwError::ModelLoading(
+                        format!("Number of positions ({}) does not correspond to number of texture coords ({})",
+                        mesh.positions.len() / 3,
+                        mesh.texcoords.len() / 2)));
+            }
+
+            for v in 0..mesh.positions.len() / 3 {
+                vertices.push(Vertex::new(mesh.positions[3 * v],
+                                          mesh.positions[3 * v + 1],
+                                          mesh.positions[3 * v + 2],
+                                          mesh.texcoords[2 * v],
+                                          1.0 - mesh.texcoords[2 * v + 1],
+                                          mesh.normals[3 * v],
+                                          mesh.normals[3 * v + 1],
+                                          mesh.normals[3 * v + 2]));
+            }
         }
 
         Self::load_from_vec(device, vertices, indices) 
@@ -131,9 +132,9 @@ impl ModelManager {
         let model = Model::load_from_obj(device, filename)?;
 
         self.models.insert(model_name, model);
-        
+
         Ok(())
     }
-                      
+
 }
 

@@ -5,6 +5,7 @@ use serde_derive::{Serialize, Deserialize};
 use crate::ecs::components::TransformComponent;
 use std::fmt;
 use std::time::Duration;
+use crate::time::dt_as_secs;
 
 pub struct CameraInputHandler {
     keyboard_handler: Box<FnMut(&mut CameraState, Duration, CameraDirection) -> ()>,
@@ -15,11 +16,6 @@ impl fmt::Debug for CameraInputHandler {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "CameraInputHandler")
     }
-}
-
-// Should be alright with the conversion. A frame duration will not exceed f32...
-fn dt_as_secs(dt: Duration) -> f32 {
-    dt.subsec_millis() as f32/1000.0 + (dt.as_secs() as f32)
 }
 
 impl CameraInputHandler {

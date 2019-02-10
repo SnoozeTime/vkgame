@@ -101,7 +101,7 @@ impl GenerationalIndexAllocator {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ArrayEntry<T> {
-    value: T,
+    pub value: T,
     generation: u64,
 }
 
@@ -110,11 +110,19 @@ impl<T> ArrayEntry<T> {
     pub fn value(&self) -> &T {
         &self.value
     }
+
+    pub fn value_mut(&mut self) -> &mut T {
+        &mut self.value
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GenerationalIndexArray<T>(pub Vec<Option<ArrayEntry<T>>>);
 impl<T> GenerationalIndexArray<T> {
+
+    pub fn new() -> Self {
+        GenerationalIndexArray(Vec::new())
+    }
 
     pub fn set(&mut self, index: &GenerationalIndex, value: T) {
         self.0[index.index()] = Some(ArrayEntry {

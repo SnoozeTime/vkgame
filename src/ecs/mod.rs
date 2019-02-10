@@ -6,7 +6,7 @@ use std::io::{Write, Read};
 pub mod gen_index;
 pub mod components;
 pub mod systems;
-use self::components::{TransformComponent, ModelComponent};
+use self::components::{TransformComponent, ModelComponent, DummyComponent};
 use self::gen_index::{GenerationalIndexAllocator, GenerationalIndexArray, GenerationalIndex};
 use crate::camera::Camera;
 use crate::error::TwResult;
@@ -62,6 +62,9 @@ impl ECS {
         components.models.set(&id1, ModelComponent {
             mesh_name: "cube".to_owned(),
             texture_name: "bonjour".to_owned(),
+        });
+        components.dummies.set(&id1, DummyComponent {
+            speed: 2.0,
         });
 
         // Second entity
@@ -131,6 +134,7 @@ macro_rules! register_components {
 
             /// Arrays can be accessed with the get methods.
             $(
+                #[serde(default="GenerationalIndexArray::new")]
                 pub $name: EntityArray<$component>,   
             )+
         }
@@ -206,4 +210,5 @@ macro_rules! register_components {
 register_components!(
     [transforms, TransformComponent],
     [models, ModelComponent],
+    [dummies, DummyComponent],
     );

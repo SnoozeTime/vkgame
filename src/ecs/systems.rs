@@ -5,7 +5,10 @@ use vulkano_win;
 
 use std::sync::Arc;
 use std::path::Path;
+use std::time::Duration;
+
 use crate::renderer::Renderer;
+use crate::time::dt_as_secs;
 
 use super::ECS;
 
@@ -75,5 +78,34 @@ impl<'a> RenderingSystem<'a> {
 
         self.renderer.render(&ecs.camera, objs);
     }
+}
+
+// just an example to make some object move
+pub struct DummySystem {
+}
+
+impl DummySystem {
+
+    pub fn do_dumb_thing(&mut self, dt: Duration, ecs: &mut ECS) {
+        let dt = dt_as_secs(dt);
+
+        for (i, transform) in ecs.components.transforms.iter_mut()
+            .enumerate()
+            .filter(|(_, x)| x.is_some()) {
+
+            match (*ecs.components.dummies).get_mut(i) {
+                Some(dummy) => {
+                    if let(Some(dummy)) = dummy {
+                        let transform = transform.as_mut().unwrap();
+                        transform.value_mut().scale.x += dt * dummy.value().speed;
+                    }
+                },
+                None => {},
+            }
+            
+        }
+                
+    }
+
 }
 
