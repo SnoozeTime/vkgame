@@ -1,0 +1,169 @@
+{
+    "allocator": {
+        "entries": [
+            {
+                "is_live": true,
+                "generation": 0
+            },
+            {
+                "is_live": true,
+                "generation": 0
+            },
+            {
+                "is_live": true,
+                "generation": 0
+            },
+            {
+                "is_live": true,
+                "generation": 0
+            },
+            {
+                "is_live": true,
+                "generation": 0
+            }
+        ],
+        "free": []
+    },
+    "components": {
+        "current_size": 4,
+        "transforms": [
+            {
+                "value": {
+                    "position": {
+                        "x": 0.0,
+                        "y": 1.0,
+                        "z": 10.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "generation": 0
+            },
+            {
+                "value": {
+                    "position": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "generation": 0
+            },
+            {
+                "value": {
+                    "position": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": -3.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "generation": 0
+            },
+            {
+                "value": {
+                    "position": {
+                        "x": -2.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "generation": 0
+            },
+                        {
+                "value": {
+                    "position": {
+                        "x": 2.0,
+                        "y": 1.0,
+                        "z": 5.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "generation": 0
+            }
+        ],
+        "models": [
+            {
+                "value": {
+                    "mesh_name": "cube",
+                    "texture_name": "floor"
+                },
+                "generation": 0
+            },
+            {
+                "value": {
+                    "mesh_name": "floor",
+                    "texture_name": "floor"
+                },
+                "generation": 0
+            },
+            {
+                "value": {
+                    "mesh_name": "cube",
+                    "texture_name": "floor"
+                },
+                "generation": 0
+            },
+            {
+                "value": {
+                    "mesh_name": "cube",
+                    "texture_name": "floor"
+                },
+                "generation": 0
+            },
+            {
+                "value": {
+                    "mesh_name": "cube",
+                    "texture_name": "floor"
+                },
+                "generation": 0
+            }
+        ]
+    }
+}

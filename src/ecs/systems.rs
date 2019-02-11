@@ -63,6 +63,8 @@ impl<'a> RenderingSystem<'a> {
         println!("Init models!");
         render_system.load_model("cube".to_string(), Path::new("assets/test1.obj")).expect("Cannot load model");
         render_system.load_model("floor".to_string(), Path::new("assets/floor.obj")).expect("Cannot load model");
+        render_system.load_model("building".to_string(), Path::new("assets/models/arena.obj")).expect("Cannot load model");
+
         //render_system.load_model("chalet".to_string(), Path::new("chalet.obj")).expect("Cannot load room");
         println!("Finished reading models");
     }

@@ -1,0 +1,19 @@
+{
+        "transform_components":[
+                {"value":{"position":{"x":0.1,"y":0.0,"z":0.0},"rotation":{"x":0.0,"y":0.0,"z":0.0},"scale":{"x":1.0,"y":1.0,"z":1.0}},"generation":0},
+                {"value":{"position":{"x":-1.0,"y":0.0,"z":0.0},"rotation":{"x":0.0,"y":0.0,"z":0.0},"scale":{"x":1.0,"y":1.0,"z":1.0}},"generation":0},
+                {"value":{"position":{"x":2.3,"y":0.0,"z":0.0},"rotation":{"x":0.0,"y":0.0,"z":0.0},"scale":{"x":1.0,"y":1.0,"z":1.0}},"generation":0},
+                {"value":{"position":{"x":1.2,"y":0.0,"z":0.0},"rotation":{"x":0.0,"y":0.0,"z":0.0},"scale":{"x":1.0,"y":1.0,"z":1.0}},"generation":0}
+        
+        
+        ],
+        "model_components":[
+                {"value":{"mesh_name":"cube","texture_name":"red"},"generation":0},
+                {"value":{"mesh_name":"cube","texture_name":"white"},"generation":0},
+                {"value":{"mesh_name":"cube","texture_name":"blue"},"generation":0},
+                {"value":{"mesh_name":"cube","texture_name":"green"},"generation":0}
+        
+        
+        ],
+        
+        "camera":{"state":{"transform":{"position":{"x":0.0,"y":0.0,"z":1.0},"rotation":{"x":0.0,"y":0.0,"z":0.0},"scale":{"x":1.0,"y":1.0,"z":1.0}},"front":{"x":1.0,"y":0.0,"z":0.0},"right":{"x":0.0,"y":0.0,"z":1.0},"up":{"x":0.0,"y":1.0,"z":0.0},"world_up":{"x":0.0,"y":1.0,"z":0.0},"pitch":0.0,"yaw":0.0,"previous_x":224.0,"previous_y":221.14285714285714}}}
