@@ -28,7 +28,7 @@ use cgmath::Matrix4;
 
 use crate::error::{TwError, TwResult};
 use crate::camera::Camera;
-use crate::ecs::components::{TransformComponent, ModelComponent};
+use crate::ecs::components::{TransformComponent, ModelComponent, LightComponent};
 use self::model::{Vertex, ModelManager};
 use self::texture::TextureManager;
 
@@ -252,6 +252,7 @@ impl<'a> Renderer<'a> {
     // To be called at every main loop iteration.
     pub fn render(&mut self,
                   camera: &Camera,
+                  lights: Vec<(&LightComponent, &TransformComponent)>,
                   objects: Vec<(&ModelComponent, &TransformComponent)>) {
 
             let (view, proj) = camera.get_vp(); 
@@ -309,16 +310,27 @@ impl<'a> Renderer<'a> {
             .begin_render_pass(self.framebuffers[image_num].clone(), false, clear_values)
             .unwrap();
         
+        // 1st thing: Get the lighting data
+        // ---------------------------------------------
+        let (color, position) = if lights.len() > 0 {
+             let (light, transform) = lights[0];
+             (light.color, transform.position.into())
+        } else {
+            ([0.5, 0.5, 0.5], [5.0, 0.5, 1.0])
+        };
+
         let light_buffer = {
             let data = fs::ty::Data {
-                color: [0.5, 0.5, 0.5],
-                position: [5.0, 0.5, 1.0],
+                color,
+                position,
                 _dummy0: [0;4], // wtf is that?
             };
             self.light_buffer.next(data).unwrap()
         };
 
-        // Uniform for the light.
+
+        // 2nd thing: Draw all objects
+        // ------------------------------
         for (model, transform) in objects.iter() {
             let texture = self.texture_manager.textures.get(
                 &model.texture_name
@@ -419,7 +431,7 @@ fn window_size_dependent_setup(
                             .vertex_input_single_buffer::<Vertex>()
                             .vertex_shader(vs.main_entry_point(), ())
                             .triangle_list()
-                            .cull_mode_back()
+                            //.cull_mode_back()
                             .viewports_dynamic_scissors_irrelevant(1)
                             .depth_stencil_simple_depth()
                             .viewports(iter::once(Viewport {
@@ -472,8 +484,6 @@ fn create_mvp(t: &TransformComponent, view: &Matrix4<f32>, proj: &Matrix4<f32>) 
         view: (*view).into(),
         proj: (*proj).into(),
     }
-
-
 }
 
 

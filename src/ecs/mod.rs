@@ -6,7 +6,12 @@ use std::io::{Write, Read};
 pub mod gen_index;
 pub mod components;
 pub mod systems;
-use self::components::{TransformComponent, ModelComponent, DummyComponent};
+use self::components::{
+    TransformComponent,
+    ModelComponent,
+    DummyComponent,
+    LightComponent,
+};
 use self::gen_index::{GenerationalIndexAllocator, GenerationalIndexArray, GenerationalIndex};
 use crate::camera::Camera;
 use crate::error::TwResult;
@@ -51,11 +56,12 @@ impl ECS {
         // First entity
         let id1 = ecs.new_entity();
         let id2 = ecs.new_entity();
+        let id3 = ecs.new_entity();
         let components = &mut ecs.components;
         components.transforms.set(&id1, TransformComponent {
             position: Vector3::new(0.0, 0.0, 1.0),
             rotation: Vector3::new(0.0, 0.0, 0.0),
-            scale: Vector3::new(1.0, 1.0, 1.0),
+            scale: Vector3::new(2.0, 2.0, 2.0),
         });
         components.models.set(&id1, ModelComponent {
             mesh_name: "building".to_owned(),
@@ -75,12 +81,19 @@ impl ECS {
             mesh_name: "floor".to_owned(),
             texture_name: "floor".to_owned(),
         });
-//        components.transforms.set(&id3, TransformComponent {
-//            position: Vector3::new(1.0, 0.0, 1.0),
-//            rotation: Vector3::new(0.0, 0.0, 0.0),
-//            scale: Vector3::new(1.0, 1.0, 1.0),
-//        });
-//        components.models.set(&id3, ModelComponent {
+
+        components.transforms.set(&id3, TransformComponent {
+            position: Vector3::new(1.0, 5.0, 1.0),
+            rotation: Vector3::new(0.0, 0.0, 0.0),
+            scale: Vector3::new(1.0, 1.0, 1.0),
+        });
+        components.lights.set(&id3, LightComponent {
+            color: [1.0, 1.0, 1.0],
+        });
+        components.dummies.set(&id3, DummyComponent {
+            speed: 5.0,
+        });
+        //        components.models.set(&id3, ModelComponent {
 //            mesh_name: "cube".to_owned(),
 //            texture_name: "bonjour".to_owned(),
 //        });
@@ -209,4 +222,5 @@ register_components!(
     [transforms, TransformComponent],
     [models, ModelComponent],
     [dummies, DummyComponent],
+    [lights, LightComponent],
     );

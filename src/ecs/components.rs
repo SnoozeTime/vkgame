@@ -35,3 +35,15 @@ pub struct TransformComponent {
 pub struct DummyComponent {
     pub speed: f32,
 }
+
+// Emit light! Right now, only one is supported.
+// An entity with a light component will need a transform.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LightComponent {
+    
+    // Should be between 0 and 1.0
+    pub color: [f32; 3],
+
+    // TODO light type.
+
+}

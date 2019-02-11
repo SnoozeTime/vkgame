@@ -34,7 +34,7 @@ fn main() {
 
     let mut ecs = get_ecs();
     let mut render_system = RenderingSystem::new(&instance, &events_loop);
-    let mut dummy_system = DummySystem{};
+    let mut dummy_system = DummySystem::new();
     let mut input = Input::new(events_loop);
 
     let mut old_instant = Instant::now();

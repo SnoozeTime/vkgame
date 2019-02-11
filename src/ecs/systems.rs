@@ -2,6 +2,7 @@ use winit::{WindowBuilder};
 use vulkano::instance::Instance;
 use vulkano_win::VkSurfaceBuild;
 use vulkano_win;
+use cgmath::{Angle,Rad};
 
 use std::sync::Arc;
 use std::path::Path;
@@ -71,6 +72,14 @@ impl<'a> RenderingSystem<'a> {
 
 
     pub fn render(&mut self, ecs: &ECS) {
+        // Get the lights.
+        let lights: Vec<_> =  ecs.components.lights
+            .iter()
+            .zip(ecs.components.transforms.iter())
+            .filter(|(x, y)| x.is_some() && y.is_some())
+            .map(|(x, y)| (x.as_ref().unwrap().value(),
+            y.as_ref().unwrap().value())).collect();
+
         // Naive rendering right now. Do not order or anything.
         let objs: Vec<_> =  ecs.components.models
             .iter()
@@ -79,19 +88,28 @@ impl<'a> RenderingSystem<'a> {
             .map(|(x, y)| (x.as_ref().unwrap().value(),
             y.as_ref().unwrap().value())).collect();
 
-        self.renderer.render(&ecs.camera, objs);
+        self.renderer.render(&ecs.camera, lights, objs);
     }
 }
 
 // just an example to make some object move
 pub struct DummySystem {
+    angle: f32,
 }
 
+
 impl DummySystem {
+
+    pub fn new() -> Self {
+        DummySystem {
+            angle: 0.0,
+        }
+    }
 
     pub fn do_dumb_thing(&mut self, dt: Duration, ecs: &mut ECS) {
         let dt = dt_as_secs(dt);
 
+        self.angle += dt;
         for (i, transform) in ecs.components.transforms.iter_mut()
             .enumerate()
             .filter(|(_, x)| x.is_some()) {
@@ -99,8 +117,10 @@ impl DummySystem {
             match (*ecs.components.dummies).get_mut(i) {
                 Some(dummy) => {
                     if let(Some(dummy)) = dummy {
-                        let transform = transform.as_mut().unwrap();
-                        transform.value_mut().scale.x += dt * dummy.value().speed;
+                        let transform = transform.as_mut().unwrap().value_mut();
+                        transform.position.x = 5.0 * Rad(self.angle*dummy.value().speed).cos();
+                        transform.position.z = 5.0 * Rad(self.angle*dummy.value().speed).sin();
+                        //transform.value_mut().scale.x += dt * dummy.value().speed;
                     }
                 },
                 None => {},
