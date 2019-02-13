@@ -1,5 +1,7 @@
 use imgui::{FontGlyphRange, ImFontConfig, ImGui, Ui, im_str, ImGuiCond, ImDrawVert};
+use vulkano::descriptor::descriptor_set::{PersistentDescriptorSet};
 use vulkano::buffer::BufferAccess;
+use vulkano::sampler::{Sampler, SamplerAddressMode, Filter, MipmapMode};
 
 use std::error::Error;
 use imgui_winit_support;
@@ -8,15 +10,29 @@ use vulkano::image::ImmutableImage;
 use vulkano::format::R8G8B8A8Unorm;
 
 #[derive(Debug, Clone)]
-struct Vertex { position: [f32; 2] }
-impl_vertex!(Vertex, position);
+struct Vertex {
+    position: [f32; 2],
+    uv: [f32; 2],
+    color: [f32; 4],
+}
+impl_vertex!(Vertex,
+             position, uv, color);
 
 impl From<ImDrawVert> for Vertex {
     fn from(v: ImDrawVert) -> Self {
         Vertex {
             position: [v.pos.x, v.pos.y],
+            uv: [v.uv.x, v.uv.y],
+            color: convert_color(v.col),
         }
     }
+}
+
+fn convert_color(col: u32) -> [f32;4] {
+    [(col & 0xFF) as f32 /255.0,
+    ((col >> 8) & 0xFF) as f32 /255.0, 
+    ((col >> 16) & 0xFF) as f32 /255.0, 
+    ((col >> 24) & 0xFF) as f32 /255.0]
 }
 
 pub struct Image {
@@ -27,6 +43,7 @@ pub struct Image {
 }
 
 struct DrawData {
+    state: DynamicState,
     vtx_buf: Arc<CpuAccessibleBuffer<[Vertex]>>,
     idx_buf: Arc<CpuAccessibleBuffer<[u32]>>, 
 }
@@ -86,7 +103,10 @@ fn main() {
 
 
     let mut events_loop = EventsLoop::new();
-    let surface = WindowBuilder::new().build_vk_surface(&events_loop, instance.clone()).unwrap();
+    let surface = WindowBuilder::new()
+        .with_dimensions((800, 600).into())
+        .with_resizable(false)
+        .build_vk_surface(&events_loop, instance.clone()).unwrap();
     let window = surface.window();
     let queue_family = physical.queue_families().find(|&q| {
         // We take the first queue that supports drawing to our window.
@@ -135,14 +155,6 @@ fn main() {
 
     };
 
-    // We now create a buffer that will store the shape of our triangle.
-    let vertex_buffer = {
-        CpuAccessibleBuffer::from_iter(device.clone(), BufferUsage::all(), [
-                                       Vertex { position: [-0.5, -0.25] },
-                                       Vertex { position: [0.0, 0.5] },
-                                       Vertex { position: [0.25, -0.1] }
-        ].iter().cloned()).unwrap()
-    };
 
     // The next step is to create the shaders.
     //
@@ -203,8 +215,10 @@ fn main() {
                             .vertex_shader(vs.main_entry_point(), ())
                             // The content of the vertex buffer describes a list of triangles.
                             .triangle_list()
+                            .front_face_clockwise()
+                            .blend_alpha_blending()
                             // Use a resizable viewport set to draw over the entire window
-                            .viewports_dynamic_scissors_irrelevant(1)
+                            .viewports_scissors_dynamic(1)
                             // See `vertex_shader`.
                             .fragment_shader(fs.main_entry_point(), ())
                             // We have to indicate which subpass of which render pass this pipeline is going to be used
@@ -272,6 +286,9 @@ fn main() {
 
     imgui.set_font_global_scale((1.0 / hidpi_factor) as f32);
 
+
+    imgui_winit_support::configure_keys(&mut imgui);
+
     let mut textures = Vec::new();
 
     let (texture, texture_future) = imgui.prepare_texture(|handle| {
@@ -288,6 +305,24 @@ fn main() {
 
         r
     });
+
+    let sampler = Sampler::new(
+        device.clone(),
+        Filter::Linear,
+        Filter::Linear,
+        MipmapMode::Linear,
+        SamplerAddressMode::ClampToEdge,
+        SamplerAddressMode::ClampToEdge,
+        SamplerAddressMode::ClampToEdge,
+        0.0, 1.0, 0.0, 0.0).unwrap();
+
+
+    let tex_set = Arc::new(
+        PersistentDescriptorSet::start(pipeline.clone(), 0)
+        .add_sampled_image(texture.clone(), sampler.clone()).unwrap()
+        .build().unwrap()
+    );
+
     let mut previous_frame_end = Box::new(texture_future) as Box<GpuFuture>;
     let dimensions = if let Some(dimensions) = window.get_inner_size() {
         // convert to physical pixels
@@ -297,7 +332,16 @@ fn main() {
         // The window no longer exists so exit the application.
         return;
     };
+    let current_viewport = Viewport {
+        origin: [0.0, 0.0],
+        dimensions: [dimensions[0] as f32, dimensions[1] as f32],
+        depth_range: 0.0 .. 1.0,
+    };
 
+    let push_constants = vs::ty::PushConstants {
+        scale: [2.0 / dimensions[0] as f32, 2.0 / dimensions[1] as f32],
+        translate: [-1.0, -1.0],
+    };
 
     loop {
         previous_frame_end.cleanup_finished();
@@ -322,6 +366,16 @@ fn main() {
             .size((300.0, 100.0), ImGuiCond::FirstUseEver)
             .build(|| {
                 ui.text(im_str!("Hello world!"));
+                ui.text(im_str!("こんにちは世界！"));
+                ui.text(im_str!("This...is...imgui-rs!"));
+                ui.separator();
+                let mouse_pos = ui.imgui().mouse_pos();
+                ui.text(im_str!(
+                        "Mouse Position: ({:.1},{:.1})",
+                        mouse_pos.0,
+                        mouse_pos.1
+                ));
+
             });
 
 
@@ -331,21 +385,14 @@ fn main() {
             draw_data.scale_clip_rects(ui.imgui().display_framebuffer_scale());
 
             for draw_list in &draw_data {
-                dbg!("start draw list");
                 //self.render_draw_list(surface, &draw_list, fb_size, matrix)?;
                 let idx: Vec<u32> = draw_list.idx_buffer.iter()
                     .map(|index| u32::from(*index)).collect();
 
                 let vtx: Vec<Vertex> = draw_list.vtx_buffer.iter()
-                    .map(|v| Vertex::from(*v))
-                    .map(|mut v| {
-                        v.position[0] = 2.0 * v.position[0] / (dimensions[0] as f32);  
-                        v.position[1] = 2.0 * v.position[1] / (dimensions[1] as f32);  
-                        v
-                    }).collect();
+                    .map(|v| Vertex::from(*v)).collect();
 
                 // Create vertex and index buffers here.
-                dbg!("end draw list");
                 let vertex_buffer = CpuAccessibleBuffer::from_iter(
                     device.clone(),
                     BufferUsage::all(),
@@ -354,16 +401,23 @@ fn main() {
                     device.clone(),
                     BufferUsage::all(),
                     idx.iter().cloned()
-                    ).unwrap();
+                ).unwrap();
 
                 let mut idx_start: usize = 0;
-                for draw_cmd in draw_list.cmd_buffer {
+                for cmd in draw_list.cmd_buffer {
 
-                    let idx_end: usize = idx_start + draw_cmd.elem_count as usize;
-                    idx_start = idx_end;
+                    let state = DynamicState {
+                        line_width: None,
+                        viewports: Some(vec![current_viewport.clone()]),
+                        scissors: Some(vec![vulkano::pipeline::viewport::Scissor {
+                            origin: [std::cmp::max(cmd.clip_rect.x as i32, 0), std::cmp::max(cmd.clip_rect.y as i32, 0)],
+                            dimensions: [(cmd.clip_rect.z - cmd.clip_rect.x) as u32, (cmd.clip_rect.w - cmd.clip_rect.y) as u32],
+                        }]),
+                    };
                     to_draw.push(DrawData {
                         idx_buf: index_buffer.clone(),
                         vtx_buf: vertex_buffer.clone(),
+                        state,
                     });
                 }
             }
@@ -382,23 +436,22 @@ fn main() {
             //
             // The last two parameters contain the list of resources to pass to the shaders.
             // Since we used an `EmptyPipeline` object, the objects have to be `()`.
-            .draw(pipeline.clone(), &dynamic_state, vertex_buffer.clone(), (), ())
-            .unwrap();
 
+            ;
         for draw_data in to_draw {
             command_buffer_builder = command_buffer_builder
                 .draw_indexed(
                     pipeline.clone(),
-                    &dynamic_state,
+                    &draw_data.state,
                     draw_data.vtx_buf.clone(),
                     draw_data.idx_buf.clone(),
-                    (),
-                    ())
+                    (tex_set.clone()),
+                    (push_constants))
                 .unwrap();
         }
-            // We leave the render pass by calling `draw_end`. Note that if we had multiple
-            // subpasses we could have called `next_inline` (or `next_secondary`) to jump to the
-            // next subpass.
+        // We leave the render pass by calling `draw_end`. Note that if we had multiple
+        // subpasses we could have called `next_inline` (or `next_secondary`) to jump to the
+        // next subpass.
         let command_buffer = command_buffer_builder.end_render_pass()
             .unwrap()
 
@@ -426,6 +479,13 @@ fn main() {
 
         let mut done = false;
         events_loop.poll_events(|ev| {
+
+            imgui_winit_support::handle_event(
+                &mut imgui,
+                &ev,
+                window.get_hidpi_factor(),
+                hidpi_factor,
+                );
             match ev {
                 Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => done = true,
                 Event::WindowEvent { event: WindowEvent::Resized(_), .. } => recreate_swapchain = true,
@@ -462,26 +522,15 @@ fn window_size_dependent_setup(
 mod vs {
     vulkano_shaders::shader!{
         ty: "vertex",
-        src: "
-#version 450
-layout(location = 0) in vec2 position;
-void main() {
-    gl_Position = vec4(position, 0.0, 1.0);
-}"
-}
+        path: "shaders/gui.vert"
+    }
 }
 
 mod fs {
     vulkano_shaders::shader!{
         ty: "fragment",
-        src: "
-#version 450
-layout(location = 0) out vec4 f_color;
-void main() {
-    f_color = vec4(1.0, 0.0, 0.0, 1.0);
-}
-"
-}
+        path: "shaders/gui.frag" 
+    }
 }
 
 
