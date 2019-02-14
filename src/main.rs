@@ -45,7 +45,7 @@ fn main() {
         let frame_duration = now - old_instant;
         old_instant = now;
 
-        render_system.render(&ecs, frame_duration);
+        render_system.render(&mut ecs, frame_duration);
         dummy_system.do_dumb_thing(frame_duration, &mut ecs);
 
 

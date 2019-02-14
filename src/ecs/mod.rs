@@ -1,7 +1,9 @@
 use serde_derive::{Serialize, Deserialize};
 use cgmath::Vector3;
+use std::fs;
 use std::fs::{OpenOptions, File};
 use std::io::{Write, Read};
+use std::collections::HashMap;
 
 pub mod gen_index;
 pub mod components;
@@ -28,6 +30,10 @@ pub struct ECS {
     pub camera: Camera,
 
     components: Components,
+
+    #[serde(skip)]
+    #[serde(default = "ECS::load_templates")]
+    templates: HashMap<String, ComponentTemplate>,
 }
 
 impl ECS {
@@ -40,13 +46,50 @@ impl ECS {
             camera,
             allocator: GenerationalIndexAllocator::new(),
             components: Components::new(),
+            templates: ECS::load_templates(),
         }
+    }
+
+    pub fn load_templates() -> HashMap<String, ComponentTemplate> {
+        let mut templates = HashMap::new();
+        let paths = fs::read_dir("./templates/").unwrap()
+            .map(|p| p.unwrap().path());
+
+        for path in paths {
+            // ew
+            let name = {
+                let name = path.file_stem().unwrap().to_string_lossy();
+                name.to_string()
+            };
+            let mut file = File::open(path).unwrap();
+            let mut content = String::new();
+            file.read_to_string(&mut content).unwrap();
+            let template: ComponentTemplate = serde_json::from_str(&content).unwrap();
+
+            templates.insert(name.to_string(), template);
+        }
+
+        templates
     }
 
     pub fn new_entity(&mut self) -> GenerationalIndex {
         let index = self.allocator.allocate();
         self.components.new_entity(&index);
         index
+    }
+
+    pub fn new_entity_from_template(&mut self, template_name: String) -> Option<GenerationalIndex> {
+
+        let template = self.templates.get(&template_name);
+        if let Some(template) = template {
+            dbg!("Will create new entity from template");
+            let index = self.allocator.allocate();
+            self.components.new_from_template(&index, template.clone());
+            Some(index)
+        } else {
+
+            None
+        }
     }
 
     pub fn dummy_ecs() -> ECS {
@@ -67,10 +110,10 @@ impl ECS {
             mesh_name: "building".to_owned(),
             texture_name: "floor".to_owned(),
         });
-//        components.dummies.set(&id1, DummyComponent {
-//            speed: 2.0,
-//        });
-//
+        //        components.dummies.set(&id1, DummyComponent {
+        //            speed: 2.0,
+        //        });
+        //
         // Second entity
         components.transforms.set(&id2, TransformComponent {
             position: Vector3::new(0.0, 0.0, 0.0),
@@ -93,20 +136,6 @@ impl ECS {
         components.dummies.set(&id3, DummyComponent {
             speed: 5.0,
         });
-        //        components.models.set(&id3, ModelComponent {
-//            mesh_name: "cube".to_owned(),
-//            texture_name: "bonjour".to_owned(),
-//        });
-//        components.transforms.set(&id4, TransformComponent {
-//            position: Vector3::new(1.0, 1.0, 1.0),
-//            rotation: Vector3::new(0.0, 0.0, 0.0),
-//            scale: Vector3::new(1.0, 1.0, 1.0),
-//        });
-//        components.models.set(&id4, ModelComponent {
-//            mesh_name: "cube".to_owned(),
-//            texture_name: "bonjour".to_owned(),
-//        });
-//
 
         ecs
     }
@@ -138,84 +167,84 @@ impl ECS {
 macro_rules! register_components {
     { $([$name:ident, $component:ty],)+ } => {
 
-        #[derive(Debug, Serialize, Deserialize)]
-        struct Components {
-            /// Size of the arrays. They all should be the same.
-            current_size: usize,
+                                                 #[derive(Debug, Serialize, Deserialize)]
+                                                 struct Components {
+                                                     /// Size of the arrays. They all should be the same.
+                                                     current_size: usize,
 
-            /// Arrays can be accessed with the get methods.
-            $(
-                #[serde(default="GenerationalIndexArray::new")]
-                pub $name: EntityArray<$component>,   
-            )+
-        }
+                                                     /// Arrays can be accessed with the get methods.
+                                                     $(
+                                                         #[serde(default="GenerationalIndexArray::new")]
+                                                         pub $name: EntityArray<$component>,   
+                                                     )+
+                                                 }
 
-        impl Components {
-            pub fn new() -> Self {
-                Components {
-                    current_size: 0,
-                    $(
-                        $name: GenerationalIndexArray(Vec::new()),
-                    )+
-                }
-            }
+                                                 impl Components {
+                                                     pub fn new() -> Self {
+                                                         Components {
+                                                             current_size: 0,
+                                                             $(
+                                                                 $name: GenerationalIndexArray(Vec::new()),
+                                                                 )+
+                                                         }
+                                                     }
 
-            /// We assume that this method is called by the ECS, so the index
-            /// should be safe (meaning that either all the arrays contain
-            /// the index, or the index is the next one when pushing elements
-            /// to the arrays)...
-            pub fn new_entity(&mut self, entity: &GenerationalIndex) {
-                if entity.index() == self.current_size {
-                    $(
-                        self.$name.push(None);
-                    )+
-                    self.current_size += 1;
-                } else if entity.index() < self.current_size {
-                    $(
-                        self.$name.empty(entity);
-                    )+
-                } else {
-                    panic!("Tried to add an entity with index {}, but components arrays
+                                                     /// We assume that this method is called by the ECS, so the index
+                                                     /// should be safe (meaning that either all the arrays contain
+                                                     /// the index, or the index is the next one when pushing elements
+                                                     /// to the arrays)...
+                                                     pub fn new_entity(&mut self, entity: &GenerationalIndex) {
+                                                         if entity.index() == self.current_size {
+                                                             $(
+                                                                 self.$name.push(None);
+                                                             )+
+                                                                 self.current_size += 1;
+                                                         } else if entity.index() < self.current_size {
+                                                             $(
+                                                                 self.$name.empty(entity);
+                                                             )+
+                                                         } else {
+                                                             panic!("Tried to add an entity with index {}, but components arrays
                     only have elements up to {} entities", entity.index(), self.current_size);
-                }
+                                                         }
 
 
-            }
+                                                     }
 
-            pub fn new_from_template(&mut self,
-                                     entity: &GenerationalIndex,
-                                     template: ComponentTemplate) {
-                self.new_entity(entity);
+                                                     pub fn new_from_template(&mut self,
+                                                                              entity: &GenerationalIndex,
+                                                                              template: ComponentTemplate) {
+                                                         self.new_entity(entity);
 
-                $(
-                if template.$name.is_some() {
-                    self.$name.set(entity, template.$name.unwrap());
-                }
-                )+
-                
-            }
-        }
+                                                         $(
+                                                             if template.$name.is_some() {
+                                                                 self.$name.set(entity, template.$name.unwrap());
+                                                             }
+                                                         )+
 
-        #[derive(Debug, Serialize, Deserialize)]
-        pub struct ComponentTemplate {
-            $(
-                #[serde(skip_serializing_if = "Option::is_none")]
-                #[serde(default)]
-                pub $name: Option<$component>,
-            )+
-        }
+                                                     }
+                                                 }
 
-        impl ComponentTemplate {
-            pub fn new() -> Self {
-                ComponentTemplate {
-                    $(
-                    $name: None,
-                    )+
-                }
-            }
+                                                 #[derive(Clone, Debug, Serialize, Deserialize)]
+                                                 pub struct ComponentTemplate {
+                                                     $(
+                                                         #[serde(skip_serializing_if = "Option::is_none")]
+                                                         #[serde(default)]
+                                                         pub $name: Option<$component>,
+                                                         )+
+                                                 }
 
-        }
-    }
+                                                 impl ComponentTemplate {
+                                                     pub fn new() -> Self {
+                                                         ComponentTemplate {
+                                                             $(
+                                                                 $name: None,
+                                                                 )+
+                                                         }
+                                                     }
+
+                                                 }
+                                             }
 }
 
 register_components!(

@@ -111,25 +111,10 @@ impl<'a> RenderingSystem<'a> {
     }
 
 
-    pub fn render(&mut self, ecs: &ECS,
+    pub fn render(&mut self,
+                  ecs: &mut ECS,
                   dt: Duration) {
         let dt = dt_as_secs(dt);
-        // Get the lights.
-        let lights: Vec<_> =  ecs.components.lights
-            .iter()
-            .zip(ecs.components.transforms.iter())
-            .filter(|(x, y)| x.is_some() && y.is_some())
-            .map(|(x, y)| (x.as_ref().unwrap().value(),
-            y.as_ref().unwrap().value())).collect();
-
-        // Naive rendering right now. Do not order or anything.
-        let objs: Vec<_> =  ecs.components.models
-            .iter()
-            .zip(ecs.components.transforms.iter())
-            .filter(|(x, y)| x.is_some() && y.is_some())
-            .map(|(x, y)| (x.as_ref().unwrap().value(),
-            y.as_ref().unwrap().value())).collect();
-
 
         // TODO SHOULD NOT BE DONE HERE.
         let window = self.surface.window();
@@ -149,7 +134,7 @@ impl<'a> RenderingSystem<'a> {
                     .color_button(im_str!("Red color"), (1.0, 0.0, 0.0, 1.0))
                         .build()
                         {
-                            dbg!("buttonclicked");
+                            ecs.new_entity_from_template("template_test".to_string());
                         }
                 let mouse_pos = ui.imgui().mouse_pos();
                 ui.text(im_str!(
@@ -160,6 +145,22 @@ impl<'a> RenderingSystem<'a> {
 
             });
         // ----------------------------------------
+
+        // Get the lights.
+        let lights: Vec<_> =  ecs.components.lights
+            .iter()
+            .zip(ecs.components.transforms.iter())
+            .filter(|(x, y)| x.is_some() && y.is_some())
+            .map(|(x, y)| (x.as_ref().unwrap().value(),
+            y.as_ref().unwrap().value())).collect();
+
+        // Naive rendering right now. Do not order or anything.
+        let objs: Vec<_> =  ecs.components.models
+            .iter()
+            .zip(ecs.components.transforms.iter())
+            .filter(|(x, y)| x.is_some() && y.is_some())
+            .map(|(x, y)| (x.as_ref().unwrap().value(),
+            y.as_ref().unwrap().value())).collect();
 
 
         self.renderer.render(ui, &ecs.camera, lights, objs);
