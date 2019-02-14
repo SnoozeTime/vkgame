@@ -49,7 +49,7 @@ fn main() {
         dummy_system.do_dumb_thing(frame_duration, &mut ecs);
 
 
-        input.update();
+        input.update(&mut render_system);
 
         // HANDLE CAMERA.
         if input.get_key(KeyType::Up) {

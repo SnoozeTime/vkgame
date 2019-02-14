@@ -1,5 +1,6 @@
 use std::collections::{HashSet, HashMap};
 use winit::{KeyboardInput, VirtualKeyCode, EventsLoop, Event, WindowEvent, DeviceEvent, ElementState};
+use crate::ecs::systems::RenderingSystem;
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub enum Axis {
@@ -41,8 +42,10 @@ pub struct Input {
 }
 
 impl Input {
-
-    pub fn update(&mut self) {
+ 
+    /// Rendering system is passed because it needs to pass the winit events
+    /// to ImGUI.
+    pub fn update(&mut self, rendering: &mut RenderingSystem) {
 
         // Reset events.
         self.close_request = false;
@@ -61,6 +64,7 @@ impl Input {
         
         // Now, poll keys.
         self.back.poll_events(|ev| {
+            rendering.handle_event(&ev);
 
             if let Event::DeviceEvent { event, ..} = ev {
                 if let DeviceEvent::MouseMotion { delta: (x, y) } = event {

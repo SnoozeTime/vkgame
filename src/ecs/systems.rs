@@ -1,6 +1,7 @@
-use winit::{WindowBuilder};
+use winit::{WindowBuilder, Window, Event};
 use imgui::{FontGlyphRange, ImFontConfig, ImGui, Ui, im_str, ImGuiCond, ImDrawVert};
 use vulkano::instance::Instance;
+use vulkano::swapchain::Surface;
 use vulkano_win::VkSurfaceBuild;
 use vulkano_win;
 use cgmath::{Angle,Rad};
@@ -17,6 +18,9 @@ use super::ECS;
 pub struct RenderingSystem<'a> {
     renderer: Renderer<'a>,    
     imgui: ImGui,
+
+    surface: Arc<Surface<Window>>,
+    hidpi_factor: f64,
 }
 
 impl<'a> RenderingSystem<'a> {
@@ -33,11 +37,11 @@ impl<'a> RenderingSystem<'a> {
         window.grab_cursor(true).unwrap();
         window.hide_cursor(true);
 
-        
+
         // Set up ImGUI
         // -----------------------------------------------------
         let mut imgui = ImGui::init();
-        let hidpi_factor = window.get_hidpi_factor();//.round();
+        let hidpi_factor = window.get_hidpi_factor().round();
 
         let font_size = (13.0 * hidpi_factor) as f32;
 
@@ -73,6 +77,8 @@ impl<'a> RenderingSystem<'a> {
         RenderingSystem {
             renderer,
             imgui,
+            surface,
+            hidpi_factor,
         }
     }
 
@@ -89,9 +95,9 @@ impl<'a> RenderingSystem<'a> {
         render_system.load_texture("blue".to_string(), Path::new("assets/blue.png"), 93, 93).unwrap();
         render_system.load_texture("green".to_string(), Path::new("assets/green.png"), 93, 93).unwrap();
         render_system.load_texture("floor".to_string(), Path::new("assets/textures/Concrete_Panels_001_COLOR.jpg"), 1024, 1024).unwrap();
-    //render_system.load_texture("chalet".to_string(),
+        //render_system.load_texture("chalet".to_string(),
         //Path::new("chalet.jpg"),
-       // 4096, 4096).unwrap();
+        // 4096, 4096).unwrap();
     }
 
     fn init_models(render_system: &mut Renderer) {
@@ -126,11 +132,11 @@ impl<'a> RenderingSystem<'a> {
 
 
         // TODO SHOULD NOT BE DONE HERE.
-        let window = self.renderer.surface.window();
-        let hidpi_factor = window.get_hidpi_factor().round();
+        let window = self.surface.window();
         imgui_winit_support::update_mouse_cursor(&self.imgui,
                                                  &window);
-        let frame_size = imgui_winit_support::get_frame_size(&window, hidpi_factor).unwrap();
+        let frame_size = imgui_winit_support::get_frame_size(&window, 
+                                                             self.hidpi_factor).unwrap();
         let ui = self.imgui.frame(frame_size, dt);
         ui.window(im_str!("Hello world"))
             .size((300.0, 100.0), ImGuiCond::FirstUseEver)
@@ -139,6 +145,12 @@ impl<'a> RenderingSystem<'a> {
                 ui.text(im_str!("こんにちは世界！"));
                 ui.text(im_str!("This...is...imgui-rs!"));
                 ui.separator();
+                if ui
+                    .color_button(im_str!("Red color"), (1.0, 0.0, 0.0, 1.0))
+                        .build()
+                        {
+                            dbg!("buttonclicked");
+                        }
                 let mouse_pos = ui.imgui().mouse_pos();
                 ui.text(im_str!(
                         "Mouse Position: ({:.1},{:.1})",
@@ -151,6 +163,17 @@ impl<'a> RenderingSystem<'a> {
 
 
         self.renderer.render(ui, &ecs.camera, lights, objs);
+    } 
+
+    /// Should be passed in the event polling
+    pub fn handle_event(&mut self, ev: &winit::Event) {
+        let window = self.surface.window();
+            imgui_winit_support::handle_event(
+                &mut self.imgui,
+                ev,
+                window.get_hidpi_factor(),
+                self.hidpi_factor,
+                );
     }
 }
 
@@ -174,22 +197,22 @@ impl DummySystem {
         self.angle += dt;
         for (i, transform) in ecs.components.transforms.iter_mut()
             .enumerate()
-            .filter(|(_, x)| x.is_some()) {
+                .filter(|(_, x)| x.is_some()) {
 
-            match (*ecs.components.dummies).get_mut(i) {
-                Some(dummy) => {
-                    if let(Some(dummy)) = dummy {
-                        let transform = transform.as_mut().unwrap().value_mut();
-                        transform.position.x = 5.0 * Rad(self.angle*dummy.value().speed).cos();
-                        transform.position.z = 5.0 * Rad(self.angle*dummy.value().speed).sin();
-                        //transform.value_mut().scale.x += dt * dummy.value().speed;
+                    match (*ecs.components.dummies).get_mut(i) {
+                        Some(dummy) => {
+                            if let(Some(dummy)) = dummy {
+                                let transform = transform.as_mut().unwrap().value_mut();
+                                transform.position.x = 5.0 * Rad(self.angle*dummy.value().speed).cos();
+                                transform.position.z = 5.0 * Rad(self.angle*dummy.value().speed).sin();
+                                //transform.value_mut().scale.x += dt * dummy.value().speed;
+                            }
+                        },
+                        None => {},
                     }
-                },
-                None => {},
-            }
-            
-        }
-                
+
+                }
+
     }
 
 }
