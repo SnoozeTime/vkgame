@@ -262,7 +262,7 @@ fn main() {
 
     // setup imgui
     let mut imgui = ImGui::init();
-    let hidpi_factor = window.get_hidpi_factor().round();
+    let hidpi_factor = window.get_hidpi_factor();//.round();
 
     let font_size = (13.0 * hidpi_factor) as f32;
 
@@ -338,11 +338,6 @@ fn main() {
         depth_range: 0.0 .. 1.0,
     };
 
-    let push_constants = vs::ty::PushConstants {
-        scale: [2.0 / dimensions[0] as f32, 2.0 / dimensions[1] as f32],
-        translate: [-1.0, -1.0],
-    };
-
     loop {
         previous_frame_end.cleanup_finished();
         let (image_num, acquire_future) = match swapchain::acquire_next_image(swapchain.clone(), None) {
@@ -380,10 +375,14 @@ fn main() {
 
 
         let mut to_draw = Vec::new();
-        let render_result: Result<(), Box<Error>> = ui.render(|ui, mut draw_data| {
+            let (width, height) = ui.imgui().display_size();
+    let push_constants = vs::ty::PushConstants {
+        scale: [2.0 / width as f32, 2.0 / height as f32],
+        translate: [-1.0, -1.0],
+    }; 
+    let render_result: Result<(), Box<Error>> = ui.render(|ui, mut draw_data| {
 
             draw_data.scale_clip_rects(ui.imgui().display_framebuffer_scale());
-
             for draw_list in &draw_data {
                 //self.render_draw_list(surface, &draw_list, fb_size, matrix)?;
                 let idx: Vec<u32> = draw_list.idx_buffer.iter()
@@ -480,6 +479,7 @@ fn main() {
         let mut done = false;
         events_loop.poll_events(|ev| {
 
+            //println!("WINDOW HIDPID {}, {}", window.get_hidpi_factor(), hidpi_factor);
             imgui_winit_support::handle_event(
                 &mut imgui,
                 &ev,
