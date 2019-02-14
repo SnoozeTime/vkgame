@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 use crate::error::TwResult;
 
-pub struct Texture<> {
+pub struct Texture {
     pub texture: Arc<ImmutableImage<vulkano::format::Format>>,
     pub sampler: Arc<Sampler>,
     pub width: u32,

@@ -1,4 +1,5 @@
 use winit::{WindowBuilder};
+use imgui::{FontGlyphRange, ImFontConfig, ImGui, Ui, im_str, ImGuiCond, ImDrawVert};
 use vulkano::instance::Instance;
 use vulkano_win::VkSurfaceBuild;
 use vulkano_win;
@@ -15,6 +16,7 @@ use super::ECS;
 
 pub struct RenderingSystem<'a> {
     renderer: Renderer<'a>,    
+    imgui: ImGui,
 }
 
 impl<'a> RenderingSystem<'a> {
@@ -31,14 +33,46 @@ impl<'a> RenderingSystem<'a> {
         window.grab_cursor(true).unwrap();
         window.hide_cursor(true);
 
-        // TODO error handling
-        let mut renderer = Renderer::new(&instance, surface.clone()).unwrap();
+        
+        // Set up ImGUI
+        // -----------------------------------------------------
+        let mut imgui = ImGui::init();
+        let hidpi_factor = window.get_hidpi_factor();//.round();
 
+        let font_size = (13.0 * hidpi_factor) as f32;
+
+        imgui.fonts().add_default_font_with_config(
+            ImFontConfig::new()
+            .oversample_h(1)
+            .pixel_snap_h(true)
+            .size_pixels(font_size),
+            );
+
+        imgui.fonts().add_font_with_config(
+            include_bytes!("mplus-1p-regular.ttf"),
+            ImFontConfig::new()
+            .merge_mode(true)
+            .oversample_h(1)
+            .pixel_snap_h(true)
+            .size_pixels(font_size)
+            .rasterizer_multiply(1.75),
+            &FontGlyphRange::japanese(),
+            );
+
+        imgui.set_font_global_scale((1.0 / hidpi_factor) as f32);
+
+
+        imgui_winit_support::configure_keys(&mut imgui);
+
+
+        // TODO error handling
+        let mut renderer = Renderer::new(&mut imgui, &instance, surface.clone()).unwrap();
         Self::init_textures(&mut renderer);
         Self::init_models(&mut renderer);
 
         RenderingSystem {
             renderer,
+            imgui,
         }
     }
 
@@ -71,7 +105,9 @@ impl<'a> RenderingSystem<'a> {
     }
 
 
-    pub fn render(&mut self, ecs: &ECS) {
+    pub fn render(&mut self, ecs: &ECS,
+                  dt: Duration) {
+        let dt = dt_as_secs(dt);
         // Get the lights.
         let lights: Vec<_> =  ecs.components.lights
             .iter()
@@ -88,7 +124,33 @@ impl<'a> RenderingSystem<'a> {
             .map(|(x, y)| (x.as_ref().unwrap().value(),
             y.as_ref().unwrap().value())).collect();
 
-        self.renderer.render(&ecs.camera, lights, objs);
+
+        // TODO SHOULD NOT BE DONE HERE.
+        let window = self.renderer.surface.window();
+        let hidpi_factor = window.get_hidpi_factor().round();
+        imgui_winit_support::update_mouse_cursor(&self.imgui,
+                                                 &window);
+        let frame_size = imgui_winit_support::get_frame_size(&window, hidpi_factor).unwrap();
+        let ui = self.imgui.frame(frame_size, dt);
+        ui.window(im_str!("Hello world"))
+            .size((300.0, 100.0), ImGuiCond::FirstUseEver)
+            .build(|| {
+                ui.text(im_str!("Hello world!"));
+                ui.text(im_str!("こんにちは世界！"));
+                ui.text(im_str!("This...is...imgui-rs!"));
+                ui.separator();
+                let mouse_pos = ui.imgui().mouse_pos();
+                ui.text(im_str!(
+                        "Mouse Position: ({:.1},{:.1})",
+                        mouse_pos.0,
+                        mouse_pos.1
+                ));
+
+            });
+        // ----------------------------------------
+
+
+        self.renderer.render(ui, &ecs.camera, lights, objs);
     }
 }
 

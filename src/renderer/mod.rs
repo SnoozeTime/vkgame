@@ -1,6 +1,9 @@
 pub mod model;
 pub mod texture;
+mod ui;
+use ui::GuiRenderer;
 
+use imgui::{ImGui, Ui};
 use vulkano::descriptor::descriptor_set::{PersistentDescriptorSet};
 use vulkano::image::attachment::AttachmentImage;
 use vulkano::buffer::BufferUsage;
@@ -42,7 +45,7 @@ pub struct PipelineState {
 }
 
 pub struct Renderer<'a> {
-    surface: Arc<Surface<winit::Window>>,
+    pub surface: Arc<Surface<winit::Window>>,
     _physical: PhysicalDevice<'a>,
 
     // logical device.
@@ -67,11 +70,14 @@ pub struct Renderer<'a> {
     // RESOURCES
     pub texture_manager: TextureManager,
     pub model_manager: ModelManager,
+
+    // Special pipelines and stuff for the UI
+    pub gui: GuiRenderer,
 }
 
 impl<'a> Renderer<'a> {
 
-    pub fn new(instance: &'a Arc<Instance>, surface: Arc<Surface<winit::Window>>) -> TwResult<Self> {
+    pub fn new(imgui: &mut ImGui, instance: &'a Arc<Instance>, surface: Arc<Surface<winit::Window>>) -> TwResult<Self> {
 
         let window = surface.window();
         // List of device.
@@ -199,6 +205,11 @@ impl<'a> Renderer<'a> {
 
         let uniform_buffer = CpuBufferPool::<vs::ty::Data>::new(device.clone(), BufferUsage::all());
         let light_buffer = CpuBufferPool::<fs::ty::Data>::new(device.clone(), BufferUsage::all());
+
+        let gui = GuiRenderer::new(imgui, surface.clone(),
+            device.clone(),
+            render_pass.clone(),
+            queue.clone());
         Ok(Renderer {
             surface,
             _physical: physical,
@@ -216,6 +227,7 @@ impl<'a> Renderer<'a> {
             previous_frame_end,
             texture_manager: TextureManager::new(),
             model_manager: ModelManager::new(),
+            gui,
         })
     }
 
@@ -250,12 +262,13 @@ impl<'a> Renderer<'a> {
 
 
     // To be called at every main loop iteration.
-    pub fn render(&mut self,
+    pub fn render<'ui>(&mut self,
+                  ui: Ui<'ui>,
                   camera: &Camera,
                   lights: Vec<(&LightComponent, &TransformComponent)>,
                   objects: Vec<(&ModelComponent, &TransformComponent)>) {
 
-            let (view, proj) = camera.get_vp(); 
+        let (view, proj) = camera.get_vp(); 
         self.previous_frame_end.as_mut().unwrap().cleanup_finished();
         let window = self.surface.window();
 
@@ -309,12 +322,12 @@ impl<'a> Renderer<'a> {
         let mut command_buffer_builder = AutoCommandBufferBuilder::primary_one_time_submit(self.device.clone(), self.queue.family()).unwrap()
             .begin_render_pass(self.framebuffers[image_num].clone(), false, clear_values)
             .unwrap();
-        
+
         // 1st thing: Get the lighting data
         // ---------------------------------------------
         let (color, position) = if lights.len() > 0 {
-             let (light, transform) = lights[0];
-             (light.color, transform.position.into())
+            let (light, transform) = lights[0];
+            (light.color, transform.position.into())
         } else {
             ([0.5, 0.5, 0.5], [5.0, 0.5, 1.0])
         };
@@ -370,6 +383,9 @@ impl<'a> Renderer<'a> {
                 ()).unwrap();
         }
 
+        // Now display the GUI.
+        command_buffer_builder = self.gui.render(command_buffer_builder, ui); 
+        
         // Finish render pass
         command_buffer_builder = command_buffer_builder.end_render_pass()
             .unwrap();
@@ -443,6 +459,7 @@ fn window_size_dependent_setup(
                             .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
                             .build(device.clone())
                             .unwrap());
+
     (pipeline, framebuffers)
 }   
 
@@ -458,19 +475,7 @@ mod fs {
     vulkano_shaders::shader!{
         ty: "fragment",
         path: "shaders/main.frag"
-//        src: "
-//#version 450
-//
-//layout(location = 0) out vec4 f_color;
-//layout(location = 0) in vec4 frag_color;
-//layout(location = 1) in vec2 frag_text_coords;
-//layout(set = 1, binding = 0) uniform sampler2D texSampler;
-//
-//void main() {
-//    f_color = texture(texSampler, frag_text_coords);
-//}
-//"
-}
+    }
 }
 
 fn create_mvp(t: &TransformComponent, view: &Matrix4<f32>, proj: &Matrix4<f32>) -> vs::ty::Data {
