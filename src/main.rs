@@ -9,6 +9,7 @@ use twgraph::ecs::{
     ECS,
     systems::{DummySystem, RenderingSystem},
 };
+use twgraph::editor::Editor;
 use std::env;
 
 fn get_ecs() -> ECS {
@@ -38,6 +39,15 @@ fn main() {
     let mut input = Input::new(events_loop);
 
     let mut old_instant = Instant::now();
+
+    let mut editor = Editor::new();
+
+    // Apply aspect to camera.
+    {
+        let dimensions = render_system.dimensions();
+        ecs.camera.set_aspect((dimensions[0] as f32) / (dimensions[1] as f32));
+    }
+    //
     'game_loop: loop {
 
         // calculate frame time.
@@ -45,9 +55,11 @@ fn main() {
         let frame_duration = now - old_instant;
         old_instant = now;
 
-        render_system.render(&mut ecs, frame_duration);
-        dummy_system.do_dumb_thing(frame_duration, &mut ecs);
+        render_system.render(&mut ecs, frame_duration, |ui, ecs| {
+            editor.run_ui(ui, ecs)
+        });
 
+        //dummy_system.do_dumb_thing(frame_duration, &mut ecs);
 
         input.update(&mut render_system);
 
@@ -79,7 +91,6 @@ fn main() {
                                      h_axis,
                                      v_axis);
         }
-
 
         // To quit
         if input.close_request || input.get_key_down(KeyType::Escape) {

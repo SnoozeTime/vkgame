@@ -40,6 +40,16 @@ impl GenerationalIndexAllocator {
         }
     }
 
+    pub fn live_entities(&self) -> Vec<usize> {
+        self.entries.iter()
+            .enumerate()
+            .filter(|(i, entry)| {
+                entry.is_live
+            })
+            .map(|(i, _)| i)
+            .collect()
+    }
+
     pub fn allocate(&mut self) -> GenerationalIndex {
         // first, if one free, take it.
         match self.free.pop() {
@@ -130,7 +140,7 @@ impl<T> GenerationalIndexArray<T> {
             generation: index.generation(),
         });
     }
-    
+
     pub fn empty(&mut self, index: &GenerationalIndex) {
         self.0[index.index()] = None;
     }

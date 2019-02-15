@@ -50,6 +50,11 @@ impl ECS {
         }
     }
 
+    /// return the index of live entities.
+    pub fn nb_entities(&self) -> Vec<usize> {
+       self.allocator.live_entities() 
+    }
+
     pub fn load_templates() -> HashMap<String, ComponentTemplate> {
         let mut templates = HashMap::new();
         let paths = fs::read_dir("./templates/").unwrap()
@@ -82,9 +87,9 @@ impl ECS {
 
         let template = self.templates.get(&template_name);
         if let Some(template) = template {
-            dbg!("Will create new entity from template");
             let index = self.allocator.allocate();
-            self.components.new_from_template(&index, template.clone());
+            let cloned = template.clone();
+            self.components.new_from_template(&index, cloned);
             Some(index)
         } else {
 

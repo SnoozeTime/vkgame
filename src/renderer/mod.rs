@@ -47,6 +47,7 @@ pub struct PipelineState {
 pub struct Renderer<'a> {
     pub surface: Arc<Surface<winit::Window>>,
     _physical: PhysicalDevice<'a>,
+    dimensions: [u32; 2],
 
     // logical device.
     pub device: Arc<Device>,
@@ -197,7 +198,7 @@ impl<'a> Renderer<'a> {
         // can draw we also need to create the actual framebuffers.
         // Since we need to draw to multiple images, we are going to create a different framebuffer for
         // each image.
-        let (pipeline, framebuffers) = window_size_dependent_setup(device.clone(), &vs, &fs, &images, render_pass.clone());
+        let (pipeline, framebuffers, dimensions) = window_size_dependent_setup(device.clone(), &vs, &fs, &images, render_pass.clone());
 
         // Initialization is finally finished!
         let recreate_swapchain = false;
@@ -228,8 +229,13 @@ impl<'a> Renderer<'a> {
             texture_manager: TextureManager::new(),
             model_manager: ModelManager::new(),
             gui,
+
+            dimensions
         })
     }
+
+    /// This is to update camera projection matrix
+    pub fn dimensions(&self) -> [u32;2] { self.dimensions }
 
     /*
      * Store a new texture in the texture manager
@@ -292,11 +298,13 @@ impl<'a> Renderer<'a> {
             self.images = new_images;
             // Because framebuffers contains an Arc on the old swapchain, we need to
             // recreate framebuffers as well.
-            let (new_pipeline, new_framebuffers) = window_size_dependent_setup(self.device.clone(),
+            let (new_pipeline, new_framebuffers, dimensions) = window_size_dependent_setup(self.device.clone(),
             &self.pipeline.vs, 
             &self.pipeline.fs, 
             &self.images, 
             self.render_pass.clone());
+
+            self.dimensions = dimensions;
             self.pipeline.pipeline = new_pipeline;
             self.framebuffers = new_framebuffers;
             self.recreate_swapchain = false;
@@ -430,7 +438,7 @@ fn window_size_dependent_setup(
     fs: &fs::Shader,
     images: &[Arc<SwapchainImage<Window>>],
     render_pass: Arc<RenderPassAbstract + Send + Sync>,
-    ) -> (Arc<GraphicsPipelineAbstract + Send + Sync>, Vec<Arc<FramebufferAbstract + Send + Sync>>) {
+    ) -> (Arc<GraphicsPipelineAbstract + Send + Sync>, Vec<Arc<FramebufferAbstract + Send + Sync>>, [u32; 2]) {
     let dimensions = images[0].dimensions();
 
     let depth_buffer = AttachmentImage::transient(device.clone(), dimensions, Format::D16Unorm).unwrap();
@@ -460,7 +468,7 @@ fn window_size_dependent_setup(
                             .build(device.clone())
                             .unwrap());
 
-    (pipeline, framebuffers)
+    (pipeline, framebuffers, dimensions)
 }   
 
 pub mod vs {

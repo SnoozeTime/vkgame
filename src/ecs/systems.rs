@@ -28,8 +28,8 @@ impl<'a> RenderingSystem<'a> {
     pub fn new(instance: &'a Arc<Instance>, events_loop: &winit::EventsLoop) -> Self {
         // Get the surface and window. Window is from winit library
         let surface = WindowBuilder::new()
-            .with_dimensions((600, 600).into())
-            .with_resizable(false)
+//            .with_dimensions((600, 600).into())
+//           .with_resizable(false)
             .build_vk_surface(&events_loop, instance.clone())
             .expect("Cannot create vk_surface");
 
@@ -82,6 +82,10 @@ impl<'a> RenderingSystem<'a> {
         }
     }
 
+    pub fn dimensions(&self) -> [u32; 2] {
+        self.renderer.dimensions()
+    }
+
     pub fn resize_window(&mut self) {
         self.renderer.recreate_swapchain = true;
     }
@@ -111,40 +115,25 @@ impl<'a> RenderingSystem<'a> {
     }
 
 
-    pub fn render(&mut self,
+    pub fn render<F>(&mut self,
                   ecs: &mut ECS,
-                  dt: Duration) {
+                  dt: Duration,
+                  mut run_ui: F)
+        where F: FnMut(&Ui, &mut ECS) -> bool,
+    {
         let dt = dt_as_secs(dt);
 
         // TODO SHOULD NOT BE DONE HERE.
+        // It needs to be in its own class and we can pass the ui here maybe.
         let window = self.surface.window();
         imgui_winit_support::update_mouse_cursor(&self.imgui,
                                                  &window);
         let frame_size = imgui_winit_support::get_frame_size(&window, 
                                                              self.hidpi_factor).unwrap();
         let ui = self.imgui.frame(frame_size, dt);
-        ui.window(im_str!("Hello world"))
-            .size((300.0, 100.0), ImGuiCond::FirstUseEver)
-            .build(|| {
-                ui.text(im_str!("Hello world!"));
-                ui.text(im_str!("こんにちは世界！"));
-                ui.text(im_str!("This...is...imgui-rs!"));
-                ui.separator();
-                if ui
-                    .color_button(im_str!("Red color"), (1.0, 0.0, 0.0, 1.0))
-                        .build()
-                        {
-                            ecs.new_entity_from_template("template_test".to_string());
-                        }
-                let mouse_pos = ui.imgui().mouse_pos();
-                ui.text(im_str!(
-                        "Mouse Position: ({:.1},{:.1})",
-                        mouse_pos.0,
-                        mouse_pos.1
-                ));
-
-            });
-        // ----------------------------------------
+        if !run_ui(&ui, ecs) {
+            panic!("wuuuuut");
+        }
 
         // Get the lights.
         let lights: Vec<_> =  ecs.components.lights

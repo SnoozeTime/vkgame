@@ -73,7 +73,7 @@ extern crate vulkano_win;
 use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
 use vulkano::command_buffer::{AutoCommandBufferBuilder, DynamicState};
 use vulkano::device::{Device, DeviceExtensions};
-use vulkano::framebuffer::{Framebuffer, FramebufferAbstract, Subpass, RenderPassAbstract};
+use vulkano::framebuffer::{Framebuffer, FramebufferAbstract, Subpass, eenderPassAbstract};
 use vulkano::image::SwapchainImage;
 use vulkano::instance::{Instance, PhysicalDevice};
 use vulkano::pipeline::GraphicsPipeline;
@@ -332,7 +332,7 @@ fn main() {
         // The window no longer exists so exit the application.
         return;
     };
-    let current_viewport = Viewport {
+     let current_viewport = Viewport {
         origin: [0.0, 0.0],
         dimensions: [dimensions[0] as f32, dimensions[1] as f32],
         depth_range: 0.0 .. 1.0,
