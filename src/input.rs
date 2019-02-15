@@ -54,8 +54,8 @@ impl Input {
         self.keys_down.clear();
         self.axes.clear();
 
-        let mut close_request = &mut self.close_request;
-        let mut resize_request = &mut self.resize_request;
+        let close_request = &mut self.close_request;
+        let resize_request = &mut self.resize_request;
         let mapping = &self.mapping;
         let axes = &mut self.axes;
         let keys = &mut self.keys;

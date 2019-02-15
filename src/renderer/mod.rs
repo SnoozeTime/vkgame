@@ -22,8 +22,6 @@ use vulkano::swapchain;
 use vulkano::sync::{GpuFuture, FlushError};
 use vulkano::sync;
 
-use vulkano_win;
-
 use winit::Window;
 use std::sync::Arc;
 use std::iter;
@@ -208,9 +206,9 @@ impl<'a> Renderer<'a> {
         let light_buffer = CpuBufferPool::<fs::ty::Data>::new(device.clone(), BufferUsage::all());
 
         let gui = GuiRenderer::new(imgui, surface.clone(),
-            device.clone(),
-            render_pass.clone(),
-            queue.clone());
+        device.clone(),
+        render_pass.clone(),
+        queue.clone());
         Ok(Renderer {
             surface,
             _physical: physical,
@@ -269,10 +267,10 @@ impl<'a> Renderer<'a> {
 
     // To be called at every main loop iteration.
     pub fn render<'ui>(&mut self,
-                  ui: Ui<'ui>,
-                  camera: &Camera,
-                  lights: Vec<(&LightComponent, &TransformComponent)>,
-                  objects: Vec<(&ModelComponent, &TransformComponent)>) {
+                       ui: Ui<'ui>,
+                       camera: &mut Camera,
+                       lights: Vec<(&LightComponent, &TransformComponent)>,
+                       objects: Vec<(&ModelComponent, &TransformComponent)>) {
 
         let (view, proj) = camera.get_vp(); 
         self.previous_frame_end.as_mut().unwrap().cleanup_finished();
@@ -303,6 +301,12 @@ impl<'a> Renderer<'a> {
             &self.pipeline.fs, 
             &self.images, 
             self.render_pass.clone());
+
+            self.gui.rebuild_pipeline(self.device.clone(),
+                self.render_pass.clone());
+
+            // hey there
+            camera.set_aspect((dimensions[0] as f32) / (dimensions[1] as f32));
 
             self.dimensions = dimensions;
             self.pipeline.pipeline = new_pipeline;
@@ -393,7 +397,7 @@ impl<'a> Renderer<'a> {
 
         // Now display the GUI.
         command_buffer_builder = self.gui.render(command_buffer_builder, ui); 
-        
+
         // Finish render pass
         command_buffer_builder = command_buffer_builder.end_render_pass()
             .unwrap();

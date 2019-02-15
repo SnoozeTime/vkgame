@@ -3,10 +3,6 @@ use cgmath::Vector3;
 
 use crate::ser::VectorDef;
 
-enum ComponentType {
-    Transform,
-    Model,
-}
 
 /// This is a component that is going to be rendered
 /// by the render system.

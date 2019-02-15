@@ -18,6 +18,7 @@ use self::gen_index::{GenerationalIndexAllocator, GenerationalIndexArray, Genera
 use crate::camera::Camera;
 use crate::error::TwResult;
 
+pub type Entity = GenerationalIndex;
 type EntityArray<T> = GenerationalIndexArray<T>;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -29,7 +30,7 @@ pub struct ECS {
     #[serde(skip)]
     pub camera: Camera,
 
-    components: Components,
+    pub components: Components,
 
     #[serde(skip)]
     #[serde(default = "ECS::load_templates")]
@@ -51,7 +52,7 @@ impl ECS {
     }
 
     /// return the index of live entities.
-    pub fn nb_entities(&self) -> Vec<usize> {
+    pub fn nb_entities(&self) -> Vec<Entity> {
        self.allocator.live_entities() 
     }
 
@@ -173,7 +174,7 @@ macro_rules! register_components {
     { $([$name:ident, $component:ty],)+ } => {
 
                                                  #[derive(Debug, Serialize, Deserialize)]
-                                                 struct Components {
+                                                 pub struct Components {
                                                      /// Size of the arrays. They all should be the same.
                                                      current_size: usize,
 

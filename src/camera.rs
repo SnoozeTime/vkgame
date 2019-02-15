@@ -253,7 +253,6 @@ impl Camera {
         self.state.aspect,
         0.01,
         100.0);
-        let field_of_view = std::f32::consts::FRAC_PI_2*0.8;
         let position = Point3::new(self.state.transform.position.x,
                                    self.state.transform.position.y,
                                    self.state.transform.position.z);

@@ -1,7 +1,7 @@
-use imgui::{FontGlyphRange, ImFontConfig, ImGui, Ui, im_str, ImGuiCond, ImDrawVert};
+use imgui::{FontGlyphRange, ImFontConfig, ImGui, im_str, ImGuiCond, ImDrawVert};
 use vulkano::descriptor::descriptor_set::{PersistentDescriptorSet};
-use vulkano::buffer::BufferAccess;
 use vulkano::sampler::{Sampler, SamplerAddressMode, Filter, MipmapMode};
+
 
 use std::error::Error;
 use imgui_winit_support;
@@ -73,12 +73,12 @@ extern crate vulkano_win;
 use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
 use vulkano::command_buffer::{AutoCommandBufferBuilder, DynamicState};
 use vulkano::device::{Device, DeviceExtensions};
-use vulkano::framebuffer::{Framebuffer, FramebufferAbstract, Subpass, eenderPassAbstract};
+use vulkano::framebuffer::{Framebuffer, FramebufferAbstract, Subpass, RenderPassAbstract};
 use vulkano::image::SwapchainImage;
 use vulkano::instance::{Instance, PhysicalDevice};
 use vulkano::pipeline::GraphicsPipeline;
 use vulkano::pipeline::viewport::Viewport;
-use vulkano::swapchain::{AcquireError, PresentMode, SurfaceTransform, Swapchain, SwapchainCreationError};
+use vulkano::swapchain::{AcquireError, PresentMode, SurfaceTransform, Swapchain};
 use vulkano::swapchain;
 use vulkano::sync::{GpuFuture, FlushError};
 use vulkano::sync;
@@ -125,7 +125,7 @@ fn main() {
     // Before we can draw on the surface, we have to create what is called a swapchain. Creating
     // a swapchain allocates the color buffers that will contain the image that will ultimately
     // be visible on the screen. These images are returned alongside with the swapchain.
-    let (mut swapchain, images) = {
+    let (swapchain, images) = {
         // Querying the capabilities of the surface. When we create the swapchain we can only
         // pass values that are allowed by the capabilities.
         let caps = surface.capabilities(physical).unwrap();
@@ -237,7 +237,7 @@ fn main() {
     //
     // Since we need to draw to multiple images, we are going to create a different framebuffer for
     // each image.
-    let mut framebuffers = window_size_dependent_setup(&images, render_pass.clone(), &mut dynamic_state);
+    let framebuffers = window_size_dependent_setup(&images, render_pass.clone(), &mut dynamic_state);
 
     // Initialization is finally finished!
 
@@ -380,7 +380,7 @@ fn main() {
         scale: [2.0 / width as f32, 2.0 / height as f32],
         translate: [-1.0, -1.0],
     }; 
-    let render_result: Result<(), Box<Error>> = ui.render(|ui, mut draw_data| {
+    let _render_result: Result<(), Box<Error>> = ui.render(|ui, mut draw_data| {
 
             draw_data.scale_clip_rects(ui.imgui().display_framebuffer_scale());
             for draw_list in &draw_data {
@@ -402,7 +402,6 @@ fn main() {
                     idx.iter().cloned()
                 ).unwrap();
 
-                let mut idx_start: usize = 0;
                 for cmd in draw_list.cmd_buffer {
 
                     let state = DynamicState {
@@ -444,8 +443,8 @@ fn main() {
                     &draw_data.state,
                     draw_data.vtx_buf.clone(),
                     draw_data.idx_buf.clone(),
-                    (tex_set.clone()),
-                    (push_constants))
+                    tex_set.clone(),
+                    push_constants)
                 .unwrap();
         }
         // We leave the render pass by calling `draw_end`. Note that if we had multiple

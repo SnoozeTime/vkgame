@@ -3,17 +3,14 @@ use vulkano::pipeline::viewport::Viewport;
 use vulkano::device::{Device, Queue};
 use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
 use vulkano::framebuffer::{Subpass, RenderPassAbstract};
-use imgui::{FontGlyphRange, ImFontConfig, ImGui, Ui, im_str, ImGuiCond, ImDrawVert};
+use imgui::{ImGui, Ui, ImDrawVert};
 use vulkano::impl_vertex;
 use vulkano::descriptor::descriptor_set::{PersistentDescriptorSet};
-use vulkano::buffer::BufferAccess;
 use vulkano::sampler::{Sampler, SamplerAddressMode, Filter, MipmapMode};
 use vulkano::pipeline::{GraphicsPipeline, GraphicsPipelineAbstract};
 use vulkano::command_buffer::{AutoCommandBufferBuilder, DynamicState};
 use vulkano::swapchain::Surface;
 use std::error::Error;
-use imgui_winit_support;
-use std::time::Instant;
 use vulkano::image::ImmutableImage;
 use vulkano::format::R8G8B8A8Unorm;
 use vulkano::sync::GpuFuture;
@@ -54,13 +51,6 @@ fn convert_color(col: u32) -> [f32;4] {
     ((col >> 24) & 0xFF) as f32 /255.0]
 }
 
-
-pub struct Image {
-    /// The actual image.
-    pub image_access: Arc<ImmutableImage<R8G8B8A8Unorm>>,
-    /// The width of the image.
-    pub dimensions: vulkano::image::Dimensions,
-}
 
 /// Passed to the renderer during the render pass.
 struct DrawData {
@@ -148,7 +138,7 @@ pub struct GuiRenderer {
     // The UI state
     pipeline: UiPipelineState,
     font_texture: Texture,
-    dimensions: [u32; 2],
+    //dimensions: [u32; 2],
     current_viewport: Viewport,
 }
 
@@ -218,7 +208,7 @@ impl GuiRenderer {
             device: device.clone(),
             font_texture,
             pipeline,
-            dimensions,
+            //dimensions,
             current_viewport,
         }
     }
@@ -233,7 +223,8 @@ impl GuiRenderer {
             translate: [-1.0, -1.0],
         }; 
 
-        let render_result: Result<(), Box<Error>> = ui.render(|ui, mut draw_data| {
+        // TODO what to do with the result?
+        let _render_result: Result<(), Box<Error>> = ui.render(|ui, mut draw_data| {
 
             draw_data.scale_clip_rects(ui.imgui().display_framebuffer_scale());
             for draw_list in &draw_data {
@@ -255,7 +246,7 @@ impl GuiRenderer {
                     idx.iter().cloned()
                 ).unwrap();
 
-                let mut idx_start: usize = 0;
+                //let mut idx_start: usize = 0;
                 for cmd in draw_list.cmd_buffer {
 
                     let state = DynamicState {
@@ -293,8 +284,8 @@ impl GuiRenderer {
                     &draw_data.state,
                     vec![draw_data.vtx_buf.clone()],
                     draw_data.idx_buf.clone(),
-                    (tex_set.clone()),
-                    (push_constants))
+                    tex_set.clone(),
+                    push_constants)
                 .unwrap();
         }
 
@@ -302,4 +293,9 @@ impl GuiRenderer {
     }
 
 
+    pub fn rebuild_pipeline(&mut self,
+                            device: Arc<Device>,
+                            render_pass: Arc<RenderPassAbstract + Send + Sync>) {
+        self.pipeline.rebuild_pipeline(device, render_pass);
+    }
 }

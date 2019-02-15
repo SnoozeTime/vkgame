@@ -1,5 +1,5 @@
-use winit::{WindowBuilder, Window, Event};
-use imgui::{FontGlyphRange, ImFontConfig, ImGui, Ui, im_str, ImGuiCond, ImDrawVert};
+use winit::{WindowBuilder, Window};
+use imgui::{FontGlyphRange, ImFontConfig, ImGui, Ui};
 use vulkano::instance::Instance;
 use vulkano::swapchain::Surface;
 use vulkano_win::VkSurfaceBuild;
@@ -152,7 +152,7 @@ impl<'a> RenderingSystem<'a> {
             y.as_ref().unwrap().value())).collect();
 
 
-        self.renderer.render(ui, &ecs.camera, lights, objs);
+        self.renderer.render(ui, &mut ecs.camera, lights, objs);
     } 
 
     /// Should be passed in the event polling
@@ -191,7 +191,7 @@ impl DummySystem {
 
                     match (*ecs.components.dummies).get_mut(i) {
                         Some(dummy) => {
-                            if let(Some(dummy)) = dummy {
+                            if let Some(dummy) = dummy {
                                 let transform = transform.as_mut().unwrap().value_mut();
                                 transform.position.x = 5.0 * Rad(self.angle*dummy.value().speed).cos();
                                 transform.position.z = 5.0 * Rad(self.angle*dummy.value().speed).sin();

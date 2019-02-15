@@ -59,7 +59,7 @@ fn main() {
             editor.run_ui(ui, ecs)
         });
 
-        //dummy_system.do_dumb_thing(frame_duration, &mut ecs);
+        dummy_system.do_dumb_thing(frame_duration, &mut ecs);
 
         input.update(&mut render_system);
 

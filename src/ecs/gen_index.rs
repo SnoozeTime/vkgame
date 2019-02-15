@@ -1,7 +1,7 @@
 use serde_derive::{Serialize, Deserialize};
 
 /// Used to index entities in a generationIndexArray
-#[derive(Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Eq, PartialEq, Deserialize, Serialize, Copy, Clone)]
 pub struct GenerationalIndex {
     index: usize,
     generation: u64,
@@ -40,13 +40,13 @@ impl GenerationalIndexAllocator {
         }
     }
 
-    pub fn live_entities(&self) -> Vec<usize> {
+    pub fn live_entities(&self) -> Vec<GenerationalIndex> {
         self.entries.iter()
             .enumerate()
-            .filter(|(i, entry)| {
+            .filter(|(_, entry)| {
                 entry.is_live
             })
-            .map(|(i, _)| i)
+            .map(|(index, entry)| GenerationalIndex {index, generation: entry.generation})
             .collect()
     }
 
