@@ -95,7 +95,7 @@ fn main() {
         }
 
         if input.get_mouse_clicked(MouseButton::Left) {
-            editor.mouse_pick = render_system.pick_object(input.mouse_pos[0],
+            editor.selected_entity = render_system.pick_object(input.mouse_pos[0],
                                                           input.mouse_pos[1],
                                                           &ecs);
         }

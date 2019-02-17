@@ -8,6 +8,12 @@ pub struct GenerationalIndex {
 } 
 
 impl GenerationalIndex {
+    pub fn new(index: usize, generation: u64) -> Self {
+        GenerationalIndex {
+            index, generation
+        }
+    }
+
     pub fn index(&self) -> usize {
         self.index
     }
@@ -119,6 +125,10 @@ impl<T> ArrayEntry<T> {
 
     pub fn value(&self) -> &T {
         &self.value
+    }
+    
+    pub fn generation(&self) -> u64 {
+        self.generation
     }
 
     pub fn value_mut(&mut self) -> &mut T {

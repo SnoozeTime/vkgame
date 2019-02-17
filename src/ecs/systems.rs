@@ -13,7 +13,7 @@ use std::time::Duration;
 use crate::renderer::Renderer;
 use crate::time::dt_as_secs;
 
-use super::ECS;
+use super::{Entity, ECS};
 
 pub struct RenderingSystem<'a> {
     renderer: Renderer<'a>,    
@@ -166,7 +166,7 @@ impl<'a> RenderingSystem<'a> {
                 );
     }
 
-    pub fn pick_object(&mut self, x: f64, y: f64, ecs: &ECS) -> String {
+    pub fn pick_object(&mut self, x: f64, y: f64, ecs: &ECS) -> Option<Entity> {
         self.renderer.pick_object(x, y, ecs)
     }
 }

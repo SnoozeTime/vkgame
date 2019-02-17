@@ -38,7 +38,7 @@ use cgmath::Matrix4;
 use crate::error::{TwError, TwResult};
 use crate::camera::Camera;
 use crate::ecs::components::{TransformComponent, ModelComponent, LightComponent};
-use crate::ecs::ECS;
+use crate::ecs::{Entity, ECS, gen_index::GenerationalIndex};
 use self::model::{Vertex, ModelManager};
 use self::texture::TextureManager;
 
@@ -495,7 +495,7 @@ impl<'a> Renderer<'a> {
 
     /// Picking an object works by storing Entity ID in color attachment then
     /// finding what pixel has been clicked by the mouse.
-    pub fn pick_object(&mut self, x: f64, y: f64, ecs: &ECS) -> String {
+    pub fn pick_object(&mut self, x: f64, y: f64, ecs: &ECS) -> Option<Entity> {
 
         let hidpi_factor = self.surface.window().get_hidpi_factor();
         let x = (x * hidpi_factor).round() as usize;
@@ -545,7 +545,6 @@ impl<'a> Renderer<'a> {
             );
 
             let push_constants = Object3DPicker::create_pushconstants(*id);
-            dbg!(&push_constants.color);
 
             command_buffer_builder = command_buffer_builder
                 .draw_indexed(self.object_picker.pipeline.pipeline.clone(),
@@ -573,21 +572,34 @@ impl<'a> Renderer<'a> {
             .wait(None).unwrap();
 
         let buffer_content = self.object_picker.buf.read().unwrap();
-       
-      //  let image = ImageBuffer::<Rgba<u8>, _>::from_raw(
-      //      self.dimensions[0], self.dimensions[1], &buffer_content[..]).unwrap();
-      //  image.save("image.png").unwrap();
-        format!("Entity {:?} with r{} g{} b{} a{}", Object3DPicker::get_entity_id(
-                buffer_content[buf_pos],
-                buffer_content[buf_pos+1],
-                buffer_content[buf_pos+2],
-                buffer_content[buf_pos+3]),
-                buffer_content[buf_pos],
-                buffer_content[buf_pos+1],
-                buffer_content[buf_pos+2],
-                buffer_content[buf_pos+3])
+
+        //  let image = ImageBuffer::<Rgba<u8>, _>::from_raw(
+        //      self.dimensions[0], self.dimensions[1], &buffer_content[..]).unwrap();
+        //  image.save("image.png").unwrap();
+
+        // we have the index of the entity. Let's assume its alive as it shows up on
+        // screen. We can then reconstruct the GenerationalIndex.
+        let maybe_id = Object3DPicker::get_entity_id(
+            buffer_content[buf_pos],
+            buffer_content[buf_pos+1],
+            buffer_content[buf_pos+2],
+            buffer_content[buf_pos+3],
+            );
+
+        if let Some(id) = maybe_id {
+            let gen = ecs.components.transforms[id].as_ref()?.generation();
+            return Some(
+                GenerationalIndex::new(
+                    id,
+                    gen,
+                    ))
+
+        }
+        None
+
     }
 }
+
 
 /// This method is called once during initialization, then again whenever the window is resized
 fn window_size_dependent_setup(

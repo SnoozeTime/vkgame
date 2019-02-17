@@ -5,7 +5,7 @@ use crate::ecs::{
 };
 
 pub struct Editor {
-    selected_entity: Option<Entity>,
+    pub selected_entity: Option<Entity>,
     pub mouse_pick: String,
 }
 
