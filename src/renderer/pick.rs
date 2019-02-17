@@ -113,6 +113,7 @@ pub struct Object3DPicker {
     pub pipeline: PickPipelineState,
     pub framebuffer: Arc<FramebufferAbstract + Send + Sync>,
     pub image: Arc<AttachmentImage>,
+    pub buf: Arc<CpuAccessibleBuffer<[u8]>>,
 }
 
 
@@ -141,6 +142,13 @@ impl Object3DPicker {
                                    .add(depth_buffer.clone()).unwrap()
                                    .build().unwrap());
 
+        // This will contain the data copied from CPU.
+        let buf = CpuAccessibleBuffer::from_iter(
+            device.clone(), BufferUsage::all(),
+            (0 .. dimensions[0] * dimensions[1] * 4).map(|_| 0u8))
+            .expect("failed to create buffer");
+
+
         let pipeline = PickPipelineState::new(
             device.clone(),
             render_pass.clone(),
@@ -151,6 +159,7 @@ impl Object3DPicker {
             pipeline,
             framebuffer,
             image,
+            buf,
         }
     }
 

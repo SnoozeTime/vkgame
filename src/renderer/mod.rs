@@ -519,14 +519,6 @@ impl<'a> Renderer<'a> {
 
             }).collect();
 
-
-        // The color will be transferred to that buffer :)
-        let buf = CpuAccessibleBuffer::from_iter(
-            self.device.clone(), BufferUsage::all(),
-            (0 .. self.dimensions[0]* self.dimensions[1] * 4).map(|_| 0u8))
-            .expect("failed to create buffer");
-
-
         // Specify the color to clear the framebuffer with.
         // Important to have transparent color for color attachement as it means no
         // object.
@@ -571,7 +563,7 @@ impl<'a> Renderer<'a> {
         // Now, copy the image to the cpu accessible buffer
         command_buffer_builder = command_buffer_builder
             .copy_image_to_buffer(self.object_picker.image.clone(),
-            buf.clone()).unwrap();
+            self.object_picker.buf.clone()).unwrap();
 
         // Finish building the command buffer by calling `build`.
         let command_buffer = command_buffer_builder.build().unwrap();
@@ -580,11 +572,11 @@ impl<'a> Renderer<'a> {
         finished.then_signal_fence_and_flush().unwrap()
             .wait(None).unwrap();
 
-        let buffer_content = buf.read().unwrap();
+        let buffer_content = self.object_picker.buf.read().unwrap();
        
-        //let image = ImageBuffer::<Rgba<u8>, _>::from_raw(
-        //    self.dimensions[0], self.dimensions[1], &buffer_content[..]).unwrap();
-        //image.save("image.png").unwrap();
+      //  let image = ImageBuffer::<Rgba<u8>, _>::from_raw(
+      //      self.dimensions[0], self.dimensions[1], &buffer_content[..]).unwrap();
+      //  image.save("image.png").unwrap();
         format!("Entity {:?} with r{} g{} b{} a{}", Object3DPicker::get_entity_id(
                 buffer_content[buf_pos],
                 buffer_content[buf_pos+1],
