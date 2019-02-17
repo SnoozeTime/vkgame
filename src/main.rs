@@ -1,6 +1,6 @@
 use vulkano::instance::Instance;
 use winit::EventsLoop;
-use twgraph::input::{KeyType, Input, Axis};
+use twgraph::input::{KeyType, Input, Axis, MouseButton};
 
 use std::time::Instant;
 
@@ -94,7 +94,7 @@ fn main() {
             }
         }
 
-        if input.get_key_down(KeyType::Space) {
+        if input.get_mouse_clicked(MouseButton::Left) {
             editor.mouse_pick = render_system.pick_object(input.mouse_pos[0],
                                                           input.mouse_pos[1],
                                                           &ecs);

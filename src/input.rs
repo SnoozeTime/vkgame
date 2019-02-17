@@ -47,6 +47,26 @@ impl Modifiers {
     }
 }
 
+// Again, same as winit.
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+pub enum MouseButton {
+    Left,
+    Middle,
+    Right,
+    Other(u8),
+}
+
+impl From<winit::MouseButton> for MouseButton {
+    fn from(b: winit::MouseButton) -> MouseButton {
+        match b {
+            winit::MouseButton::Left => MouseButton::Left,
+            winit::MouseButton::Right => MouseButton::Right,
+            winit::MouseButton::Middle => MouseButton::Middle,
+            winit::MouseButton::Other(u) => MouseButton::Other(u),
+        }
+
+    }
+}
 
 /// Abstract away winit input events.
 /// Store the key pressed and so on.
@@ -69,6 +89,7 @@ pub struct Input {
     // mouse state.
     // TODO x, y instead of array, and don't put that public.
     pub mouse_pos: [f64; 2],
+    buttons: HashSet<MouseButton>,
 
     // Maybe store one frame event. (e.g onKeyDown)
     keys_up: HashSet<KeyType>,
@@ -84,6 +105,7 @@ impl Input {
 
 	// Reset events.
 	self.modifiers.reset();
+        self.buttons.clear();
 	self.close_request = false;
 	self.resize_request = false;
 	self.keys_up.clear();
@@ -99,6 +121,7 @@ impl Input {
 	let keys_down = &mut self.keys_down;
 	let my_modifiers = &mut self.modifiers;
         let mouse_pos = &mut self.mouse_pos;
+        let buttons = &mut self.buttons;
 
 	// Now, poll keys.
 	self.back.poll_events(|ev| {
@@ -123,6 +146,14 @@ impl Input {
                         mouse_pos[1] = position.y;
 		    },
 		    WindowEvent::Resized(_) => *resize_request = true,
+                    WindowEvent::MouseInput {
+                        button,
+                        modifiers,
+                        ..
+                    } => {
+                        buttons.insert(button.into());
+                        *my_modifiers = modifiers.into();
+                    },
 		    WindowEvent::KeyboardInput {
 			input:
 			    KeyboardInput {
@@ -180,6 +211,7 @@ impl Input {
 	    keys: HashMap::new(),
 
             mouse_pos: [0.0;2],
+            buttons: HashSet::new(),
 	    close_request: false,
 	    resize_request: false,
 	    keys_up: HashSet::new(),
@@ -202,5 +234,9 @@ impl Input {
 
     pub fn get_key_down(&self, key: KeyType) -> bool {
 	self.keys_down.contains(&key)
+    }
+
+    pub fn get_mouse_clicked(&self, button: MouseButton) -> bool {
+        self.buttons.contains(&button)
     }
 }
