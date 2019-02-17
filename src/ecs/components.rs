@@ -36,10 +36,8 @@ pub struct DummyComponent {
 // An entity with a light component will need a transform.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LightComponent {
-    
     // Should be between 0 and 1.0
     pub color: [f32; 3],
 
     // TODO light type.
-
 }

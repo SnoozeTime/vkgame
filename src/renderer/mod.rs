@@ -1,16 +1,22 @@
 pub mod model;
 pub mod texture;
+mod pick;
 mod ui;
-use ui::GuiRenderer;
 
+use ui::GuiRenderer;
+use pick::Object3DPicker;
+
+use image::ImageBuffer;
+use image::Rgba;
 use imgui::{ImGui, Ui};
 use vulkano::descriptor::descriptor_set::{PersistentDescriptorSet};
 use vulkano::image::attachment::AttachmentImage;
+use vulkano::buffer::CpuAccessibleBuffer;
 use vulkano::buffer::BufferUsage;
 use vulkano::format::Format;
 use vulkano::pipeline::GraphicsPipelineAbstract;
 use vulkano::buffer::cpu_pool::CpuBufferPool;
-use vulkano::command_buffer::{DynamicState, AutoCommandBufferBuilder};
+use vulkano::command_buffer::{DynamicState, CommandBuffer, AutoCommandBufferBuilder};
 use vulkano::device::{Device, DeviceExtensions, Queue};
 use vulkano::framebuffer::{Framebuffer, FramebufferAbstract, Subpass, RenderPassAbstract};
 use vulkano::image::SwapchainImage;
@@ -25,11 +31,14 @@ use vulkano::sync;
 use winit::Window;
 use std::sync::Arc;
 use std::iter;
+use std::io::Write;
+use std::fs::File;
 use cgmath::Matrix4;
 
 use crate::error::{TwError, TwResult};
 use crate::camera::Camera;
 use crate::ecs::components::{TransformComponent, ModelComponent, LightComponent};
+use crate::ecs::ECS;
 use self::model::{Vertex, ModelManager};
 use self::texture::TextureManager;
 
@@ -57,6 +66,7 @@ pub struct Renderer<'a> {
     images: Vec<Arc<SwapchainImage<winit::Window>>>,
 
     render_pass: Arc<RenderPassAbstract + Send + Sync>,
+    pick_render_pass: Arc<RenderPassAbstract + Send + Sync>,
     pub pipeline: PipelineState,
     framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
 
@@ -72,6 +82,9 @@ pub struct Renderer<'a> {
 
     // Special pipelines and stuff for the UI
     pub gui: GuiRenderer,
+
+    // pipeline for mouse picking
+    pub object_picker: Object3DPicker,
 }
 
 impl<'a> Renderer<'a> {
@@ -153,6 +166,7 @@ impl<'a> Renderer<'a> {
         // Render pass is an object that describes where the output of the graphic
         // pipeline will go. It describes the layout of the images where the color
         // depth and/or stencil info will be written.
+        // TODO new render pass for picking.
         let render_pass = Arc::new(vulkano::single_pass_renderpass!(
                 device.clone(),
                 attachments: {
@@ -187,6 +201,40 @@ impl<'a> Renderer<'a> {
                 }
         ).unwrap());
 
+        let pick_render_pass = Arc::new(vulkano::single_pass_renderpass!(
+                device.clone(),
+                attachments: {
+                    // `color` is a custom name we give to the first and only attachment.
+                    color: {
+                        // `load: Clear` means that we ask the GPU to clear the content of this
+                        // attachment at the start of the drawing.
+                        load: Clear,
+                        // `store: Store` means that we ask the GPU to store the output of the draw
+                        // in the actual image. We could also ask it to discard the result.
+                        store: Store,
+                        // `format: <ty>` indicates the type of the format of the image. This has to
+                        // be one of the types of the `vulkano::format` module (or alternatively one
+                        // of your structs that implements the `FormatDesc` trait). Here we use the
+                        // same format as the swapchain.
+                        format:Format::R8G8B8A8Unorm,
+                        // TODO:
+                        samples: 1,
+                    },
+                    depth: {
+                        load: Clear,
+                        store: DontCare,
+                        format: Format::D16Unorm,
+                        samples: 1,
+                    }
+                },
+                pass: {
+                    // We use the attachment named `color` as the one and only color attachment.
+                    color: [color],
+                    // No depth-stencil attachment is indicated with empty brackets.
+                    depth_stencil: {depth}
+                }
+        ).unwrap());
+
 
         let vs = vs::Shader::load(device.clone()).unwrap();
         let fs = fs::Shader::load(device.clone()).unwrap();
@@ -197,7 +245,7 @@ impl<'a> Renderer<'a> {
         // Since we need to draw to multiple images, we are going to create a different framebuffer for
         // each image.
         let (pipeline, framebuffers, dimensions) = window_size_dependent_setup(device.clone(), &vs, &fs, &images, render_pass.clone());
-
+        println!("After framebuffer, dimensions: {:?}", dimensions);
         // Initialization is finally finished!
         let recreate_swapchain = false;
         let previous_frame_end = Some(Box::new(sync::now(device.clone())) as Box<GpuFuture>);
@@ -209,6 +257,10 @@ impl<'a> Renderer<'a> {
         device.clone(),
         render_pass.clone(),
         queue.clone());
+        let object_picker = Object3DPicker::new(device.clone(),
+        queue.clone(),
+        pick_render_pass.clone(),
+        dimensions);
         Ok(Renderer {
             surface,
             _physical: physical,
@@ -218,6 +270,7 @@ impl<'a> Renderer<'a> {
             images,
 
             render_pass,
+            pick_render_pass,
             pipeline: PipelineState { pipeline, vs, fs},
             framebuffers,
             uniform_buffer,
@@ -227,7 +280,7 @@ impl<'a> Renderer<'a> {
             texture_manager: TextureManager::new(),
             model_manager: ModelManager::new(),
             gui,
-
+            object_picker,
             dimensions
         })
     }
@@ -303,7 +356,9 @@ impl<'a> Renderer<'a> {
             self.render_pass.clone());
 
             self.gui.rebuild_pipeline(self.device.clone(),
-                self.render_pass.clone());
+            self.render_pass.clone());
+            self.object_picker.rebuild_pipeline(self.device.clone(),
+            self.render_pass.clone(), dimensions);
 
             // hey there
             camera.set_aspect((dimensions[0] as f32) / (dimensions[1] as f32));
@@ -433,6 +488,113 @@ impl<'a> Renderer<'a> {
         }
 
     }
+
+    fn get_pos(&self, x: usize, y: usize) -> usize {
+        4 * (y * self.dimensions[0] as usize + x)
+    }
+
+    /// Picking an object works by storing Entity ID in color attachment then
+    /// finding what pixel has been clicked by the mouse.
+    pub fn pick_object(&mut self, x: f64, y: f64, ecs: &ECS) -> String {
+
+        let hidpi_factor = self.surface.window().get_hidpi_factor();
+        let x = (x * hidpi_factor).round() as usize;
+        let y = (y * hidpi_factor).round() as usize;
+        let buf_pos = 4 * (y * (self.dimensions[0] as usize) + x); //rgba
+
+        let (view, proj) = ecs.camera.get_vp(); 
+        let window = self.surface.window();
+
+        let objs: Vec<_> =  ecs.components.models
+            .iter()
+            .zip(ecs.components.transforms.iter())
+            .enumerate()
+            .filter(|(_, (x, y))| x.is_some() && y.is_some())
+            .map(|(i, (x, y))| {
+
+                // entity ID, model and position
+                (i,
+                 x.as_ref().unwrap().value(),
+                 y.as_ref().unwrap().value())
+
+            }).collect();
+
+
+        // The color will be transferred to that buffer :)
+        let buf = CpuAccessibleBuffer::from_iter(
+            self.device.clone(), BufferUsage::all(),
+            (0 .. self.dimensions[0]* self.dimensions[1] * 4).map(|_| 0u8))
+            .expect("failed to create buffer");
+
+
+        // Specify the color to clear the framebuffer with.
+        // Important to have transparent color for color attachement as it means no
+        // object.
+        let clear_values = vec!([0.0, 0.0, 0.0, 0.0].into(), 1f32.into());
+
+        let mut command_buffer_builder = AutoCommandBufferBuilder::primary_one_time_submit(self.device.clone(), self.queue.family()).unwrap()
+            .begin_render_pass(self.object_picker.framebuffer.clone(), false, clear_values)
+            .unwrap();
+
+        for (id, model, transform) in objs.iter() {
+
+            let model = self.model_manager.models.get(
+                &model.mesh_name
+            ).unwrap();
+
+            let uniform_buffer_subbuffer = {
+                let uniform_data = create_mvp(transform, &view, &proj);
+                self.uniform_buffer.next(uniform_data).unwrap()
+            };
+
+            let set = Arc::new(PersistentDescriptorSet::start(self.object_picker.pipeline.pipeline.clone(), 0)
+                               .add_buffer(uniform_buffer_subbuffer).unwrap()
+                               .build().unwrap()
+            );
+
+            let push_constants = Object3DPicker::create_pushconstants(*id);
+            dbg!(&push_constants.color);
+
+            command_buffer_builder = command_buffer_builder
+                .draw_indexed(self.object_picker.pipeline.pipeline.clone(),
+                &DynamicState::none(),
+                vec![model.vertex_buffer.clone()],
+                model.index_buffer.clone(),
+                set.clone(),
+                push_constants).unwrap();
+        }
+
+        // Finish render pass
+        command_buffer_builder = command_buffer_builder.end_render_pass()
+            .unwrap();
+
+        // Now, copy the image to the cpu accessible buffer
+        command_buffer_builder = command_buffer_builder
+            .copy_image_to_buffer(self.object_picker.image.clone(),
+            buf.clone()).unwrap();
+
+        // Finish building the command buffer by calling `build`.
+        let command_buffer = command_buffer_builder.build().unwrap();
+
+        let finished = command_buffer.execute(self.queue.clone()).unwrap();
+        finished.then_signal_fence_and_flush().unwrap()
+            .wait(None).unwrap();
+
+        let buffer_content = buf.read().unwrap();
+       
+        //let image = ImageBuffer::<Rgba<u8>, _>::from_raw(
+        //    self.dimensions[0], self.dimensions[1], &buffer_content[..]).unwrap();
+        //image.save("image.png").unwrap();
+        format!("Entity {:?} with r{} g{} b{} a{}", Object3DPicker::get_entity_id(
+                buffer_content[buf_pos],
+                buffer_content[buf_pos+1],
+                buffer_content[buf_pos+2],
+                buffer_content[buf_pos+3]),
+                buffer_content[buf_pos],
+                buffer_content[buf_pos+1],
+                buffer_content[buf_pos+2],
+                buffer_content[buf_pos+3])
+    }
 }
 
 /// This method is called once during initialization, then again whenever the window is resized
@@ -476,7 +638,6 @@ fn window_size_dependent_setup(
 }   
 
 pub mod vs {
-
     vulkano_shaders::shader!{
         ty: "vertex",
         path: "shaders/main.vert"

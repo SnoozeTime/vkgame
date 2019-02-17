@@ -12,6 +12,7 @@ name = "twgraph"
 vulkano = "0.11"
 # Provides the `shader!` macro that is used to generate code for using shaders.
 vulkano-shaders = "0.11"
+
 # The Vulkan library doesn't provide any functionality to create and handle windows, as
 # this would be out of scope. In order to open a window, we are going to use the `winit` crate.
 winit = "0.18"

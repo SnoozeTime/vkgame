@@ -12,8 +12,6 @@ layout(set = 1, binding = 1) uniform Data {
         vec3 position;
 } light;
 
-const vec3 light_position = vec3(0, 2, 0);
-
 
 void main() {
         // ambient

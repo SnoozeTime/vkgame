@@ -165,6 +165,10 @@ impl<'a> RenderingSystem<'a> {
                 self.hidpi_factor,
                 );
     }
+
+    pub fn pick_object(&mut self, x: f64, y: f64, ecs: &ECS) -> String {
+        self.renderer.pick_object(x, y, ecs)
+    }
 }
 
 // just an example to make some object move

@@ -64,32 +64,40 @@ fn main() {
         input.update(&mut render_system);
 
         // HANDLE CAMERA.
-        if input.get_key(KeyType::Up) {
-            ecs.camera.process_keyboard(frame_duration,
-                                        CameraDirection::Forward);
+        if input.modifiers.ctrl {
+            if input.get_key(KeyType::Up) {
+                ecs.camera.process_keyboard(frame_duration,
+                                            CameraDirection::Forward);
+            }
+
+            if input.get_key(KeyType::Down) {
+                ecs.camera.process_keyboard(frame_duration,
+                                            CameraDirection::Backward);
+            }
+
+            if input.get_key(KeyType::Left) {
+                ecs.camera.process_keyboard(frame_duration,
+                                            CameraDirection::Left);
+            }
+
+            if input.get_key(KeyType::Right) {
+                ecs.camera.process_keyboard(frame_duration,
+                                            CameraDirection::Right);
+            }
+
+            let (h_axis, v_axis) = (input.get_axis(Axis::Horizontal),
+            input.get_axis(Axis::Vertical));
+            if h_axis != 0.0 || v_axis != 0.0 {
+                ecs.camera.process_mouse(frame_duration,
+                                         h_axis,
+                                         v_axis);
+            }
         }
 
-        if input.get_key(KeyType::Down) {
-            ecs.camera.process_keyboard(frame_duration,
-                                        CameraDirection::Backward);
-        }
-
-        if input.get_key(KeyType::Left) {
-            ecs.camera.process_keyboard(frame_duration,
-                                        CameraDirection::Left);
-        }
-
-        if input.get_key(KeyType::Right) {
-            ecs.camera.process_keyboard(frame_duration,
-                                        CameraDirection::Right);
-        }
-
-        let (h_axis, v_axis) = (input.get_axis(Axis::Horizontal),
-        input.get_axis(Axis::Vertical));
-        if h_axis != 0.0 || v_axis != 0.0 {
-            ecs.camera.process_mouse(frame_duration,
-                                     h_axis,
-                                     v_axis);
+        if input.get_key_down(KeyType::Space) {
+            editor.mouse_pick = render_system.pick_object(input.mouse_pos[0],
+                                                          input.mouse_pos[1],
+                                                          &ecs);
         }
 
         // To quit

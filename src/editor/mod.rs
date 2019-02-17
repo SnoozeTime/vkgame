@@ -6,6 +6,7 @@ use crate::ecs::{
 
 pub struct Editor {
     selected_entity: Option<Entity>,
+    pub mouse_pick: String,
 }
 
 impl Editor {
@@ -13,6 +14,7 @@ impl Editor {
     pub fn new() -> Self {
         Editor {
             selected_entity: None,
+            mouse_pick: String::new(),
         }
     }
 
@@ -42,6 +44,7 @@ impl Editor {
                         self.selected_entity = Some(*entity);
                     }
                 }
+                ui.text(im_str!("Mouse: {}", self.mouse_pick));
             });
 
         ui.window(im_str!("Components"))
