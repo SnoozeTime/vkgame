@@ -1,6 +1,7 @@
 use serde_derive::{Serialize, Deserialize};
 use cgmath::Vector3;
-
+use imgui::{Ui, im_str, ImGuiCond, ImGuiSelectableFlags, ImVec2};
+use crate::editor::Editor;
 use crate::ser::VectorDef;
 
 
@@ -13,6 +14,7 @@ pub struct ModelComponent {
     pub mesh_name: String,
     pub texture_name: String,
 }
+
 
 /// Position of the game object. No position = no rendering.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -38,6 +40,66 @@ pub struct DummyComponent {
 pub struct LightComponent {
     // Should be between 0 and 1.0
     pub color: [f32; 3],
+}
 
-    // TODO light type.
+/// Component can be represented in GUI editor
+pub trait GuiDrawable {
+    fn draw_ui(&mut self, ui: &Ui, editor: &Editor);
+}
+
+impl GuiDrawable for TransformComponent {
+    fn draw_ui(&mut self, ui: &Ui, editor: &Editor) {
+        ui.tree_node(im_str!("position:")).opened(true, ImGuiCond::FirstUseEver).build(|| {
+            ui.input_float(im_str!("x"), &mut self.position.x)
+                .step(0.1)
+                .step_fast(1.0)
+                .build();
+            ui.input_float(im_str!("y"), &mut self.position.y)
+                .step(0.1)
+                .step_fast(1.0)
+                .build();
+            ui.input_float(im_str!("z"), &mut self.position.z)
+                .step(0.1)
+                .step_fast(1.0)
+                .build();
+        });
+
+        ui.tree_node(im_str!("rotation:")).opened(true, ImGuiCond::FirstUseEver).build(||{
+            ui.input_float(im_str!("x"), &mut self.rotation.x)
+                .step(0.1)
+                .step_fast(1.0)
+                .build();
+            ui.input_float(im_str!("y"), &mut self.rotation.y)
+                .step(0.1)
+                .step_fast(1.0)
+                .build();
+            ui.input_float(im_str!("z"), &mut self.rotation.z)
+                .step(0.1)
+                .step_fast(1.0)
+                .build();
+        });
+
+        ui.tree_node(im_str!("scale:")).opened(true, ImGuiCond::FirstUseEver).build(|| {
+            ui.input_float(im_str!("x"), &mut self.scale.x)
+                .step(0.1)
+                .step_fast(1.0)
+                .build();
+            ui.input_float(im_str!("y"), &mut self.scale.y)
+                .step(0.1)
+                .step_fast(1.0)
+                .build();
+            ui.input_float(im_str!("z"), &mut self.scale.z)
+                .step(0.1)
+                .step_fast(1.0)
+                .build();
+        });
+    }
+}
+
+
+impl GuiDrawable for LightComponent {
+    fn draw_ui(&mut self, ui: &Ui, editor: &Editor) {
+            ui.input_float3(im_str!("color"), &mut self.color)
+                .build();
+        }
 }

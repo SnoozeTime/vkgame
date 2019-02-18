@@ -13,6 +13,7 @@ use self::components::{
     ModelComponent,
     DummyComponent,
     LightComponent,
+    GuiDrawable,
 };
 use self::gen_index::{GenerationalIndexAllocator, GenerationalIndexArray, GenerationalIndex};
 use crate::camera::Camera;
@@ -167,23 +168,24 @@ impl ECS {
         println!("ECS after loading{:?}", ecs);
         Ok(ecs)
     }
+
 }
 
 /// Macro to set up the component arrays in the ECS. It should be used with
 macro_rules! register_components {
     { $([$name:ident, $component:ty],)+ } => {
 
-                                                 #[derive(Debug, Serialize, Deserialize)]
-                                                 pub struct Components {
-                                                     /// Size of the arrays. They all should be the same.
-                                                     current_size: usize,
+        #[derive(Debug, Serialize, Deserialize)]
+        pub struct Components {
+            /// Size of the arrays. They all should be the same.
+            current_size: usize,
 
-                                                     /// Arrays can be accessed with the get methods.
-                                                     $(
-                                                         #[serde(default="GenerationalIndexArray::new")]
-                                                         pub $name: EntityArray<$component>,   
-                                                     )+
-                                                 }
+            /// Arrays can be accessed with the get methods.
+            $(
+                       #[serde(default="GenerationalIndexArray::new")]
+                       pub $name: EntityArray<$component>,   
+             )+
+         }
 
                                                  impl Components {
                                                      pub fn new() -> Self {

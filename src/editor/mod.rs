@@ -3,6 +3,7 @@ use crate::ecs::{
     ECS,
     Entity,
 };
+use crate::ecs::components::GuiDrawable;
 
 pub struct Editor {
     pub selected_entity: Option<Entity>,
@@ -56,53 +57,18 @@ impl Editor {
                     if let Some(transform) = ecs.components.transforms.get_mut(&entity) {
                         ui.tree_node(im_str!("Transform")).opened(true, ImGuiCond::FirstUseEver).build(|| {
                             // TODO should replace by input_float3??
-                            ui.tree_node(im_str!("position:")).opened(true, ImGuiCond::FirstUseEver).build(|| {
-                                ui.input_float(im_str!("x"), &mut transform.position.x)
-                                    .step(0.1)
-                                    .step_fast(1.0)
-                                    .build();
-                                ui.input_float(im_str!("y"), &mut transform.position.y)
-                                    .step(0.1)
-                                    .step_fast(1.0)
-                                    .build();
-                                ui.input_float(im_str!("z"), &mut transform.position.z)
-                                    .step(0.1)
-                                    .step_fast(1.0)
-                                    .build();
-                            });
+                            transform.draw_ui(&ui, &self);
+                        });
+                    }
 
-                            ui.tree_node(im_str!("rotation:")).opened(true, ImGuiCond::FirstUseEver).build(||{
-                                ui.input_float(im_str!("x"), &mut transform.rotation.x)
-                                    .step(0.1)
-                                    .step_fast(1.0)
-                                    .build();
-                                ui.input_float(im_str!("y"), &mut transform.rotation.y)
-                                    .step(0.1)
-                                    .step_fast(1.0)
-                                    .build();
-                                ui.input_float(im_str!("z"), &mut transform.rotation.z)
-                                    .step(0.1)
-                                    .step_fast(1.0)
-                                    .build();
-                            });
-
-                            ui.tree_node(im_str!("scale:")).opened(true, ImGuiCond::FirstUseEver).build(|| {
-                                ui.input_float(im_str!("x"), &mut transform.scale.x)
-                                    .step(0.1)
-                                    .step_fast(1.0)
-                                    .build();
-                                ui.input_float(im_str!("y"), &mut transform.scale.y)
-                                    .step(0.1)
-                                    .step_fast(1.0)
-                                    .build();
-                                ui.input_float(im_str!("z"), &mut transform.scale.z)
-                                    .step(0.1)
-                                    .step_fast(1.0)
-                                    .build();
-                            });
+                    if let Some(light) = ecs.components.lights.get_mut(&entity) {
+                        ui.tree_node(im_str!("Light")).opened(true, ImGuiCond::FirstUseEver).build(|| {
+                            // TODO should replace by input_float3??
+                            light.draw_ui(&ui, &self);
                         });
                     }
                 }
+
             });
 
         true
