@@ -4,6 +4,7 @@ use crate::ecs::{
     Entity,
 };
 use crate::ecs::components::GuiDrawable;
+use crate::ui::Gui;
 
 pub struct Editor {
     pub selected_entity: Option<Entity>,
@@ -18,12 +19,14 @@ impl Editor {
             hovered: false,
         }
     }
+}
 
+impl Gui for Editor {
 
     /// This is the function that will create the GUI!
-    pub fn run_ui(&mut self,
-                  ui: &Ui,
-                  ecs: &mut ECS) -> bool {
+    fn run_ui(&mut self,
+              ui: &Ui,
+              ecs: &mut ECS) -> bool {
 
         self.hovered = false;
         ui.window(im_str!("Scene"))

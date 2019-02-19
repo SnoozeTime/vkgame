@@ -1,6 +1,7 @@
 use std::time::Duration;
 use cgmath::Vector3;
 
+use crate::ui::Gui;
 use crate::ecs::{
     ECS,
     systems::{RenderingSystem},
@@ -11,11 +12,7 @@ use crate::camera::{CameraDirection, Camera, CameraInputHandler};
 use crate::input::{KeyType, Input, Axis, MouseButton};
 use crate::renderer::pick::Object3DPicker;
 use crate::resource::Resources;
-
-pub trait Scene {
-    fn update(&mut self, dt: Duration);
-    fn process_input(&mut self, input: &Input, resources: &Resources, dt: Duration);
-}
+use super::Scene;
 
 pub struct EditorScene {
     pub ecs: ECS,
@@ -113,5 +110,10 @@ impl Scene for EditorScene {
                 &resources.models);
         }
     }
+
+    fn get_parts_mut(&mut self) -> (&mut ECS, &mut Gui) {
+        (&mut self.ecs, &mut self.editor)
+    }
+
 }
 

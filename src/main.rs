@@ -12,7 +12,7 @@ use twgraph::ecs::{
 };
 use twgraph::editor::Editor;
 use twgraph::resource::Resources;
-use twgraph::scene::{Scene, EditorScene};
+use twgraph::scene::{Scene, EditorScene, GameScene};
 use std::env;
 
 fn get_ecs() -> ECS {
@@ -33,16 +33,6 @@ fn main() {
         .subcommand(SubCommand::with_name("game"))
         .subcommand(SubCommand::with_name("editor"))
         .get_matches();
-
-
-    if let Some(matches) = matches.subcommand_matches("game") {
-
-    }
-
-    if let Some(matches) = matches.subcommand_matches("editor") {
-
-    }
-
     // this is an Arc to instance. (non-mut dynamic ref)
     let instance = {
         let extensions = vulkano_win::required_extensions();
@@ -60,27 +50,42 @@ fn main() {
 
     let mut old_instant = Instant::now();
 
-    let mut scene = EditorScene::new(&render_system);
-    // Apply aspect to camera.
-    {
-        let dimensions = render_system.dimensions();
-        scene.ecs.camera.set_aspect((dimensions[0] as f32) / (dimensions[1] as f32));
+
+    let mut scenes: Vec<Box< dyn Scene>> = Vec::new();
+
+
+    if let Some(_matches) = matches.subcommand_matches("game") {
+        scenes.push(Box::new(GameScene::new(&render_system)));
     }
-    //
-    //
+
+    if let Some(_matches) = matches.subcommand_matches("editor") {
+        scenes.push(Box::new(EditorScene::new(&render_system)));
+    }
+
+    if scenes.len() == 0 {
+        panic!("Need at least game or editor");
+    }
+
+
 
     'game_loop: loop {
+
+        let nb_scene = scenes.len();
+        let scene = &mut scenes[nb_scene - 1];
+
 
         // calculate frame time.
         let now = Instant::now();
         let frame_duration = now - old_instant;
         old_instant = now;
 
-        render_system.render(&resources,
-                             &mut scene.ecs,
-                             frame_duration,
-                             &mut scene.editor);
-
+        {
+            let (ecs, gui) = scene.get_parts_mut();
+            render_system.render(&resources,
+                                 ecs,
+                                 frame_duration,
+                                 gui);
+        }
         input.update(&mut render_system);
 
         // Now scene specific updates.

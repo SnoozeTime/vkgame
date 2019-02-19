@@ -15,6 +15,7 @@ use crate::renderer::Renderer;
 use crate::editor::Editor;
 use crate::time::dt_as_secs;
 use crate::resource::Resources;
+use crate::ui::Gui;
 
 use super::{Entity, ECS};
 
@@ -107,7 +108,7 @@ impl<'a> RenderingSystem<'a> {
                   resources: &Resources,
                   ecs: &mut ECS,
                   dt: Duration,
-                  gui: &mut Editor)
+                  gui: &mut Gui)
     {
         let dt = dt_as_secs(dt);
 

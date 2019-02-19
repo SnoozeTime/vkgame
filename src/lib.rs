@@ -7,6 +7,7 @@ pub mod time;
 pub mod input;
 pub mod scene;
 pub mod resource;
+pub mod ui;
 
 
 /// This is the module for all the editor stuff. To put in its own crate?
