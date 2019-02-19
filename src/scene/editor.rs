@@ -13,6 +13,7 @@ use crate::input::{KeyType, Input, Axis, MouseButton};
 use crate::renderer::pick::Object3DPicker;
 use crate::resource::Resources;
 use super::Scene;
+use crate::event::{Event, EditorEvent};
 
 pub struct EditorScene {
     pub ecs: ECS,
@@ -64,13 +65,14 @@ impl EditorScene {
 
 impl Scene for EditorScene {
 
-    fn update(&mut self, _dt: Duration) {}
+    fn update(&mut self, _dt: Duration) -> Option<Vec<Event>> { None }
 
     fn process_input(&mut self,
                      input: &Input,
                      resources: &Resources,
-                     dt: Duration) {
+                     dt: Duration) -> Option<Vec<Event>> {
 
+        let mut events = None;
         // HANDLE CAMERA.
         if input.modifiers.ctrl {
             if input.get_key(KeyType::Up) {
@@ -109,6 +111,12 @@ impl Scene for EditorScene {
                 &self.ecs,
                 &resources.models);
         }
+
+        if input.get_key_down(KeyType::Space) {
+            events = Some(vec![Event::EditorEvent(EditorEvent::PlayGame)]);
+        }
+
+        events
     }
 
     fn get_parts_mut(&mut self) -> (&mut ECS, &mut Gui) {

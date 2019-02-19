@@ -11,6 +11,7 @@ use crate::camera::{CameraDirection, Camera, CameraInputHandler};
 use crate::input::{KeyType, Input, Axis, MouseButton};
 use crate::renderer::pick::Object3DPicker;
 use crate::resource::Resources;
+use crate::event::Event;
 use crate::ui::Gui;
 use super::Scene;
 
@@ -27,7 +28,6 @@ impl Gui for GameUi {
 pub struct GameScene {
     pub ecs: ECS,
     pub game_ui: GameUi,
-
 
     // All systems for this Scene.
     dummy_system: DummySystem,
@@ -50,14 +50,15 @@ impl GameScene {
 
 impl Scene for GameScene {
 
-    fn update(&mut self, dt: Duration) {
+    fn update(&mut self, dt: Duration) -> Option<Vec<Event>> {
         self.dummy_system.do_dumb_thing(dt, &mut self.ecs);
+        None
     }
 
     fn process_input(&mut self,
                      input: &Input,
                      resources: &Resources,
-                     dt: Duration) {
+                     dt: Duration) -> Option<Vec<Event>> {
 
         if input.get_key(KeyType::Up) {
             self.ecs.camera.process_keyboard(dt,
@@ -87,7 +88,9 @@ impl Scene for GameScene {
                                           v_axis);
         }
 
+        None
     }
+
 
     fn get_parts_mut(&mut self) -> (&mut ECS, &mut Gui) {
         (&mut self.ecs, &mut self.game_ui)

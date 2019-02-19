@@ -13,6 +13,7 @@ use twgraph::ecs::{
 use twgraph::editor::Editor;
 use twgraph::resource::Resources;
 use twgraph::scene::{Scene, EditorScene, GameScene};
+use twgraph::event::{Event, EditorEvent};
 use std::env;
 
 fn get_ecs() -> ECS {
@@ -66,8 +67,6 @@ fn main() {
         panic!("Need at least game or editor");
     }
 
-
-
     'game_loop: loop {
 
         let nb_scene = scenes.len();
@@ -90,7 +89,13 @@ fn main() {
 
         // Now scene specific updates.
         scene.update(frame_duration);
-        scene.process_input(&input, &resources, frame_duration);
+        let events = scene.process_input(&input, &resources, frame_duration);
+
+        if let Some(events) = events {
+            if let Some(Event::EditorEvent(EditorEvent::PlayGame)) = events.get(0) {
+                scenes.push(Box::new(GameScene::new(&render_system)));
+            }
+        }
 
         // To quit
         if input.close_request || input.get_key_down(KeyType::Escape) {
