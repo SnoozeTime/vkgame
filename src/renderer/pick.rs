@@ -13,11 +13,13 @@ use vulkano::format::{Format, R8G8B8A8Unorm};
 use vulkano::sync::GpuFuture;
 use vulkano::image::attachment::AttachmentImage;
 use vulkano::framebuffer::{Framebuffer, FramebufferAbstract, Subpass, RenderPassAbstract};
+use vulkano::buffer::cpu_pool::CpuBufferPool;
 use std::sync::Arc;
 use std::iter;
 
-use crate::ecs::ECS;
+use crate::ecs::{Entity, ECS, gen_index::GenerationalIndex};
 use super::model::{ModelManager, Vertex};
+use super::{create_mvp, vs};
 
 /*
  * This module will implement a technique to get the entity when clicking on a
@@ -109,7 +111,15 @@ mod pick_fs {
 
 pub struct Object3DPicker {
     device: Arc<Device>,
+    queue: Arc<Queue>,
+    surface: Arc<Surface<winit::Window>>,
+    dimensions: [u32; 2],
 
+    // Does not use same image format as the normal render pass so need to create 
+    // a new one.
+    render_pass: Arc<RenderPassAbstract + Send + Sync>,
+
+    uniform_buffer: CpuBufferPool<vs::ty::Data>,
     pub pipeline: PickPipelineState,
     pub framebuffer: Arc<FramebufferAbstract + Send + Sync>,
     pub image: Arc<AttachmentImage>,
@@ -121,9 +131,10 @@ impl Object3DPicker {
 
     pub fn new(device: Arc<Device>,
                queue: Arc<Queue>,
-               render_pass: Arc<RenderPassAbstract + Send + Sync>,
+               surface: Arc<Surface<winit::Window>>,
                dimensions: [u32; 2]) -> Self {
 
+        let uniform_buffer = CpuBufferPool::<vs::ty::Data>::new(device.clone(), BufferUsage::all());
         let usage = ImageUsage {
             transfer_source: true,
             .. ImageUsage::none()
@@ -136,6 +147,29 @@ impl Object3DPicker {
         let depth_buffer = AttachmentImage::transient(device.clone(),
         dimensions,
         Format::D16Unorm).unwrap();
+
+        // Create the render pass. It will use images that have format rgbunorm
+        let render_pass = Arc::new(vulkano::single_pass_renderpass!(
+                device.clone(),
+                attachments: {
+                    color: {
+                        load: Clear,
+                        store: Store,
+                        format:Format::R8G8B8A8Unorm,
+                        samples: 1,
+                    },
+                    depth: {
+                        load: Clear,
+                        store: DontCare,
+                        format: Format::D16Unorm,
+                        samples: 1,
+                    }
+                },
+                pass: {
+                    color: [color],
+                    depth_stencil: {depth}
+                }
+        ).unwrap());
 
         let framebuffer = Arc::new(Framebuffer::start(render_pass.clone())
                                    .add(image.clone()).unwrap()
@@ -156,8 +190,14 @@ impl Object3DPicker {
 
         Object3DPicker {
             device: device.clone(),
+            queue: queue.clone(),
+            surface: surface.clone(),
+            dimensions,
+
+            render_pass,
             pipeline,
             framebuffer,
+            uniform_buffer,
             image,
             buf,
         }
@@ -184,28 +224,132 @@ impl Object3DPicker {
     }
 
     pub fn rebuild_pipeline(&mut self,
-                            device: Arc<Device>,
-                            render_pass: Arc<RenderPassAbstract + Send + Sync>,
                             dimensions: [u32; 2]) {
+
+        self.dimensions = dimensions;
+
         let usage = ImageUsage {
             transfer_source: true,
             .. ImageUsage::none()
         };
         self.image = AttachmentImage::with_usage(
-            device.clone(), 
+            self.device.clone(), 
             dimensions,
-            Format::B8G8R8A8Srgb,
+            Format::R8G8B8A8Unorm,
             usage).unwrap();
-        let depth_buffer = AttachmentImage::transient(device.clone(),
+        let depth_buffer = AttachmentImage::transient(self.device.clone(),
         dimensions,
         Format::D16Unorm).unwrap();
 
 
-        self.framebuffer = Arc::new(Framebuffer::start(render_pass.clone())
+        self.framebuffer = Arc::new(Framebuffer::start(self.render_pass.clone())
                                     .add(self.image.clone()).unwrap()
                                     .add(depth_buffer.clone()).unwrap()
                                     .build().unwrap());
 
-        self.pipeline.rebuild_pipeline(device, render_pass, dimensions);
+        self.pipeline.rebuild_pipeline(self.device.clone(),
+            self.render_pass.clone(), dimensions);
+    }
+
+    pub fn pick_object(&mut self, x: f64, y: f64, ecs: &ECS, model_manager: &ModelManager) -> Option<Entity> {
+
+        let hidpi_factor = self.surface.window().get_hidpi_factor();
+        let x = (x * hidpi_factor).round() as usize;
+        let y = (y * hidpi_factor).round() as usize;
+        let buf_pos = 4 * (y * (self.dimensions[0] as usize) + x); //rgba
+
+        let (view, proj) = ecs.camera.get_vp(); 
+        let window = self.surface.window();
+
+        let objs: Vec<_> =  ecs.components.models
+            .iter()
+            .zip(ecs.components.transforms.iter())
+            .enumerate()
+            .filter(|(_, (x, y))| x.is_some() && y.is_some())
+            .map(|(i, (x, y))| {
+
+                // entity ID, model and position
+                (i,
+                 x.as_ref().unwrap().value(),
+                 y.as_ref().unwrap().value())
+
+            }).collect();
+
+        // Specify the color to clear the framebuffer with.
+        // Important to have transparent color for color attachement as it means no
+        // object.
+        let clear_values = vec!([0.0, 0.0, 0.0, 0.0].into(), 1f32.into());
+
+        let mut command_buffer_builder = AutoCommandBufferBuilder::primary_one_time_submit(self.device.clone(), self.queue.family()).unwrap()
+            .begin_render_pass(self.framebuffer.clone(), false, clear_values)
+            .unwrap();
+
+        for (id, model, transform) in objs.iter() {
+
+            let model = model_manager.models.get(
+                &model.mesh_name
+            ).unwrap();
+
+            let uniform_buffer_subbuffer = {
+                let uniform_data = create_mvp(transform, &view, &proj);
+                self.uniform_buffer.next(uniform_data).unwrap()
+            };
+
+            let set = Arc::new(PersistentDescriptorSet::start(self.pipeline.pipeline.clone(), 0)
+                               .add_buffer(uniform_buffer_subbuffer).unwrap()
+                               .build().unwrap()
+            );
+
+            let push_constants = Object3DPicker::create_pushconstants(*id);
+
+            command_buffer_builder = command_buffer_builder
+                .draw_indexed(self.pipeline.pipeline.clone(),
+                &DynamicState::none(),
+                vec![model.vertex_buffer.clone()],
+                model.index_buffer.clone(),
+                set.clone(),
+                push_constants).unwrap();
+        }
+
+        // Finish render pass
+        command_buffer_builder = command_buffer_builder.end_render_pass()
+            .unwrap();
+
+        // Now, copy the image to the cpu accessible buffer
+        command_buffer_builder = command_buffer_builder
+            .copy_image_to_buffer(self.image.clone(),
+            self.buf.clone()).unwrap();
+
+        // Finish building the command buffer by calling `build`.
+        let command_buffer = command_buffer_builder.build().unwrap();
+
+        let finished = command_buffer.execute(self.queue.clone()).unwrap();
+        finished.then_signal_fence_and_flush().unwrap()
+            .wait(None).unwrap();
+
+        let buffer_content = self.buf.read().unwrap();
+
+        //  let image = ImageBuffer::<Rgba<u8>, _>::from_raw(
+        //      self.dimensions[0], self.dimensions[1], &buffer_content[..]).unwrap();
+        //  image.save("image.png").unwrap();
+
+        // we have the index of the entity. Let's assume its alive as it shows up on
+        // screen. We can then reconstruct the GenerationalIndex.
+        let maybe_id = Object3DPicker::get_entity_id(
+            buffer_content[buf_pos],
+            buffer_content[buf_pos+1],
+            buffer_content[buf_pos+2],
+            buffer_content[buf_pos+3],
+            );
+
+        if let Some(id) = maybe_id {
+            let gen = ecs.components.transforms[id].as_ref()?.generation();
+            return Some(
+                GenerationalIndex::new(
+                    id,
+                    gen,
+                    ))
+        }
+        None
     }
 }

@@ -66,7 +66,6 @@ pub struct Renderer<'a> {
     images: Vec<Arc<SwapchainImage<winit::Window>>>,
 
     render_pass: Arc<RenderPassAbstract + Send + Sync>,
-    pick_render_pass: Arc<RenderPassAbstract + Send + Sync>,
     pub pipeline: PipelineState,
     framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
 
@@ -201,44 +200,9 @@ impl<'a> Renderer<'a> {
                 }
         ).unwrap());
 
-        let pick_render_pass = Arc::new(vulkano::single_pass_renderpass!(
-                device.clone(),
-                attachments: {
-                    // `color` is a custom name we give to the first and only attachment.
-                    color: {
-                        // `load: Clear` means that we ask the GPU to clear the content of this
-                        // attachment at the start of the drawing.
-                        load: Clear,
-                        // `store: Store` means that we ask the GPU to store the output of the draw
-                        // in the actual image. We could also ask it to discard the result.
-                        store: Store,
-                        // `format: <ty>` indicates the type of the format of the image. This has to
-                        // be one of the types of the `vulkano::format` module (or alternatively one
-                        // of your structs that implements the `FormatDesc` trait). Here we use the
-                        // same format as the swapchain.
-                        format:Format::R8G8B8A8Unorm,
-                        // TODO:
-                        samples: 1,
-                    },
-                    depth: {
-                        load: Clear,
-                        store: DontCare,
-                        format: Format::D16Unorm,
-                        samples: 1,
-                    }
-                },
-                pass: {
-                    // We use the attachment named `color` as the one and only color attachment.
-                    color: [color],
-                    // No depth-stencil attachment is indicated with empty brackets.
-                    depth_stencil: {depth}
-                }
-        ).unwrap());
-
 
         let vs = vs::Shader::load(device.clone()).unwrap();
         let fs = fs::Shader::load(device.clone()).unwrap();
-
 
         // The render pass we created above only describes the layout of our framebuffers. Before we
         // can draw we also need to create the actual framebuffers.
@@ -258,9 +222,9 @@ impl<'a> Renderer<'a> {
         render_pass.clone(),
         queue.clone());
         let object_picker = Object3DPicker::new(device.clone(),
-        queue.clone(),
-        pick_render_pass.clone(),
-        dimensions);
+                                                queue.clone(),
+                                                surface.clone(),
+                                                dimensions);
         Ok(Renderer {
             surface,
             _physical: physical,
@@ -270,7 +234,6 @@ impl<'a> Renderer<'a> {
             images,
 
             render_pass,
-            pick_render_pass,
             pipeline: PipelineState { pipeline, vs, fs},
             framebuffers,
             uniform_buffer,
@@ -357,8 +320,7 @@ impl<'a> Renderer<'a> {
 
             self.gui.rebuild_pipeline(self.device.clone(),
             self.render_pass.clone());
-            self.object_picker.rebuild_pipeline(self.device.clone(),
-            self.render_pass.clone(), dimensions);
+            self.object_picker.rebuild_pipeline(dimensions);
 
             // hey there
             camera.set_aspect((dimensions[0] as f32) / (dimensions[1] as f32));
@@ -496,107 +458,7 @@ impl<'a> Renderer<'a> {
     /// Picking an object works by storing Entity ID in color attachment then
     /// finding what pixel has been clicked by the mouse.
     pub fn pick_object(&mut self, x: f64, y: f64, ecs: &ECS) -> Option<Entity> {
-
-        let hidpi_factor = self.surface.window().get_hidpi_factor();
-        let x = (x * hidpi_factor).round() as usize;
-        let y = (y * hidpi_factor).round() as usize;
-        let buf_pos = 4 * (y * (self.dimensions[0] as usize) + x); //rgba
-
-        let (view, proj) = ecs.camera.get_vp(); 
-        let window = self.surface.window();
-
-        let objs: Vec<_> =  ecs.components.models
-            .iter()
-            .zip(ecs.components.transforms.iter())
-            .enumerate()
-            .filter(|(_, (x, y))| x.is_some() && y.is_some())
-            .map(|(i, (x, y))| {
-
-                // entity ID, model and position
-                (i,
-                 x.as_ref().unwrap().value(),
-                 y.as_ref().unwrap().value())
-
-            }).collect();
-
-        // Specify the color to clear the framebuffer with.
-        // Important to have transparent color for color attachement as it means no
-        // object.
-        let clear_values = vec!([0.0, 0.0, 0.0, 0.0].into(), 1f32.into());
-
-        let mut command_buffer_builder = AutoCommandBufferBuilder::primary_one_time_submit(self.device.clone(), self.queue.family()).unwrap()
-            .begin_render_pass(self.object_picker.framebuffer.clone(), false, clear_values)
-            .unwrap();
-
-        for (id, model, transform) in objs.iter() {
-
-            let model = self.model_manager.models.get(
-                &model.mesh_name
-            ).unwrap();
-
-            let uniform_buffer_subbuffer = {
-                let uniform_data = create_mvp(transform, &view, &proj);
-                self.uniform_buffer.next(uniform_data).unwrap()
-            };
-
-            let set = Arc::new(PersistentDescriptorSet::start(self.object_picker.pipeline.pipeline.clone(), 0)
-                               .add_buffer(uniform_buffer_subbuffer).unwrap()
-                               .build().unwrap()
-            );
-
-            let push_constants = Object3DPicker::create_pushconstants(*id);
-
-            command_buffer_builder = command_buffer_builder
-                .draw_indexed(self.object_picker.pipeline.pipeline.clone(),
-                &DynamicState::none(),
-                vec![model.vertex_buffer.clone()],
-                model.index_buffer.clone(),
-                set.clone(),
-                push_constants).unwrap();
-        }
-
-        // Finish render pass
-        command_buffer_builder = command_buffer_builder.end_render_pass()
-            .unwrap();
-
-        // Now, copy the image to the cpu accessible buffer
-        command_buffer_builder = command_buffer_builder
-            .copy_image_to_buffer(self.object_picker.image.clone(),
-            self.object_picker.buf.clone()).unwrap();
-
-        // Finish building the command buffer by calling `build`.
-        let command_buffer = command_buffer_builder.build().unwrap();
-
-        let finished = command_buffer.execute(self.queue.clone()).unwrap();
-        finished.then_signal_fence_and_flush().unwrap()
-            .wait(None).unwrap();
-
-        let buffer_content = self.object_picker.buf.read().unwrap();
-
-        //  let image = ImageBuffer::<Rgba<u8>, _>::from_raw(
-        //      self.dimensions[0], self.dimensions[1], &buffer_content[..]).unwrap();
-        //  image.save("image.png").unwrap();
-
-        // we have the index of the entity. Let's assume its alive as it shows up on
-        // screen. We can then reconstruct the GenerationalIndex.
-        let maybe_id = Object3DPicker::get_entity_id(
-            buffer_content[buf_pos],
-            buffer_content[buf_pos+1],
-            buffer_content[buf_pos+2],
-            buffer_content[buf_pos+3],
-            );
-
-        if let Some(id) = maybe_id {
-            let gen = ecs.components.transforms[id].as_ref()?.generation();
-            return Some(
-                GenerationalIndex::new(
-                    id,
-                    gen,
-                    ))
-
-        }
-        None
-
+        self.object_picker.pick_object(x, y, ecs, &self.model_manager)
     }
 }
 
@@ -655,7 +517,7 @@ mod fs {
     }
 }
 
-fn create_mvp(t: &TransformComponent, view: &Matrix4<f32>, proj: &Matrix4<f32>) -> vs::ty::Data {
+pub fn create_mvp(t: &TransformComponent, view: &Matrix4<f32>, proj: &Matrix4<f32>) -> vs::ty::Data {
     let scale = t.scale;
     let model = Matrix4::from_nonuniform_scale(scale.x, scale.y, scale.z)
         * Matrix4::from_translation(t.position);

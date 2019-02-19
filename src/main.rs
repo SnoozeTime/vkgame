@@ -1,4 +1,5 @@
 use vulkano::instance::Instance;
+use clap::{Arg, App, SubCommand};
 use winit::EventsLoop;
 use twgraph::input::{KeyType, Input, Axis, MouseButton};
 
@@ -23,6 +24,13 @@ fn get_ecs() -> ECS {
 }
 
 fn main() {
+
+    let matches = App::new("TwoWalker Game Engine")
+        .version("0.1")
+        .author("Benoit Eudier <benoit.eudier@gmail.com>")
+        .subcommand(SubCommand::with_name("game"))
+        .subcommand(SubCommand::with_name("editor"))
+        .get_matches();
 
     // this is an Arc to instance. (non-mut dynamic ref)
     let instance = {
