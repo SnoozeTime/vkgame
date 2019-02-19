@@ -11,6 +11,7 @@ use twgraph::ecs::{
     systems::{DummySystem, RenderingSystem},
 };
 use twgraph::editor::Editor;
+use twgraph::resource::Resources;
 use std::env;
 
 fn get_ecs() -> ECS {
@@ -32,6 +33,15 @@ fn main() {
         .subcommand(SubCommand::with_name("editor"))
         .get_matches();
 
+
+    if let Some(matches) = matches.subcommand_matches("game") {
+
+    }
+
+    if let Some(matches) = matches.subcommand_matches("editor") {
+
+    }
+
     // this is an Arc to instance. (non-mut dynamic ref)
     let instance = {
         let extensions = vulkano_win::required_extensions();
@@ -43,6 +53,9 @@ fn main() {
 
     let mut ecs = get_ecs();
     let mut render_system = RenderingSystem::new(&instance, &events_loop);
+    let mut resources = Resources::new(
+        render_system.get_device().clone(),
+        render_system.get_queue().clone());
     let mut dummy_system = DummySystem::new();
     let mut input = Input::new(events_loop);
 
@@ -63,7 +76,7 @@ fn main() {
         let frame_duration = now - old_instant;
         old_instant = now;
 
-        render_system.render(&mut ecs, frame_duration, |ui, ecs| {
+        render_system.render(&resources, &mut ecs, frame_duration, |ui, ecs| {
             editor.run_ui(ui, ecs)
         });
 
@@ -105,7 +118,8 @@ fn main() {
         if input.get_mouse_clicked(MouseButton::Left) && !editor.hovered {
             editor.selected_entity = render_system.pick_object(input.mouse_pos[0],
                                                           input.mouse_pos[1],
-                                                          &ecs);
+                                                          &ecs,
+                                                          &resources);
         }
 
         // To quit

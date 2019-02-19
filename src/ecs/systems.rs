@@ -2,6 +2,7 @@ use winit::{WindowBuilder, Window};
 use imgui::{FontGlyphRange, ImFontConfig, ImGui, Ui};
 use vulkano::instance::Instance;
 use vulkano::swapchain::Surface;
+use vulkano::device::{Device, Queue};
 use vulkano_win::VkSurfaceBuild;
 use vulkano_win;
 use cgmath::{Angle,Rad};
@@ -12,6 +13,7 @@ use std::time::Duration;
 
 use crate::renderer::Renderer;
 use crate::time::dt_as_secs;
+use crate::resource::Resources;
 
 use super::{Entity, ECS};
 
@@ -114,8 +116,16 @@ impl<'a> RenderingSystem<'a> {
         println!("Finished reading models");
     }
 
+    pub fn get_device(&self) -> Arc<Device> {
+        self.renderer.device.clone()
+    }
+
+    pub fn get_queue(&self) -> Arc<Queue> {
+        self.renderer.queue.clone()
+    }
 
     pub fn render<F>(&mut self,
+                     resources: &Resources,
                   ecs: &mut ECS,
                   dt: Duration,
                   mut run_ui: F)
@@ -152,7 +162,7 @@ impl<'a> RenderingSystem<'a> {
             y.as_ref().unwrap().value())).collect();
 
 
-        self.renderer.render(ui, &mut ecs.camera, lights, objs);
+        self.renderer.render(resources, ui, &mut ecs.camera, lights, objs);
     } 
 
     /// Should be passed in the event polling
@@ -166,8 +176,8 @@ impl<'a> RenderingSystem<'a> {
                 );
     }
 
-    pub fn pick_object(&mut self, x: f64, y: f64, ecs: &ECS) -> Option<Entity> {
-        self.renderer.pick_object(x, y, ecs)
+    pub fn pick_object(&mut self, x: f64, y: f64, ecs: &ECS, resources: &Resources) -> Option<Entity> {
+        self.renderer.pick_object(x, y, ecs, resources)
     }
 }
 

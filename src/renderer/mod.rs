@@ -36,6 +36,7 @@ use std::fs::File;
 use cgmath::Matrix4;
 
 use crate::error::{TwError, TwResult};
+use crate::resource::Resources;
 use crate::camera::Camera;
 use crate::ecs::components::{TransformComponent, ModelComponent, LightComponent};
 use crate::ecs::{Entity, ECS, gen_index::GenerationalIndex};
@@ -283,6 +284,7 @@ impl<'a> Renderer<'a> {
 
     // To be called at every main loop iteration.
     pub fn render<'ui>(&mut self,
+                       resources: &Resources,
                        ui: Ui<'ui>,
                        camera: &mut Camera,
                        lights: Vec<(&LightComponent, &TransformComponent)>,
@@ -374,7 +376,7 @@ impl<'a> Renderer<'a> {
         // 2nd thing: Draw all objects
         // ------------------------------
         for (model, transform) in objects.iter() {
-            let texture = self.texture_manager.textures.get(
+            let texture = resources.textures.textures.get(
                 &model.texture_name
             ).unwrap();
 
@@ -389,7 +391,7 @@ impl<'a> Renderer<'a> {
             );
 
 
-            let model = self.model_manager.models.get(
+            let model = resources.models.models.get(
                 &model.mesh_name
             ).unwrap();
 
@@ -457,8 +459,8 @@ impl<'a> Renderer<'a> {
 
     /// Picking an object works by storing Entity ID in color attachment then
     /// finding what pixel has been clicked by the mouse.
-    pub fn pick_object(&mut self, x: f64, y: f64, ecs: &ECS) -> Option<Entity> {
-        self.object_picker.pick_object(x, y, ecs, &self.model_manager)
+    pub fn pick_object(&mut self, x: f64, y: f64, ecs: &ECS, resources: &Resources) -> Option<Entity> {
+        self.object_picker.pick_object(x, y, ecs, &resources.models)
     }
 }
 
