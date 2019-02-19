@@ -46,7 +46,7 @@ impl Editor {
                         self.selected_entity = Some(*entity);
                     }
                 }
-                if ui.is_window_hovered() {
+                if ui.is_window_hovered() || ui.is_window_focused() {
                     self.hovered = true;
                 }
             });
@@ -54,7 +54,7 @@ impl Editor {
             .size((200.0, 500.0), ImGuiCond::FirstUseEver)
             .build(|| {
 
-                if ui.is_window_hovered() {
+                if ui.is_window_hovered() || ui.is_window_focused() {
                     self.hovered = true;
                 }
 

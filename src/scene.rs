@@ -1,11 +1,13 @@
 use std::time::Duration;
+use cgmath::Vector3;
 
 use crate::ecs::{
     ECS,
     systems::{RenderingSystem},
+    components::TransformComponent,
 };
 use crate::editor::Editor;
-use crate::camera::{CameraDirection};
+use crate::camera::{CameraDirection, Camera, CameraInputHandler};
 use crate::input::{KeyType, Input, Axis, MouseButton};
 use crate::renderer::pick::Object3DPicker;
 use crate::resource::Resources;
@@ -23,23 +25,34 @@ pub struct EditorScene {
 }
 
 impl EditorScene {
-    
+
     pub fn new<'a>(render_system: &RenderingSystem<'a>) -> Self {
-        EditorScene {
-            ecs: ECS::dummy_ecs(),
-            editor: Editor::new(),
-            object_picker: Object3DPicker::new(
-                render_system.get_device(),
-                render_system.get_queue(),
-                render_system.get_surface(),
-                render_system.dimensions(),
-                ),
-        }
+        let ecs = ECS::dummy_ecs();
+        EditorScene::from_ecs(ecs, render_system)
     }
 
     pub fn from_path<'a>(path: String, render_system: &RenderingSystem<'a>) -> Self {
+        let ecs = ECS::load(path).unwrap();
+
+        EditorScene::from_ecs(ecs, render_system)
+    }
+
+    fn from_ecs<'a>(mut ecs: ECS, render_system: &RenderingSystem<'a>) -> Self {
+
+        let transform = TransformComponent {
+            position: Vector3::new(0.0, 1.0, 0.0),
+            rotation: Vector3::new(0.0, 0.0, 0.0),
+            scale: Vector3::new(1.0, 1.0, 1.0),
+        };
+
+        let dimensions = render_system.dimensions();
+        let aspect = (dimensions[0] as f32) / (dimensions[1] as f32);
+        ecs.camera = Camera::new(transform, 
+                                 aspect,
+                                 CameraInputHandler::free_handler());
+
         EditorScene {
-            ecs: ECS::load(path).unwrap(),
+            ecs,
             editor: Editor::new(),
             object_picker: Object3DPicker::new(
                 render_system.get_device(),
@@ -48,6 +61,7 @@ impl EditorScene {
                 render_system.dimensions(),
                 ),
         }
+
     }
 }
 
@@ -60,26 +74,26 @@ impl Scene for EditorScene {
                      resources: &Resources,
                      dt: Duration) {
 
-         // HANDLE CAMERA.
+        // HANDLE CAMERA.
         if input.modifiers.ctrl {
             if input.get_key(KeyType::Up) {
                 self.ecs.camera.process_keyboard(dt,
-                                            CameraDirection::Forward);
+                                                 CameraDirection::Forward);
             }
 
             if input.get_key(KeyType::Down) {
                 self.ecs.camera.process_keyboard(dt,
-                                            CameraDirection::Backward);
+                                                 CameraDirection::Backward);
             }
 
             if input.get_key(KeyType::Left) {
                 self.ecs.camera.process_keyboard(dt,
-                                            CameraDirection::Left);
+                                                 CameraDirection::Left);
             }
 
             if input.get_key(KeyType::Right) {
                 self.ecs.camera.process_keyboard(dt,
-                                            CameraDirection::Right);
+                                                 CameraDirection::Right);
             }
 
             let (h_axis, v_axis) = (input.get_axis(Axis::Horizontal),
@@ -92,12 +106,12 @@ impl Scene for EditorScene {
         }
 
         if input.get_mouse_clicked(MouseButton::Left) && !self.editor.hovered {
-            self.editor.selected_entity = self.object_picker.pick_object(input.mouse_pos[0],
-                                                                    input.mouse_pos[1],
-                                                                    &self.ecs,
-                                                                    &resources.models);
+            self.editor.selected_entity = self.object_picker.pick_object(
+                input.mouse_pos[0],                                                        
+                input.mouse_pos[1],
+                &self.ecs,
+                &resources.models);
         }
-
     }
 }
 
