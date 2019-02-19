@@ -7,7 +7,7 @@ use crate::ecs::components::GuiDrawable;
 
 pub struct Editor {
     pub selected_entity: Option<Entity>,
-    pub mouse_pick: String,
+    pub hovered: bool,
 }
 
 impl Editor {
@@ -15,7 +15,7 @@ impl Editor {
     pub fn new() -> Self {
         Editor {
             selected_entity: None,
-            mouse_pick: String::new(),
+            hovered: false,
         }
     }
 
@@ -25,6 +25,7 @@ impl Editor {
                   ui: &Ui,
                   ecs: &mut ECS) -> bool {
 
+        self.hovered = false;
         ui.window(im_str!("Scene"))
             .size((300.0, 100.0), ImGuiCond::FirstUseEver)
             .build(|| {
@@ -45,12 +46,18 @@ impl Editor {
                         self.selected_entity = Some(*entity);
                     }
                 }
-                ui.text(im_str!("Mouse: {}", self.mouse_pick));
+                if ui.is_window_hovered() {
+                    self.hovered = true;
+                }
             });
-
         ui.window(im_str!("Components"))
             .size((200.0, 500.0), ImGuiCond::FirstUseEver)
             .build(|| {
+
+                if ui.is_window_hovered() {
+                    self.hovered = true;
+                }
+
                 if let Some(entity) = self.selected_entity {
 
                     // At first just show transforms TODO generate this with macro.
@@ -70,6 +77,7 @@ impl Editor {
                 }
 
             });
+
 
         true
     }
