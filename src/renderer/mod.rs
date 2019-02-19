@@ -1,6 +1,6 @@
 pub mod model;
 pub mod texture;
-mod pick;
+pub mod pick;
 mod ui;
 
 use ui::GuiRenderer;

@@ -12,6 +12,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use crate::renderer::Renderer;
+use crate::editor::Editor;
 use crate::time::dt_as_secs;
 use crate::resource::Resources;
 
@@ -70,7 +71,6 @@ impl<'a> RenderingSystem<'a> {
 
         imgui_winit_support::configure_keys(&mut imgui);
 
-
         // TODO error handling
         let mut renderer = Renderer::new(&mut imgui, &instance, surface.clone()).unwrap();
 
@@ -98,12 +98,16 @@ impl<'a> RenderingSystem<'a> {
         self.renderer.queue.clone()
     }
 
-    pub fn render<F>(&mut self,
-                     resources: &Resources,
+    pub fn get_surface(&self) -> Arc<Surface<winit::Window>> {
+        self.renderer.surface.clone()
+    }
+
+
+    pub fn render(&mut self,
+                  resources: &Resources,
                   ecs: &mut ECS,
                   dt: Duration,
-                  mut run_ui: F)
-        where F: FnMut(&Ui, &mut ECS) -> bool,
+                  gui: &mut Editor)
     {
         let dt = dt_as_secs(dt);
 
@@ -115,7 +119,7 @@ impl<'a> RenderingSystem<'a> {
         let frame_size = imgui_winit_support::get_frame_size(&window, 
                                                              self.hidpi_factor).unwrap();
         let ui = self.imgui.frame(frame_size, dt);
-        if !run_ui(&ui, ecs) {
+        if !gui.run_ui(&ui, ecs) {
             panic!("wuuuuut");
         }
 
