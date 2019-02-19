@@ -56,12 +56,9 @@ fn main() {
     let mut resources = Resources::new(
         render_system.get_device().clone(),
         render_system.get_queue().clone());
-    let mut dummy_system = DummySystem::new();
     let mut input = Input::new(events_loop);
 
     let mut old_instant = Instant::now();
-
-    let mut editor = Editor::new();
 
     let mut scene = EditorScene::new(&render_system);
     // Apply aspect to camera.
@@ -84,51 +81,11 @@ fn main() {
                              frame_duration,
                              &mut scene.editor);
 
-        //dummy_system.do_dumb_thing(frame_duration, &mut ecs);
-
         input.update(&mut render_system);
 
         // Now scene specific updates.
         scene.update(frame_duration);
         scene.process_input(&input, &resources, frame_duration);
-
-        // HANDLE CAMERA.
-//        if input.modifiers.ctrl {
-//            if input.get_key(KeyType::Up) {
-//                ecs.camera.process_keyboard(frame_duration,
-//                                            CameraDirection::Forward);
-//            }
-//
-//            if input.get_key(KeyType::Down) {
-//                ecs.camera.process_keyboard(frame_duration,
-//                                            CameraDirection::Backward);
-//            }
-//
-//            if input.get_key(KeyType::Left) {
-//                ecs.camera.process_keyboard(frame_duration,
-//                                            CameraDirection::Left);
-//            }
-//
-//            if input.get_key(KeyType::Right) {
-//                ecs.camera.process_keyboard(frame_duration,
-//                                            CameraDirection::Right);
-//            }
-//
-//            let (h_axis, v_axis) = (input.get_axis(Axis::Horizontal),
-//            input.get_axis(Axis::Vertical));
-//            if h_axis != 0.0 || v_axis != 0.0 {
-//                ecs.camera.process_mouse(frame_duration,
-//                                         h_axis,
-//                                         v_axis);
-//            }
-//        }
-//
-//        if input.get_mouse_clicked(MouseButton::Left) && !editor.hovered {
-//            editor.selected_entity = render_system.pick_object(input.mouse_pos[0],
-//                                                          input.mouse_pos[1],
-//                                                          &ecs,
-//                                                          &resources);
-//        }
 
         // To quit
         if input.close_request || input.get_key_down(KeyType::Escape) {
