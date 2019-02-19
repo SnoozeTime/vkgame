@@ -73,8 +73,6 @@ impl<'a> RenderingSystem<'a> {
 
         // TODO error handling
         let mut renderer = Renderer::new(&mut imgui, &instance, surface.clone()).unwrap();
-        Self::init_textures(&mut renderer);
-        Self::init_models(&mut renderer);
 
         RenderingSystem {
             renderer,
@@ -90,30 +88,6 @@ impl<'a> RenderingSystem<'a> {
 
     pub fn resize_window(&mut self) {
         self.renderer.recreate_swapchain = true;
-    }
-
-    fn init_textures(render_system: &mut Renderer) {
-        render_system.load_texture("bonjour".to_string(),
-        Path::new("assets/image_img.png"),
-        93, 93).unwrap();
-        render_system.load_texture("white".to_string(), Path::new("assets/white.png"), 93, 93).unwrap();
-        render_system.load_texture("red".to_string(), Path::new("assets/red.png"), 93, 93).unwrap();
-        render_system.load_texture("blue".to_string(), Path::new("assets/blue.png"), 93, 93).unwrap();
-        render_system.load_texture("green".to_string(), Path::new("assets/green.png"), 93, 93).unwrap();
-        render_system.load_texture("floor".to_string(), Path::new("assets/textures/Concrete_Panels_001_COLOR.jpg"), 1024, 1024).unwrap();
-        //render_system.load_texture("chalet".to_string(),
-        //Path::new("chalet.jpg"),
-        // 4096, 4096).unwrap();
-    }
-
-    fn init_models(render_system: &mut Renderer) {
-        println!("Init models!");
-        render_system.load_model("cube".to_string(), Path::new("assets/test1.obj")).expect("Cannot load model");
-        render_system.load_model("floor".to_string(), Path::new("assets/floor.obj")).expect("Cannot load model");
-        render_system.load_model("building".to_string(), Path::new("assets/models/arena.obj")).expect("Cannot load model");
-
-        //render_system.load_model("chalet".to_string(), Path::new("chalet.obj")).expect("Cannot load room");
-        println!("Finished reading models");
     }
 
     pub fn get_device(&self) -> Arc<Device> {

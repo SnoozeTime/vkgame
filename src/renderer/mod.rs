@@ -40,8 +40,7 @@ use crate::resource::Resources;
 use crate::camera::Camera;
 use crate::ecs::components::{TransformComponent, ModelComponent, LightComponent};
 use crate::ecs::{Entity, ECS, gen_index::GenerationalIndex};
-use self::model::{Vertex, ModelManager};
-use self::texture::TextureManager;
+use self::model::Vertex;
 
 // Can have multiple pipelines in an application. In
 // particular, you need a pipeline for each combinaison
@@ -75,10 +74,6 @@ pub struct Renderer<'a> {
 
     pub recreate_swapchain: bool,
     pub previous_frame_end: Option<Box<GpuFuture>>,
-
-    // RESOURCES
-    pub texture_manager: TextureManager,
-    pub model_manager: ModelManager,
 
     // Special pipelines and stuff for the UI
     pub gui: GuiRenderer,
@@ -241,8 +236,6 @@ impl<'a> Renderer<'a> {
             light_buffer,
             recreate_swapchain,
             previous_frame_end,
-            texture_manager: TextureManager::new(),
-            model_manager: ModelManager::new(),
             gui,
             object_picker,
             dimensions
@@ -251,36 +244,6 @@ impl<'a> Renderer<'a> {
 
     /// This is to update camera projection matrix
     pub fn dimensions(&self) -> [u32;2] { self.dimensions }
-
-    /*
-     * Store a new texture in the texture manager
-     * */
-    pub fn load_texture(&mut self,
-                        texture_name: String,
-                        texture_path: &std::path::Path,
-                        width: u32,
-                        height: u32) -> TwResult<()> {
-
-        self.texture_manager.load_texture(
-            texture_name,
-            texture_path,
-            width,
-            height,
-            self.device.clone(),
-            self.queue.clone())?;
-        Ok(())
-    }
-
-    /*
-     * Store a new model in the model manager
-     * */
-    pub fn load_model(&mut self,
-                      model_name: String,
-                      model_path: &std::path::Path) -> TwResult<()> {
-        self.model_manager.load_model(model_name, model_path, self.device.clone())?;
-        Ok(())
-    }
-
 
     // To be called at every main loop iteration.
     pub fn render<'ui>(&mut self,
