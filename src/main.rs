@@ -1,30 +1,18 @@
 use vulkano::instance::Instance;
 use clap::{Arg, App, SubCommand};
 use winit::EventsLoop;
-use twgraph::input::{KeyType, Input, Axis, MouseButton};
+use twgraph::input::{KeyType, Input};
 
 use std::time::Instant;
 
-use twgraph::camera::{CameraDirection};
 use twgraph::ecs::{
     ECS,
-    systems::{DummySystem, RenderingSystem},
+    systems::{RenderingSystem},
 };
-use twgraph::editor::Editor;
 use twgraph::resource::Resources;
 use twgraph::scene::{Scene, EditorScene, GameScene};
 use twgraph::event::{Event, EditorEvent};
 use std::env;
-
-fn get_ecs() -> ECS {
-    let mut args = env::args();
-    if let Some(path) = args.nth(1) {
-        println!("will load: {:?}", path);
-        ECS::load(path).unwrap()
-    } else {
-        ECS::dummy_ecs()
-    }
-}
 
 fn main() {
 
@@ -93,7 +81,9 @@ fn main() {
 
         if let Some(events) = events {
             if let Some(Event::EditorEvent(EditorEvent::PlayGame)) = events.get(0) {
-                scenes.push(Box::new(GameScene::new(&render_system)));
+                // TODO copy the ECS
+                let ecs = ECS::new_from_existing(scene.get_ecs());
+                scenes.push(Box::new(GameScene::from_ecs(ecs, &render_system)));
             }
         }
 

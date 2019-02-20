@@ -12,6 +12,7 @@ pub trait Scene {
     fn update(&mut self, dt: Duration) -> Option<Vec<Event>>;
     fn process_input(&mut self, input: &Input, resources: &Resources, dt: Duration) -> Option<Vec<Event>>;
     fn get_parts_mut(&mut self) -> (&mut ECS, &mut Gui);
+    fn get_ecs(&self) -> &ECS;
 }
 
 pub use editor::EditorScene;

@@ -115,7 +115,7 @@ impl GenerationalIndexAllocator {
 
 // -------------------
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ArrayEntry<T> {
     pub value: T,
     generation: u64,
@@ -136,7 +136,7 @@ impl<T> ArrayEntry<T> {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GenerationalIndexArray<T>(pub Vec<Option<ArrayEntry<T>>>);
 impl<T> GenerationalIndexArray<T> {
 

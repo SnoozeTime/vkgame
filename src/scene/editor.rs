@@ -123,5 +123,9 @@ impl Scene for EditorScene {
         (&mut self.ecs, &mut self.editor)
     }
 
+    fn get_ecs(&self) -> &ECS {
+        &self.ecs
+    }
+
 }
 

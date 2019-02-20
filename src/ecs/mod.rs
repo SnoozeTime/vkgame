@@ -52,6 +52,11 @@ impl ECS {
         }
     }
 
+    pub fn new_from_existing(ecs: &ECS) -> Self {
+        let j = serde_json::to_string(ecs).unwrap();
+        serde_json::from_str(&j).unwrap()
+    }
+
     /// return the index of live entities.
     pub fn nb_entities(&self) -> Vec<Entity> {
        self.allocator.live_entities() 
@@ -175,7 +180,7 @@ impl ECS {
 macro_rules! register_components {
     { $([$name:ident, $component:ty],)+ } => {
 
-        #[derive(Debug, Serialize, Deserialize)]
+        #[derive(Debug, Clone, Serialize, Deserialize)]
         pub struct Components {
             /// Size of the arrays. They all should be the same.
             current_size: usize,

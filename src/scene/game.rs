@@ -45,6 +45,19 @@ impl GameScene {
             dummy_system: DummySystem::new(),
         }
     }
+
+    pub fn from_ecs<'a>(mut ecs: ECS, render_system: &RenderingSystem<'a>) -> Self {
+        let dimensions = render_system.dimensions();
+        let aspect = (dimensions[0] as f32) / (dimensions[1] as f32);
+        ecs.camera.set_aspect(aspect);
+        GameScene {
+            ecs,
+            game_ui: GameUi{},
+            dummy_system: DummySystem::new(),
+        }
+    }
+
+
 }
 
 
@@ -94,6 +107,10 @@ impl Scene for GameScene {
 
     fn get_parts_mut(&mut self) -> (&mut ECS, &mut Gui) {
         (&mut self.ecs, &mut self.game_ui)
+    }
+
+    fn get_ecs(&self) -> &ECS {
+        &self.ecs
     }
 }
 
