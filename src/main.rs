@@ -12,7 +12,6 @@ use twgraph::ecs::{
 use twgraph::resource::Resources;
 use twgraph::scene::{Scene, EditorScene, GameScene};
 use twgraph::event::{Event, EditorEvent};
-use std::env;
 
 fn main() {
 
@@ -32,7 +31,7 @@ fn main() {
     let events_loop = EventsLoop::new();
 
     let mut render_system = RenderingSystem::new(&instance, &events_loop);
-    let mut resources = Resources::new(
+    let resources = Resources::new(
         render_system.get_device().clone(),
         render_system.get_queue().clone());
     let mut input = Input::new(events_loop);
@@ -55,7 +54,7 @@ fn main() {
         panic!("Need at least game or editor");
     }
 
-    'game_loop: loop {
+    'game_loop: loop {  
 
         let nb_scene = scenes.len();
         let scene = &mut scenes[nb_scene - 1];
@@ -87,8 +86,16 @@ fn main() {
             }
         }
 
+        if input.get_key_down(KeyType::Escape) {
+            let _ = scenes.pop();
+
+            if scenes.len() == 0 {
+                break 'game_loop;
+            }
+        }
+
         // To quit
-        if input.close_request || input.get_key_down(KeyType::Escape) {
+        if input.close_request {
             break 'game_loop;
         }
     }

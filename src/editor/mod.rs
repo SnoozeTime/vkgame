@@ -3,7 +3,6 @@ use crate::ecs::{
     ECS,
     Entity,
 };
-use crate::ecs::components::GuiDrawable;
 use crate::ui::Gui;
 
 pub struct Editor {
@@ -61,24 +60,7 @@ impl Gui for Editor {
                     self.hovered = true;
                 }
 
-                if let Some(entity) = self.selected_entity {
-
-                    // At first just show transforms TODO generate this with macro.
-                    if let Some(transform) = ecs.components.transforms.get_mut(&entity) {
-                        ui.tree_node(im_str!("Transform")).opened(true, ImGuiCond::FirstUseEver).build(|| {
-                            // TODO should replace by input_float3??
-                            transform.draw_ui(&ui, &self);
-                        });
-                    }
-
-                    if let Some(light) = ecs.components.lights.get_mut(&entity) {
-                        ui.tree_node(im_str!("Light")).opened(true, ImGuiCond::FirstUseEver).build(|| {
-                            // TODO should replace by input_float3??
-                            light.draw_ui(&ui, &self);
-                        });
-                    }
-                }
-
+                ecs.components.draw_ui(&ui, &self);
             });
 
 

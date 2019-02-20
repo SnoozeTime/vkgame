@@ -4,7 +4,6 @@ use imgui::{Ui, im_str, ImGuiCond, ImGuiSelectableFlags, ImVec2};
 use crate::editor::Editor;
 use crate::ser::VectorDef;
 
-
 /// This is a component that is going to be rendered
 /// by the render system.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -15,6 +14,10 @@ pub struct ModelComponent {
     pub texture_name: String,
 }
 
+impl ModelComponent {
+    pub fn draw_ui(&mut self, ui: &Ui, editor: &Editor) {
+    }
+}
 
 /// Position of the game object. No position = no rendering.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -34,72 +37,74 @@ pub struct DummyComponent {
     pub speed: f32,
 }
 
-// Emit light! Right now, only one is supported.
-// An entity with a light component will need a transform.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LightComponent {
-    // Should be between 0 and 1.0
-    pub color: [f32; 3],
-}
-
-/// Component can be represented in GUI editor
-pub trait GuiDrawable {
-    fn draw_ui(&mut self, ui: &Ui, editor: &Editor);
-}
-
-impl GuiDrawable for TransformComponent {
-    fn draw_ui(&mut self, ui: &Ui, editor: &Editor) {
-        ui.tree_node(im_str!("position:")).opened(true, ImGuiCond::FirstUseEver).build(|| {
-            ui.input_float(im_str!("x"), &mut self.position.x)
-                .step(0.1)
-                .step_fast(1.0)
-                .build();
-            ui.input_float(im_str!("y"), &mut self.position.y)
-                .step(0.1)
-                .step_fast(1.0)
-                .build();
-            ui.input_float(im_str!("z"), &mut self.position.z)
-                .step(0.1)
-                .step_fast(1.0)
-                .build();
-        });
-
-        ui.tree_node(im_str!("rotation:")).opened(true, ImGuiCond::FirstUseEver).build(||{
-            ui.input_float(im_str!("x"), &mut self.rotation.x)
-                .step(0.1)
-                .step_fast(1.0)
-                .build();
-            ui.input_float(im_str!("y"), &mut self.rotation.y)
-                .step(0.1)
-                .step_fast(1.0)
-                .build();
-            ui.input_float(im_str!("z"), &mut self.rotation.z)
-                .step(0.1)
-                .step_fast(1.0)
-                .build();
-        });
-
-        ui.tree_node(im_str!("scale:")).opened(true, ImGuiCond::FirstUseEver).build(|| {
-            ui.input_float(im_str!("x"), &mut self.scale.x)
-                .step(0.1)
-                .step_fast(1.0)
-                .build();
-            ui.input_float(im_str!("y"), &mut self.scale.y)
-                .step(0.1)
-                .step_fast(1.0)
-                .build();
-            ui.input_float(im_str!("z"), &mut self.scale.z)
-                .step(0.1)
-                .step_fast(1.0)
-                .build();
-        });
+impl DummyComponent {
+    pub fn draw_ui(&mut self, ui: &Ui, editor: &Editor) {
+        ui.input_float(im_str!("speed"), &mut self.speed)
+            .build();
     }
 }
 
+    // Emit light! Right now, only one is supported.
+    // An entity with a light component will need a transform.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct LightComponent {
+        // Should be between 0 and 1.0
+        pub color: [f32; 3],
+    }
 
-impl GuiDrawable for LightComponent {
-    fn draw_ui(&mut self, ui: &Ui, editor: &Editor) {
+    impl TransformComponent {
+        pub fn draw_ui(&mut self, ui: &Ui, editor: &Editor) {
+            ui.tree_node(im_str!("position:")).opened(true, ImGuiCond::FirstUseEver).build(|| {
+                ui.input_float(im_str!("x"), &mut self.position.x)
+                    .step(0.1)
+                    .step_fast(1.0)
+                    .build();
+                ui.input_float(im_str!("y"), &mut self.position.y)
+                    .step(0.1)
+                    .step_fast(1.0)
+                    .build();
+                ui.input_float(im_str!("z"), &mut self.position.z)
+                    .step(0.1)
+                    .step_fast(1.0)
+                    .build();
+            });
+
+            ui.tree_node(im_str!("rotation:")).opened(true, ImGuiCond::FirstUseEver).build(||{
+                ui.input_float(im_str!("x"), &mut self.rotation.x)
+                    .step(0.1)
+                    .step_fast(1.0)
+                    .build();
+                ui.input_float(im_str!("y"), &mut self.rotation.y)
+                    .step(0.1)
+                    .step_fast(1.0)
+                    .build();
+                ui.input_float(im_str!("z"), &mut self.rotation.z)
+                    .step(0.1)
+                    .step_fast(1.0)
+                    .build();
+            });
+
+            ui.tree_node(im_str!("scale:")).opened(true, ImGuiCond::FirstUseEver).build(|| {
+                ui.input_float(im_str!("x"), &mut self.scale.x)
+                    .step(0.1)
+                    .step_fast(1.0)
+                    .build();
+                ui.input_float(im_str!("y"), &mut self.scale.y)
+                    .step(0.1)
+                    .step_fast(1.0)
+                    .build();
+                ui.input_float(im_str!("z"), &mut self.scale.z)
+                    .step(0.1)
+                    .step_fast(1.0)
+                    .build();
+            });
+        }
+    }
+
+
+    impl LightComponent {
+        pub fn draw_ui(&mut self, ui: &Ui, editor: &Editor) {
             ui.input_float3(im_str!("color"), &mut self.color)
                 .build();
         }
-}
+    }

@@ -8,12 +8,12 @@ use std::collections::HashMap;
 pub mod gen_index;
 pub mod components;
 pub mod systems;
+
 use self::components::{
     TransformComponent,
     ModelComponent,
     DummyComponent,
     LightComponent,
-    GuiDrawable,
 };
 use self::gen_index::{GenerationalIndexAllocator, GenerationalIndexArray, GenerationalIndex};
 use crate::camera::Camera;
@@ -59,7 +59,7 @@ impl ECS {
 
     /// return the index of live entities.
     pub fn nb_entities(&self) -> Vec<Entity> {
-       self.allocator.live_entities() 
+        self.allocator.live_entities() 
     }
 
     pub fn load_templates() -> HashMap<String, ComponentTemplate> {
@@ -178,19 +178,19 @@ impl ECS {
 
 /// Macro to set up the component arrays in the ECS. It should be used with
 macro_rules! register_components {
-    { $([$name:ident, $component:ty],)+ } => {
+    { $([$name:ident, $component:ty, $gui_name:expr],)+ } => {
 
-        #[derive(Debug, Clone, Serialize, Deserialize)]
-        pub struct Components {
-            /// Size of the arrays. They all should be the same.
-            current_size: usize,
+                                                 #[derive(Debug, Clone, Serialize, Deserialize)]
+                                                 pub struct Components {
+                                                     /// Size of the arrays. They all should be the same.
+                                                     current_size: usize,
 
-            /// Arrays can be accessed with the get methods.
-            $(
-                       #[serde(default="GenerationalIndexArray::new")]
-                       pub $name: EntityArray<$component>,   
-             )+
-         }
+                                                     /// Arrays can be accessed with the get methods.
+                                                     $(
+                                                         #[serde(default="GenerationalIndexArray::new")]
+                                                         pub $name: EntityArray<$component>,   
+                                                     )+
+                                                 }
 
                                                  impl Components {
                                                      pub fn new() -> Self {
@@ -257,12 +257,29 @@ macro_rules! register_components {
                                                      }
 
                                                  }
+
+                                                 use imgui::{Ui, im_str, ImGuiCond, ImGuiSelectableFlags, ImVec2};
+                                                 use crate::editor::Editor;
+                                                 impl Components {
+                                                     pub fn draw_ui(&mut self, ui: &Ui, editor: &Editor) {
+
+                                                         if let Some(entity) = editor.selected_entity {
+                                                             $(
+                                                                 if let Some($name) = self.$name.get_mut(&entity) {
+                                                                     ui.tree_node(im_str!($gui_name)).opened(true, ImGuiCond::FirstUseEver).build(|| {
+                                                                         $name.draw_ui(&ui, editor);
+                                                                     });
+                                                                 }
+                                                             )+
+                                                         }
+                                                     }
+                                                 }
                                              }
 }
 
 register_components!(
-    [transforms, TransformComponent],
-    [models, ModelComponent],
-    [dummies, DummyComponent],
-    [lights, LightComponent],
+    [transforms, TransformComponent, "Transform"],
+    [models, ModelComponent, "Model"],
+    [dummies, DummyComponent, "Dummy"],
+    [lights, LightComponent, "Light"],
     );
