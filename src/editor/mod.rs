@@ -27,7 +27,30 @@ impl Gui for Editor {
               ui: &Ui,
               ecs: &mut ECS) -> bool {
 
+        // Should be first. Reset the state
         self.hovered = false;
+
+        ui.main_menu_bar(|| {
+            ui.menu(im_str!("File")).build(|| {
+                self.hovered = true;
+                ui.menu_item(im_str!("Save"))
+                    .shortcut(im_str!("CTRL+S"))
+                    .build();
+                ui.menu_item(im_str!("Load"))
+                    .shortcut(im_str!("CTRL+L"))
+                    .build();
+            });
+            
+            ui.menu(im_str!("Edit")).build(|| {
+                self.hovered = true;
+                ui.menu_item(im_str!("New entity"))
+                    .build();
+                ui.menu_item(im_str!("New component"))
+                    .build();
+            });
+
+        });
+
         ui.window(im_str!("Scene"))
             .size((300.0, 100.0), ImGuiCond::FirstUseEver)
             .build(|| {
