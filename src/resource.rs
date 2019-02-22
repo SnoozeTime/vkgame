@@ -17,8 +17,8 @@ pub struct Resources {
 impl Resources {
 
     pub fn new(device: Arc<Device>, queue: Arc<Queue>) -> Self {
-        let mut textures = TextureManager::new();
-        let mut models = ModelManager::new();
+        let textures = TextureManager::new();
+        let models = ModelManager::new();
 
         let mut r = Resources {
             models,

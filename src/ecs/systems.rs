@@ -1,5 +1,5 @@
 use winit::{WindowBuilder, Window};
-use imgui::{FontGlyphRange, ImFontConfig, ImGui, Ui};
+use imgui::{FontGlyphRange, ImFontConfig, ImGui};
 use vulkano::instance::Instance;
 use vulkano::swapchain::Surface;
 use vulkano::device::{Device, Queue};
@@ -8,11 +8,9 @@ use vulkano_win;
 use cgmath::{Angle,Rad};
 
 use std::sync::Arc;
-use std::path::Path;
 use std::time::Duration;
 
 use crate::renderer::Renderer;
-use crate::editor::Editor;
 use crate::time::dt_as_secs;
 use crate::resource::Resources;
 use crate::ui::Gui;
@@ -73,7 +71,7 @@ impl<'a> RenderingSystem<'a> {
         imgui_winit_support::configure_keys(&mut imgui);
 
         // TODO error handling
-        let mut renderer = Renderer::new(&mut imgui, &instance, surface.clone()).unwrap();
+        let renderer = Renderer::new(&mut imgui, &instance, surface.clone()).unwrap();
 
         RenderingSystem {
             renderer,

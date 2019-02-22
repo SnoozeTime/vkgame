@@ -6,17 +6,14 @@ mod ui;
 use ui::GuiRenderer;
 use pick::Object3DPicker;
 
-use image::ImageBuffer;
-use image::Rgba;
 use imgui::{ImGui, Ui};
 use vulkano::descriptor::descriptor_set::{PersistentDescriptorSet};
 use vulkano::image::attachment::AttachmentImage;
-use vulkano::buffer::CpuAccessibleBuffer;
 use vulkano::buffer::BufferUsage;
 use vulkano::format::Format;
 use vulkano::pipeline::GraphicsPipelineAbstract;
 use vulkano::buffer::cpu_pool::CpuBufferPool;
-use vulkano::command_buffer::{DynamicState, CommandBuffer, AutoCommandBufferBuilder};
+use vulkano::command_buffer::{DynamicState, AutoCommandBufferBuilder};
 use vulkano::device::{Device, DeviceExtensions, Queue};
 use vulkano::framebuffer::{Framebuffer, FramebufferAbstract, Subpass, RenderPassAbstract};
 use vulkano::image::SwapchainImage;
@@ -31,15 +28,13 @@ use vulkano::sync;
 use winit::Window;
 use std::sync::Arc;
 use std::iter;
-use std::io::Write;
-use std::fs::File;
 use cgmath::Matrix4;
 
 use crate::error::{TwError, TwResult};
 use crate::resource::Resources;
 use crate::camera::Camera;
 use crate::ecs::components::{TransformComponent, ModelComponent, LightComponent};
-use crate::ecs::{Entity, ECS, gen_index::GenerationalIndex};
+use crate::ecs::{Entity, ECS};
 use self::model::Vertex;
 
 // Can have multiple pipelines in an application. In
@@ -414,10 +409,6 @@ impl<'a> Renderer<'a> {
             }
         }
 
-    }
-
-    fn get_pos(&self, x: usize, y: usize) -> usize {
-        4 * (y * self.dimensions[0] as usize + x)
     }
 
     /// Picking an object works by storing Entity ID in color attachment then

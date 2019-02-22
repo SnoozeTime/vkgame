@@ -1,15 +1,12 @@
 use vulkano::pipeline::viewport::Viewport;
 use vulkano::device::{Device, Queue};
 use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
-use vulkano::impl_vertex;
 use vulkano::descriptor::descriptor_set::{PersistentDescriptorSet};
-use vulkano::sampler::{Sampler, SamplerAddressMode, Filter, MipmapMode};
 use vulkano::pipeline::{GraphicsPipeline, GraphicsPipelineAbstract};
 use vulkano::command_buffer::{AutoCommandBufferBuilder, CommandBuffer, DynamicState};
 use vulkano::swapchain::Surface;
-use std::error::Error;
-use vulkano::image::{Dimensions, ImageUsage, ImmutableImage, StorageImage};
-use vulkano::format::{Format, R8G8B8A8Unorm};
+use vulkano::image::ImageUsage;
+use vulkano::format::Format;
 use vulkano::sync::GpuFuture;
 use vulkano::image::attachment::AttachmentImage;
 use vulkano::framebuffer::{Framebuffer, FramebufferAbstract, Subpass, RenderPassAbstract};
@@ -259,7 +256,6 @@ impl Object3DPicker {
         let buf_pos = 4 * (y * (self.dimensions[0] as usize) + x); //rgba
 
         let (view, proj) = ecs.camera.get_vp(); 
-        let window = self.surface.window();
 
         let objs: Vec<_> =  ecs.components.models
             .iter()

@@ -272,12 +272,12 @@ macro_rules! register_components {
                                                                                  }
                                                                              )+
 
-                                                                                 new_component_popup(ui, editor, &entity);
+                                                                                 new_component_popup(ui, editor);
                                                                          }
                                                                      }
                                                                  }
 
-                                                                 pub fn new_component_popup(ui: &Ui, editor: &mut Editor, entity: &Entity) {
+                                                                 pub fn new_component_popup(ui: &Ui, editor: &mut Editor) {
 
                                                                      if ui.button(im_str!("Add component"),
                                                                      (0.0, 0.0)) {
@@ -303,13 +303,6 @@ macro_rules! register_components {
 
 
                                                                              if ui.button(im_str!("Add"), (0.0, 0.0)) {
-                                                                                 //                                                                             $(
-                                                                                 //                                                                                 if let Some(n) = &editor.new_component_name {
-                                                                                 //                                                                                    ecs.components.$name.set(entity, <$component>::default());
-                                                                                 //                                                                                 }
-                                                                                 //
-                                                                                 //                                                                             )+
-                                                                                 //                                                                                 editor.new_component_name = None;
                                                                                  editor.should_add_comp = true;                                                                           
                                                                                  ui.close_current_popup();
                                                                              }

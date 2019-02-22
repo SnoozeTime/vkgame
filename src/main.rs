@@ -1,5 +1,5 @@
 use vulkano::instance::Instance;
-use clap::{Arg, App, SubCommand};
+use clap::{App, SubCommand};
 use winit::EventsLoop;
 use twgraph::input::{KeyType, Input};
 

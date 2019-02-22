@@ -1,15 +1,12 @@
 use std::time::Duration;
-use cgmath::Vector3;
 use imgui::Ui;
 
 use crate::ecs::{
     ECS,
     systems::{RenderingSystem, DummySystem},
 };
-use crate::editor::Editor;
-use crate::camera::{CameraDirection, Camera, CameraInputHandler};
-use crate::input::{KeyType, Input, Axis, MouseButton};
-use crate::renderer::pick::Object3DPicker;
+use crate::camera::CameraDirection;
+use crate::input::{KeyType, Input, Axis};
 use crate::resource::Resources;
 use crate::event::Event;
 use crate::ui::Gui;
@@ -70,7 +67,7 @@ impl Scene for GameScene {
 
     fn process_input(&mut self,
                      input: &Input,
-                     resources: &Resources,
+                     _resources: &Resources,
                      dt: Duration) -> Option<Vec<Event>> {
 
         if input.get_key(KeyType::Up) {

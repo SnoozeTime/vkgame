@@ -50,10 +50,16 @@ impl Gui for Editor {
 
             ui.menu(im_str!("Edit")).build(|| {
                 self.hovered = true;
-                ui.menu_item(im_str!("New entity"))
-                    .build();
-                ui.menu_item(im_str!("New component"))
-                    .build();
+                if ui.menu_item(im_str!("New entity"))
+                    .build() {
+                        let entity = ecs.new_entity();
+                        self.selected_entity = Some(entity);
+                    }
+                if ui.menu_item(im_str!("New component"))
+                    .enabled(self.selected_entity.is_some())
+                        .build() {
+                            new_component_popup(ui, self);
+                        }
             });
 
         });
@@ -92,8 +98,8 @@ impl Gui for Editor {
 
                 ecs.components.draw_ui(&ui, self);
                 if self.should_add_comp {
-                ecs.add_new_component_by_name(&self.selected_entity,
-                                              &self.new_component_name);
+                    ecs.add_new_component_by_name(&self.selected_entity,
+                                                  &self.new_component_name);
                     self.should_add_comp = false;
                     self.new_component_name = None;
                 }

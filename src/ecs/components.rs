@@ -1,6 +1,6 @@
 use serde_derive::{Serialize, Deserialize};
 use cgmath::Vector3;
-use imgui::{Ui, im_str, ImGuiCond, ImGuiSelectableFlags, ImVec2};
+use imgui::{Ui, im_str, ImGuiCond};
 use crate::editor::Editor;
 use crate::ser::VectorDef;
 use std::default::Default;
@@ -16,7 +16,7 @@ pub struct ModelComponent {
 }
 
 impl ModelComponent {
-    pub fn draw_ui(&mut self, ui: &Ui, editor: &Editor) {
+    pub fn draw_ui(&mut self, ui: &Ui, _editor: &Editor) {
         ui.text(im_str!("Model: {}", self.mesh_name)); 
         ui.text(im_str!("Texture: {}", self.texture_name)); 
     }
@@ -62,7 +62,7 @@ pub struct DummyComponent {
 }
 
 impl DummyComponent {
-    pub fn draw_ui(&mut self, ui: &Ui, editor: &Editor) {
+    pub fn draw_ui(&mut self, ui: &Ui, _editor: &Editor) {
         ui.input_float(im_str!("speed"), &mut self.speed)
             .build();
     }
@@ -77,7 +77,7 @@ pub struct LightComponent {
 }
 
 impl TransformComponent {
-    pub fn draw_ui(&mut self, ui: &Ui, editor: &Editor) {
+    pub fn draw_ui(&mut self, ui: &Ui, _editor: &Editor) {
         ui.tree_node(im_str!("position:")).opened(true, ImGuiCond::FirstUseEver).build(|| {
             ui.input_float(im_str!("x"), &mut self.position.x)
                 .step(0.1)
@@ -127,7 +127,7 @@ impl TransformComponent {
 
 
 impl LightComponent {
-    pub fn draw_ui(&mut self, ui: &Ui, editor: &Editor) {
+    pub fn draw_ui(&mut self, ui: &Ui, _editor: &Editor) {
         ui.input_float3(im_str!("color"), &mut self.color)
             .build();
     }
