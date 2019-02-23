@@ -235,7 +235,7 @@ impl<'a> Renderer<'a> {
         let mut frame = self.frame_system.frame(future,
                                            self.images[image_num].clone());
         let mut after_future = None;
-        let cb = Arc::new(self.scene_system.draw(resources, camera, lights, objects));
+        let cb = Arc::new(self.scene_system.draw(resources, camera, objects));
         let gui_cb = Arc::new(self.gui.render(ui));
 
         while let Some(pass) = frame.next_pass() {

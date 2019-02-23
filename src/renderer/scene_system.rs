@@ -20,7 +20,7 @@ use std::iter;
 use crate::renderer::model::Vertex;
 use crate::resource::Resources;
 use crate::camera::Camera;
-use crate::ecs::components::{TransformComponent, ModelComponent, LightComponent};
+use crate::ecs::components::{TransformComponent, ModelComponent};
 
 
 pub struct SceneDrawSystem {
@@ -30,7 +30,6 @@ pub struct SceneDrawSystem {
     fs: fs::Shader,
 
     uniform_buffer: CpuBufferPool<vs::ty::Data>,
-    light_buffer: CpuBufferPool<fs::ty::Data>,
 }
 
 impl SceneDrawSystem {
@@ -42,7 +41,6 @@ impl SceneDrawSystem {
         {
 
             let uniform_buffer = CpuBufferPool::<vs::ty::Data>::new(queue.device().clone(), BufferUsage::all());
-            let light_buffer = CpuBufferPool::<fs::ty::Data>::new(queue.device().clone(), BufferUsage::all());
             let vs = vs::Shader::load(queue.device().clone()).unwrap();
             let fs = fs::Shader::load(queue.device().clone()).unwrap();
 
@@ -60,7 +58,6 @@ impl SceneDrawSystem {
                 pipeline,
                 fs,
                 vs,
-                light_buffer,
                 uniform_buffer,
             }
         } 
@@ -104,41 +101,18 @@ impl SceneDrawSystem {
     pub fn draw(&self,
                 resources: &Resources,
                 camera: &mut Camera,
-                lights: Vec<(&LightComponent, &TransformComponent)>,
                 objects: Vec<(&ModelComponent, &TransformComponent)>) -> AutoCommandBuffer {
 
         let (view, proj) = camera.get_vp(); 
-        // Clear to no color and infinite depth :)
-        //let clear_values = vec!([0.0, 0.0, 0.0, 1.0].into(), 1f32.into());
 
-        // Get light data
-        let (color, position) = if lights.len() > 0 {
-            let (light, transform) = lights[0];
-            (light.color, transform.position.into())
-        } else {
-            ([0.5, 0.5, 0.5], [5.0, 0.5, 1.0])
-        };
-
-        // 1. Forward lighting
-        // -------------------
-        let light_buffer = {
-            let data = fs::ty::Data {
-                color,
-                position,
-                _dummy0: [0;4], // wtf is that?
-            };
-            self.light_buffer.next(data).unwrap()
-        };
-
-
-        // 2. Create the secondary command buffer
+        // 1. Create the secondary command buffer
         // --------------------------------------
         let mut builder = AutoCommandBufferBuilder::secondary_graphics(
             self.queue.device().clone(),
             self.queue.family(),
             self.pipeline.clone().subpass()).unwrap();
 
-        // 3. Draw all objects in the scene
+        // 2. Draw all objects in the scene
         // --------------------------------
         for (model, transform) in objects.iter() {
 
@@ -174,7 +148,6 @@ impl SceneDrawSystem {
             let tex_set = Arc::new(
                 PersistentDescriptorSet::start(self.pipeline.clone(), 1)
                 .add_sampled_image(texture.texture.clone(), texture.sampler.clone()).unwrap()
-                .add_buffer(light_buffer.clone()).unwrap()
                 .build().unwrap()
             );
 
@@ -202,7 +175,7 @@ pub mod vs {
 mod fs {
     vulkano_shaders::shader!{
         ty: "fragment",
-        path: "shaders/main.frag"
+        path: "shaders/deferred.frag"
     }
 }
 

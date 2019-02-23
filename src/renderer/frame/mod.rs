@@ -19,12 +19,14 @@ use vulkano::sync::GpuFuture;
 
 
 pub struct FrameSystem {
-
     // Queue used to render graphic
     queue: Arc<Queue>,
 
     // Will determine where are we drawing to.
     render_pass: Arc<RenderPassAbstract + Send + Sync>,
+
+    // Contains the normals
+    normals_buffer: Arc<AttachmentImage>,
 
     // Depth buffer. will be recreated if needed.
     depth_buffer: Arc<AttachmentImage>,
@@ -39,10 +41,16 @@ impl FrameSystem {
                 queue.device().clone(),
                 attachments: {
                     // `color` is a custom name we give to the first and only attachment.
-                    color: {
+                    diffuse: {
                         load: Clear,
                         store: Store,
                         format: final_output_format,
+                        samples: 1,
+                    },
+                    normals: {
+                        load: Clear,
+                        store: DontCare,
+                        format: Format::R16G16B16A16Sfloat,
                         samples: 1,
                     },
                     depth: {
@@ -55,14 +63,14 @@ impl FrameSystem {
                 passes: [
                 // First pass if for the scene
                 {
-                    color: [color],
+                    color: [diffuse, normals],
                     depth_stencil: {depth},
                     input: []
                 },
 
                 // Pass for the GUI
                 {
-                    color: [color],
+                    color: [diffuse],
                     depth_stencil: {},
                     input: []
                 }
@@ -77,10 +85,16 @@ impl FrameSystem {
                     [1, 1],
                     Format::D16Unorm).unwrap();
 
+                let normals_buffer = AttachmentImage::transient(
+                    queue.device().clone(),
+                    [1, 1],
+                    Format::R16G16B16A16Sfloat).unwrap();
+
                 FrameSystem {
                     render_pass,
                     queue: queue.clone(),
                     depth_buffer,
+                    normals_buffer,
                 }
     }
 
@@ -113,17 +127,25 @@ impl FrameSystem {
                           self.queue.device().clone(),
                           img_dims,
                           Format::D16Unorm).unwrap();
+
+                      self.normals_buffer = AttachmentImage::transient(
+                          self.queue.device().clone(),
+                          img_dims,
+                          Format::R16G16B16A16Sfloat).unwrap();
                   }
 
 
                   // Framebuffer contains all the attachments and output image.
                   let framebuffer = Arc::new(Framebuffer::start(self.render_pass.clone())
                                              .add(final_image.clone()).unwrap()
+                                             .add(self.normals_buffer.clone()).unwrap()
                                              .add(self.depth_buffer.clone()).unwrap()
                                              .build().unwrap());
 
                   // Ok, begin the render pass now and return the Frame with all the information
-                  let clear_values = vec!([0.0, 0.0, 0.0, 1.0].into(), 1f32.into());
+                  let clear_values = vec!([0.0, 0.0, 0.0, 1.0].into(),
+                                          [0.0, 0.0, 0.0, 0.0].into(),
+                                          1f32.into());
                   let command_buffer = Some(AutoCommandBufferBuilder::primary_one_time_submit(
                           self.queue.device().clone(), self.queue.family()).unwrap()
                       .begin_render_pass(framebuffer.clone(), true, clear_values).unwrap());
