@@ -9,7 +9,6 @@ use vulkano::command_buffer::CommandBuffer;
 use vulkano::device::Queue;
 use vulkano::format::Format;
 use vulkano::framebuffer::Framebuffer;
-use vulkano::framebuffer::FramebufferAbstract;
 use vulkano::framebuffer::RenderPassAbstract;
 use vulkano::framebuffer::Subpass;
 use vulkano::image::AttachmentImage;
@@ -19,8 +18,7 @@ use vulkano::image::ImageUsage;
 use vulkano::sync::GpuFuture;
 
 
-use cgmath::{Vector3, Matrix4};
-use cgmath::SquareMatrix;
+use cgmath::{Vector3};
 
 use super::point_lighting_system::PointLightingSystem;
 
@@ -238,7 +236,6 @@ impl FrameSystem {
                   Frame {
                       system: self,
                       before_main_cb_future: Some(Box::new(before_future)),
-                      framebuffer: framebuffer,
                       num_pass: 0,
                       command_buffer,
 
@@ -261,7 +258,6 @@ pub struct Frame<'a> {
     // wait before rendering
     before_main_cb_future: Option<Box<GpuFuture>>,
 
-    framebuffer: Arc<FramebufferAbstract + Send + Sync>,
     command_buffer: Option<AutoCommandBufferBuilder>,
 }
 

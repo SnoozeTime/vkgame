@@ -13,7 +13,6 @@ use vulkano::descriptor::descriptor_set::PersistentDescriptorSet;
 use vulkano::command_buffer::DynamicState;
 
 use cgmath::Vector3;
-use cgmath::Matrix4;
 
 use std::iter;
 use std::sync::Arc;

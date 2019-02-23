@@ -27,9 +27,6 @@ use crate::ecs::components::{TransformComponent, ModelComponent, LightComponent}
 use crate::ecs::{Entity, ECS};
 use scene_system::SceneDrawSystem;
 use frame::{Pass, FrameSystem};
-use cgmath::Vector3;
-use cgmath::Matrix4;
-use cgmath::SquareMatrix;
 
 pub struct Renderer<'a> {
     pub surface: Arc<Surface<winit::Window>>,
@@ -181,7 +178,6 @@ impl<'a> Renderer<'a> {
                        lights: Vec<(&LightComponent, &TransformComponent)>,
                        objects: Vec<(&ModelComponent, &TransformComponent)>) {
 
-        let (view, proj) = camera.get_vp();
 
         self.previous_frame_end.as_mut().unwrap().cleanup_finished();
         let window = self.surface.window();

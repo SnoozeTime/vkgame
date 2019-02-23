@@ -27,23 +27,11 @@ void main() {
         vec3 norm = normalize(subpassLoad(u_normals).rgb);
         vec3 lightDir = normalize(push_constants.position.xyz - subpassLoad(u_frag_pos).rgb);
         float diff = max(dot(norm, lightDir), 0.0);
+
+        float light_distance = length(push_constants.position.xyz - subpassLoad(u_frag_pos).xyz);
+        // Further decrease light_percent based on the distance with the light position.
+//        diff *= 1.0 / exp(light_distance);
+
         vec3 diffuse = diff * push_constants.color.rgb * subpassLoad(u_diffuse).rgb;
-        // // Find the world coordinates of the current pixel.
-        // vec4 world = push_constants.screen_to_world * vec4(v_screen_coords, in_depth, 1.0);
-        // world /= world.w;
-
-        // vec3 in_normal = normalize(subpassLoad(u_normals).rgb);
-        // vec3 light_direction = normalize(push_constants.position.xyz - world.xyz);
-        // // Calculate the percent of lighting that is received based on the orientation of the normal
-        // // and the direction of the light.
-        // float light_percent = max(-dot(light_direction, in_normal), 0.0);
-
-        // float light_distance = length(push_constants.position.xyz - world.xyz);
-        // // Further decrease light_percent based on the distance with the light position.
-        // //light_percent *= 1.0 / exp(light_distance);
-
-        // vec3 in_diffuse = subpassLoad(u_diffuse).rgb;
-        // f_color.rgb = push_constants.color.rgb * light_percent * in_diffuse;
-        // f_color.a = 1.0;
         f_color = vec4(diffuse, 1.0);
 }
