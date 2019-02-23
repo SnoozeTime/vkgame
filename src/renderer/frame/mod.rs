@@ -19,6 +19,11 @@ use vulkano::image::ImageUsage;
 use vulkano::sync::GpuFuture;
 
 
+use cgmath::{Vector3, Matrix4};
+use cgmath::SquareMatrix;
+
+use super::point_lighting_system::PointLightingSystem;
+
 pub struct FrameSystem {
     // Queue used to render graphic
     queue: Arc<Queue>,
@@ -33,6 +38,9 @@ pub struct FrameSystem {
 
     // Depth buffer. will be recreated if needed.
     depth_buffer: Arc<AttachmentImage>,
+
+    // Lighting systems.
+    point_lighting_system: PointLightingSystem,
 }
 
 impl FrameSystem {
@@ -70,7 +78,7 @@ impl FrameSystem {
                     }
                 },
                 passes: [
-                // First pass if for the scene diffuse, normals and depth
+                    // First pass if for the scene diffuse, normals and depth
                 {
                     color: [diffuse, normals],
                     depth_stencil: {depth},
@@ -115,12 +123,19 @@ impl FrameSystem {
                     [1, 1],
                     Format::A2B10G10R10UnormPack32, usage).unwrap();
 
+
+                let lighting_subpass = Subpass::from(render_pass.clone(), 1).unwrap();
+                let point_lighting_system = PointLightingSystem::new(
+                    queue.clone(),
+                    lighting_subpass.clone());
+
                 FrameSystem {
                     render_pass,
                     queue: queue.clone(),
                     depth_buffer,
                     normals_buffer,
                     diffuse_buffer,
+                    point_lighting_system,
                 }
     }
 
@@ -133,7 +148,7 @@ impl FrameSystem {
     /// Return the subpass where we should write the GUI to the final image
     #[inline]
     pub fn ui_subpass(&self) -> Subpass<Arc<RenderPassAbstract + Send + Sync>> {
-        Subpass::from(self.render_pass.clone(), 1).unwrap()
+        Subpass::from(self.render_pass.clone(), 2).unwrap()
     }
 
 
@@ -150,11 +165,11 @@ impl FrameSystem {
                   let img_dims = ImageAccess::dimensions(&final_image).width_height();
                   if ImageAccess::dimensions(&self.depth_buffer).width_height() != img_dims {
 
-                let usage = ImageUsage {
-                    transient_attachment: true,
-                    input_attachment: true,
-                    .. ImageUsage::none()
-                };
+                      let usage = ImageUsage {
+                          transient_attachment: true,
+                          input_attachment: true,
+                          .. ImageUsage::none()
+                      };
                       self.depth_buffer = AttachmentImage::with_usage(
                           self.queue.device().clone(),
                           img_dims,
@@ -164,11 +179,15 @@ impl FrameSystem {
                           self.queue.device().clone(),
                           img_dims,
                           Format::R16G16B16A16Sfloat, usage).unwrap();
-                  
+
                       self.diffuse_buffer = AttachmentImage::with_usage(
-                        self.queue.device().clone(),
-                        img_dims,
-                        Format::A2B10G10R10UnormPack32, usage).unwrap();
+                          self.queue.device().clone(),
+                          img_dims,
+                          Format::A2B10G10R10UnormPack32, usage).unwrap();
+
+                      self.point_lighting_system.rebuild_pipeline(
+                          Subpass::from(self.render_pass.clone(), 1).unwrap(),
+                          img_dims);
                   }
 
 
@@ -181,7 +200,7 @@ impl FrameSystem {
                                              .build().unwrap());
 
                   // Ok, begin the render pass now and return the Frame with all the information
-                  let clear_values = vec!([0.0, 0.0, 0.0, 1.0].into(),
+                  let clear_values = vec!([0.0, 0.0, 0.0, 0.0].into(),
                                           [0.0, 0.0, 0.0, 0.0].into(),
                                           [0.0, 0.0, 0.0, 0.0].into(),
                                           1f32.into());
@@ -192,9 +211,10 @@ impl FrameSystem {
                   Frame {
                       system: self,
                       before_main_cb_future: Some(Box::new(before_future)),
-                      _framebuffer: framebuffer,
+                      framebuffer: framebuffer,
                       num_pass: 0,
                       command_buffer,
+
                   }
 
               }
@@ -214,7 +234,7 @@ pub struct Frame<'a> {
     // wait before rendering
     before_main_cb_future: Option<Box<GpuFuture>>,
 
-    _framebuffer: Arc<FramebufferAbstract + Send + Sync>,
+    framebuffer: Arc<FramebufferAbstract + Send + Sync>,
     command_buffer: Option<AutoCommandBufferBuilder>,
 }
 
@@ -224,39 +244,39 @@ impl<'a> Frame<'a> {
 
     /// Order the different passes.
     pub fn next_pass<'f>(&'f mut self) -> Option<Pass<'f, 'a>> {
-    
-        match { let current_pass = self.num_pass; self.num_pass += 1; current_pass} {
-        0 => {
-            // Render pass has started but nothing is done yet.
-            Some(Pass::Deferred(DrawPass { frame: self }))
-        },
-        1 => {
-            // Need to use next subpass in our render pass. This is done
-            // with the command buffer
-            self.command_buffer = Some(
-                self.command_buffer.take().unwrap()
-                    .next_subpass(true).unwrap());
-            Some(Pass::Lighting(LightingPass { frame: self }))
-        },
-        2 => {
-            self.command_buffer = Some(
-                self.command_buffer.take().unwrap()
-                    .next_subpass(true).unwrap());
-            Some(Pass::Gui(DrawPass { frame: self }))
-        },
-        3 => {
-            // Finish render pass, schedule the command and return the future to wait
-            // before rendering.
-            let command_buffer = self.command_buffer.take().unwrap()
-                .end_render_pass().unwrap()
-                .build().unwrap();
 
-            let after_main_cb = self.before_main_cb_future.take().unwrap()
-                .then_execute(self.system.queue.clone(), command_buffer)
-                .unwrap();
-            Some(Pass::Finished(Box::new(after_main_cb)))
-        },
-        _ => None,
+        match { let current_pass = self.num_pass; self.num_pass += 1; current_pass} {
+            0 => {
+                // Render pass has started but nothing is done yet.
+                Some(Pass::Deferred(DrawPass { frame: self }))
+            },
+            1 => {
+                // Need to use next subpass in our render pass. This is done
+                // with the command buffer
+                self.command_buffer = Some(
+                    self.command_buffer.take().unwrap()
+                    .next_subpass(true).unwrap());
+                Some(Pass::Lighting(LightingPass { frame: self }))
+            },
+            2 => {
+                self.command_buffer = Some(
+                    self.command_buffer.take().unwrap()
+                    .next_subpass(true).unwrap());
+                Some(Pass::Gui(DrawPass { frame: self }))
+            },
+            3 => {
+                // Finish render pass, schedule the command and return the future to wait
+                // before rendering.
+                let command_buffer = self.command_buffer.take().unwrap()
+                    .end_render_pass().unwrap()
+                    .build().unwrap();
+
+                let after_main_cb = self.before_main_cb_future.take().unwrap()
+                    .then_execute(self.system.queue.clone(), command_buffer)
+                    .unwrap();
+                Some(Pass::Finished(Box::new(after_main_cb)))
+            },
+            _ => None,
         }
 
     }
@@ -296,4 +316,30 @@ impl<'f, 's: 'f> DrawPass<'f, 's> {
 
 pub struct LightingPass<'f, 's: 'f> {
     frame: &'f mut Frame<'s>,
+}
+
+impl<'f, 's: 'f> LightingPass<'f, 's> {
+
+    pub fn point_light(&mut self, position: Vector3<f32>, color: [f32; 3], world_to_framebuffer: Matrix4<f32>) {
+
+        let command_buffer = {
+
+            self.frame.system.point_lighting_system.draw(
+                self.frame.system.diffuse_buffer.clone(),
+                self.frame.system.normals_buffer.clone(),
+                self.frame.system.depth_buffer.clone(),
+                world_to_framebuffer.invert().unwrap(), 
+                position,
+                color)
+        };
+
+
+        unsafe {
+            self.frame.command_buffer = Some(
+                self.frame.command_buffer.take().unwrap().execute_commands(command_buffer)
+                .unwrap());
+
+        }
+
+    }
 }

@@ -35,7 +35,7 @@ void main() {
 
     float light_distance = length(push_constants.position.xyz - world.xyz);
     // Further decrease light_percent based on the distance with the light position.
-    light_percent *= 1.0 / exp(light_distance);
+    //light_percent *= 1.0 / exp(light_distance);
 
     vec3 in_diffuse = subpassLoad(u_diffuse).rgb;
     f_color.rgb = push_constants.color.rgb * light_percent * in_diffuse;

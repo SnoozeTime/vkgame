@@ -38,8 +38,7 @@ pub struct PointLightingSystem {
 impl PointLightingSystem {
 
     pub fn new<R>(queue: Arc<Queue>,
-                  subpass: Subpass<R>,
-                  dimensions: [u32; 2]) -> Self
+                  subpass: Subpass<R>) -> Self
         where R: RenderPassAbstract + Send + Sync + 'static {
             // that is suspicious
             let vertex_buffer = {
@@ -60,10 +59,10 @@ impl PointLightingSystem {
             let pipeline = PointLightingSystem::build_pipeline(
                 queue.clone(),
                 subpass,
-                dimensions,
+                [1, 1],
                 &vs,
                 &fs
-                );
+            );
 
             PointLightingSystem {
                 queue,
@@ -102,6 +101,7 @@ impl PointLightingSystem {
                  .vertex_input_single_buffer::<Vertex>()
                  .vertex_shader(vs.main_entry_point(), ())
                  .triangle_list()
+                 .viewports_dynamic_scissors_irrelevant(1)
                  .viewports(iter::once(Viewport {
                      origin: [0.0, 0.0],
                      dimensions: [dimensions[0] as f32, dimensions[1] as f32],
@@ -135,42 +135,38 @@ impl PointLightingSystem {
                          screen_to_world: Matrix4<f32>,
                          position: Vector3<f32>,
                          color: [f32; 3]) -> AutoCommandBuffer
-    where C: ImageViewAccess + Send + Sync + 'static,
-          N: ImageViewAccess + Send + Sync + 'static,
-          D: ImageViewAccess + Send + Sync + 'static
-    
-    {
-        
+        where C: ImageViewAccess + Send + Sync + 'static,
+              N: ImageViewAccess + Send + Sync + 'static,
+              D: ImageViewAccess + Send + Sync + 'static
 
-        // Data for the light source
-        let push_constants = fs::ty::PushConstants {
-            screen_to_world: screen_to_world.into(),
-            position: position.extend(0.0).into(),
-            color: [color[0], color[1], color[2], 1.0],
-        };
+              {
+                  // Data for the light source
+                  let push_constants = fs::ty::PushConstants {
+                      screen_to_world: screen_to_world.into(),
+                      position: position.extend(0.0).into(),
+                      color: [color[0], color[1], color[2], 1.0],
+                  };
 
-        // gbuffer. Input that was rendered in previous pass
-        let descriptor_set = PersistentDescriptorSet::start(self.pipeline.clone(), 0)
-            .add_image(color_input).unwrap()
-            .add_image(normals_input).unwrap()
-            .add_image(depth_input).unwrap()
-            .build().unwrap();
+                  // gbuffer. Input that was rendered in previous pass
+                  let descriptor_set = PersistentDescriptorSet::start(self.pipeline.clone(), 0)
+                      .add_image(color_input).unwrap()
+                      .add_image(normals_input).unwrap()
+                      .add_image(depth_input).unwrap()
+                      .build().unwrap();
 
-        AutoCommandBufferBuilder::secondary_graphics(self.queue.device().clone(),
-                                                     self.queue.family(),
-                                                     self.pipeline.clone().subpass())
-            .unwrap()
-            .draw(self.pipeline.clone(),
-                  &DynamicState::none(),
-                  vec![self.vertex_buffer.clone()],
-                  descriptor_set,
-                  push_constants)
-            .unwrap()
-            .build()
-            .unwrap()
-    }
+                  AutoCommandBufferBuilder::secondary_graphics(self.queue.device().clone(),
+                  self.queue.family(),
+                  self.pipeline.clone().subpass())
+                      .unwrap()
+                      .draw(self.pipeline.clone(),
+                      &DynamicState::none(),
+                      vec![self.vertex_buffer.clone()],
+                      descriptor_set,
+                      push_constants)
+                      .unwrap().build().unwrap()
+
+              }
 }
-
 
 mod vs {
     vulkano_shaders::shader!{

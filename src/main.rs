@@ -22,9 +22,14 @@ fn main() {
         .subcommand(SubCommand::with_name("editor"))
         .get_matches();
     // this is an Arc to instance. (non-mut dynamic ref)
+    
+        // NOTE: To simplify the example code we won't verify these layer(s) are actually in the
+        // layers list:
+         let layer = "VK_LAYER_LUNARG_standard_validation";
+         let layers = vec![layer];
     let instance = {
         let extensions = vulkano_win::required_extensions();
-        Instance::new(None, &extensions, None).expect("Could not create instance")
+        Instance::new(None, &extensions, layers).expect("Could not create instance")
     };
 
     // Get the surface and window. Window is from winit library
