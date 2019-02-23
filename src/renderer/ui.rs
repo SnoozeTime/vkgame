@@ -8,7 +8,7 @@ use vulkano::impl_vertex;
 use vulkano::descriptor::descriptor_set::{PersistentDescriptorSet};
 use vulkano::sampler::{Sampler, SamplerAddressMode, Filter, MipmapMode};
 use vulkano::pipeline::{GraphicsPipeline, GraphicsPipelineAbstract};
-use vulkano::command_buffer::{AutoCommandBufferBuilder, DynamicState};
+use vulkano::command_buffer::{AutoCommandBufferBuilder, AutoCommandBuffer, DynamicState};
 use vulkano::swapchain::Surface;
 use std::error::Error;
 use vulkano::image::ImmutableImage;
@@ -176,7 +176,7 @@ impl GuiRenderer {
 
     /// Render the given ui!
     pub fn render<'a>(&mut self,
-                      mut builder: AutoCommandBufferBuilder, ui: Ui<'a>) -> AutoCommandBufferBuilder {
+                      ui: Ui<'a>) -> AutoCommandBuffer {
         let mut to_draw = Vec::new();
         let (width, height) = ui.imgui().display_size();
         let push_constants = ui_vs::ty::PushConstants {
@@ -237,6 +237,10 @@ impl GuiRenderer {
             .build().unwrap()
         );
 
+        let mut builder = AutoCommandBufferBuilder::secondary_graphics(
+            self.queue.device().clone(),
+            self.queue.family(),
+            self.pipeline.clone().subpass()).unwrap();
 
         for draw_data in to_draw {
             builder = builder
@@ -250,7 +254,7 @@ impl GuiRenderer {
                 .unwrap();
         }
 
-        builder
+        builder.build().unwrap()
     }
 
 

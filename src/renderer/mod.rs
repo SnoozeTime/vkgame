@@ -3,6 +3,7 @@ pub mod texture;
 pub mod pick;
 mod scene_system;
 mod ui;
+mod frame;
 
 use ui::GuiRenderer;
 use pick::Object3DPicker;
@@ -287,7 +288,11 @@ impl<'a> Renderer<'a> {
         // Second subpass.
         command_buffer_builder = command_buffer_builder.next_subpass(false).unwrap();
         // Now display the GUI.
-        command_buffer_builder = self.gui.render(command_buffer_builder, ui); 
+        let gui_command_buffer = self.gui.render(ui); 
+        unsafe {
+            command_buffer_builder = command_buffer_builder.execute_commands(
+                gui_command_buffer).unwrap();
+        }
 
         // Finish render pass
         command_buffer_builder = command_buffer_builder.end_render_pass()
