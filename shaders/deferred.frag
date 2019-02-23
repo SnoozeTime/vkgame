@@ -8,10 +8,6 @@ layout(location = 2) in vec3 frag_position;
 layout(location = 3) in vec3 frag_normal;
 
 layout(set = 1, binding = 0) uniform sampler2D texSampler;
-layout(set = 1, binding = 1) uniform Data {
-        vec3 color;
-        vec3 position;
-} light;
 
 
 void main() {
