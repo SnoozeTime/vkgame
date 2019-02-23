@@ -251,11 +251,9 @@ impl<'a> Renderer<'a> {
                     draw_pass.execute(cb.clone());
                 },
                 Pass::Lighting(mut lighting_pass) => {
-                    let pv = proj*view;
-
                     for (light, transform) in lights.iter() {
                         lighting_pass.point_light(transform.position,
-                                                  light.color, pv);
+                                                  light.color);
                     }
                 },
                 Pass::Gui(mut draw_pass) => {

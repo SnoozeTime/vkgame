@@ -119,13 +119,10 @@ impl ECS {
             scale: Vector3::new(2.0, 2.0, 2.0),
         });
         components.models.set(&id1, ModelComponent {
-            mesh_name: "building".to_owned(),
-            texture_name: "floor".to_owned(),
+            mesh_name: "cube".to_owned(),
+            texture_name: "blue".to_owned(),
         });
-        //        components.dummies.set(&id1, DummyComponent {
-        //            speed: 2.0,
-        //        });
-        //
+        
         // Second entity
         components.transforms.set(&id2, TransformComponent {
             position: Vector3::new(0.0, 0.0, 0.0),

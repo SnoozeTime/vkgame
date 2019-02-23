@@ -128,21 +128,21 @@ impl PointLightingSystem {
 
 
     /// Draw the color added the light at position `position` and color `color`
-    pub fn draw<C, N, D>(&self,
+    pub fn draw<C, N, F, D>(&self,
                          color_input: C,
                          normals_input: N,
+                         frag_pos_input: F,
                          depth_input: D,
-                         screen_to_world: Matrix4<f32>,
                          position: Vector3<f32>,
                          color: [f32; 3]) -> AutoCommandBuffer
         where C: ImageViewAccess + Send + Sync + 'static,
               N: ImageViewAccess + Send + Sync + 'static,
+              F: ImageViewAccess + Send + Sync + 'static,
               D: ImageViewAccess + Send + Sync + 'static
 
               {
                   // Data for the light source
                   let push_constants = fs::ty::PushConstants {
-                      screen_to_world: screen_to_world.into(),
                       position: position.extend(0.0).into(),
                       color: [color[0], color[1], color[2], 1.0],
                   };
@@ -151,6 +151,7 @@ impl PointLightingSystem {
                   let descriptor_set = PersistentDescriptorSet::start(self.pipeline.clone(), 0)
                       .add_image(color_input).unwrap()
                       .add_image(normals_input).unwrap()
+                      .add_image(frag_pos_input).unwrap()
                       .add_image(depth_input).unwrap()
                       .build().unwrap();
 

@@ -33,6 +33,9 @@ pub struct FrameSystem {
 
     diffuse_buffer: Arc<AttachmentImage>,
 
+    // Contains fragment_positions;
+    frag_pos_buffer: Arc<AttachmentImage>,
+
     // Contains the normals
     normals_buffer: Arc<AttachmentImage>,
 
@@ -70,6 +73,12 @@ impl FrameSystem {
                         format: Format::R16G16B16A16Sfloat,
                         samples: 1,
                     },
+                    fragment_pos: {
+                        load: Clear,
+                        store: DontCare,
+                        format: Format::R16G16B16A16Sfloat,
+                        samples: 1,
+                    },
                     depth: {
                         load: Clear,
                         store: DontCare,
@@ -80,7 +89,7 @@ impl FrameSystem {
                 passes: [
                     // First pass if for the scene diffuse, normals and depth
                 {
-                    color: [diffuse, normals],
+                    color: [diffuse, normals, fragment_pos],
                     depth_stencil: {depth},
                     input: []
                 },
@@ -89,7 +98,7 @@ impl FrameSystem {
                 {
                     color: [final_color],
                     depth_stencil: {},
-                    input: [diffuse, normals, depth]
+                    input: [diffuse, normals, fragment_pos, depth]
                 },
                 // Third pass for the GUI
                 {
@@ -113,6 +122,11 @@ impl FrameSystem {
                     [1, 1],
                     Format::D16Unorm, usage).unwrap();
 
+                let frag_pos_buffer = AttachmentImage::with_usage(
+                    queue.device().clone(),
+                    [1, 1],
+                    Format::R16G16B16A16Sfloat, usage).unwrap();
+
                 let normals_buffer = AttachmentImage::with_usage(
                     queue.device().clone(),
                     [1, 1],
@@ -135,6 +149,7 @@ impl FrameSystem {
                     depth_buffer,
                     normals_buffer,
                     diffuse_buffer,
+                    frag_pos_buffer,
                     point_lighting_system,
                 }
     }
@@ -143,6 +158,11 @@ impl FrameSystem {
     #[inline]
     pub fn deferred_subpass(&self) -> Subpass<Arc<RenderPassAbstract + Send + Sync>> {
         Subpass::from(self.render_pass.clone(), 0).unwrap()
+    }
+
+    #[inline]
+    pub fn lighting_subpass(&self) -> Subpass<Arc<RenderPassAbstract + Send + Sync>> {
+        Subpass::from(self.render_pass.clone(), 1).unwrap()
     }
 
     /// Return the subpass where we should write the GUI to the final image
@@ -175,6 +195,11 @@ impl FrameSystem {
                           img_dims,
                           Format::D16Unorm, usage).unwrap();
 
+                      self.frag_pos_buffer = AttachmentImage::with_usage(
+                          self.queue.device().clone(),
+                          img_dims,
+                          Format::R16G16B16A16Sfloat, usage).unwrap();
+
                       self.normals_buffer = AttachmentImage::with_usage(
                           self.queue.device().clone(),
                           img_dims,
@@ -186,7 +211,7 @@ impl FrameSystem {
                           Format::A2B10G10R10UnormPack32, usage).unwrap();
 
                       self.point_lighting_system.rebuild_pipeline(
-                          Subpass::from(self.render_pass.clone(), 1).unwrap(),
+                          self.lighting_subpass(),
                           img_dims);
                   }
 
@@ -196,11 +221,13 @@ impl FrameSystem {
                                              .add(final_image.clone()).unwrap()
                                              .add(self.diffuse_buffer.clone()).unwrap()
                                              .add(self.normals_buffer.clone()).unwrap()
+                                             .add(self.frag_pos_buffer.clone()).unwrap()
                                              .add(self.depth_buffer.clone()).unwrap()
                                              .build().unwrap());
 
                   // Ok, begin the render pass now and return the Frame with all the information
                   let clear_values = vec!([0.0, 0.0, 0.0, 0.0].into(),
+                                          [0.0, 0.0, 0.0, 0.0].into(),
                                           [0.0, 0.0, 0.0, 0.0].into(),
                                           [0.0, 0.0, 0.0, 0.0].into(),
                                           1f32.into());
@@ -320,15 +347,15 @@ pub struct LightingPass<'f, 's: 'f> {
 
 impl<'f, 's: 'f> LightingPass<'f, 's> {
 
-    pub fn point_light(&mut self, position: Vector3<f32>, color: [f32; 3], world_to_framebuffer: Matrix4<f32>) {
+    pub fn point_light(&mut self, position: Vector3<f32>, color: [f32; 3]) {
 
         let command_buffer = {
 
             self.frame.system.point_lighting_system.draw(
                 self.frame.system.diffuse_buffer.clone(),
                 self.frame.system.normals_buffer.clone(),
+                self.frame.system.frag_pos_buffer.clone(),
                 self.frame.system.depth_buffer.clone(),
-                world_to_framebuffer.invert().unwrap(), 
                 position,
                 color)
         };
