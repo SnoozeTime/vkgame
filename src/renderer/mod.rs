@@ -5,6 +5,7 @@ mod scene_system;
 mod ui;
 mod frame;
 mod point_lighting_system;
+mod ambient_lighting_system;
 
 use ui::GuiRenderer;
 use pick::Object3DPicker;
@@ -247,6 +248,7 @@ impl<'a> Renderer<'a> {
                     draw_pass.execute(cb.clone());
                 },
                 Pass::Lighting(mut lighting_pass) => {
+                    lighting_pass.ambient_light([0.1, 0.1, 0.1]);
                     for (light, transform) in lights.iter() {
                         lighting_pass.point_light(transform.position,
                                                   light.color);

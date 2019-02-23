@@ -21,6 +21,7 @@ use vulkano::sync::GpuFuture;
 use cgmath::{Vector3};
 
 use super::point_lighting_system::PointLightingSystem;
+use super::ambient_lighting_system::AmbientLightingSystem;
 
 pub struct FrameSystem {
     // Queue used to render graphic
@@ -42,6 +43,7 @@ pub struct FrameSystem {
 
     // Lighting systems.
     point_lighting_system: PointLightingSystem,
+    ambient_lighting_system: AmbientLightingSystem,
 }
 
 impl FrameSystem {
@@ -140,6 +142,9 @@ impl FrameSystem {
                 let point_lighting_system = PointLightingSystem::new(
                     queue.clone(),
                     lighting_subpass.clone());
+                let ambient_lighting_system = AmbientLightingSystem::new(
+                    queue.clone(),
+                    lighting_subpass.clone());
 
                 FrameSystem {
                     render_pass,
@@ -149,6 +154,7 @@ impl FrameSystem {
                     diffuse_buffer,
                     frag_pos_buffer,
                     point_lighting_system,
+                    ambient_lighting_system,
                 }
     }
 
@@ -167,6 +173,17 @@ impl FrameSystem {
     #[inline]
     pub fn ui_subpass(&self) -> Subpass<Arc<RenderPassAbstract + Send + Sync>> {
         Subpass::from(self.render_pass.clone(), 2).unwrap()
+    }
+
+
+    fn rebuild_systems(&mut self,
+                       dimensions: [u32; 2]) {
+        self.point_lighting_system.rebuild_pipeline(
+            self.lighting_subpass(),
+            dimensions);
+        self.ambient_lighting_system.rebuild_pipeline(
+            self.lighting_subpass(),
+            dimensions);
     }
 
 
@@ -208,9 +225,7 @@ impl FrameSystem {
                           img_dims,
                           Format::A2B10G10R10UnormPack32, usage).unwrap();
 
-                      self.point_lighting_system.rebuild_pipeline(
-                          self.lighting_subpass(),
-                          img_dims);
+                      self.rebuild_systems(img_dims);
                   }
 
 
@@ -342,6 +357,22 @@ pub struct LightingPass<'f, 's: 'f> {
 }
 
 impl<'f, 's: 'f> LightingPass<'f, 's> {
+
+    pub fn ambient_light(&mut self, color: [f32; 3]) {
+
+        let command_buffer = {
+            self.frame.system.ambient_lighting_system.draw(
+                self.frame.system.diffuse_buffer.clone(),
+                color)
+
+        };
+
+        unsafe {
+            self.frame.command_buffer = Some(
+                self.frame.command_buffer.take().unwrap().execute_commands(command_buffer)
+                .unwrap());
+        }
+    }
 
     pub fn point_light(&mut self, position: Vector3<f32>, color: [f32; 3]) {
 
