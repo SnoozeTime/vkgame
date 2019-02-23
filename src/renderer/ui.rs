@@ -1,6 +1,6 @@
 /// This is where all the imgui-rs related functions are.
 use vulkano::pipeline::viewport::Viewport;
-use vulkano::device::{Device, Queue};
+use vulkano::device::Queue;
 use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
 use vulkano::framebuffer::{Subpass, RenderPassAbstract};
 use imgui::{ImGui, Ui, ImDrawVert};
@@ -59,84 +59,18 @@ struct DrawData {
     idx_buf: Arc<CpuAccessibleBuffer<[u32]>>, 
 }
 
-pub struct UiPipelineState {
-    pub pipeline: Arc<GraphicsPipelineAbstract + Send + Sync>,
-    vs: ui_vs::Shader,
-    fs: ui_fs::Shader,
-}
-
-impl UiPipelineState {
-
-    /// Pack shaders and pipeline together :)
-    pub fn new(device: Arc<Device>,
-               render_pass: Arc<RenderPassAbstract + Send + Sync>) -> Self {
-
-        let vs = ui_vs::Shader::load(device.clone()).unwrap();
-        let fs = ui_fs::Shader::load(device.clone()).unwrap();
-        let pipeline = Arc::new(GraphicsPipeline::start()
-                                .vertex_input_single_buffer::<UiVertex>()
-                                .vertex_shader(vs.main_entry_point(), ())
-                                .triangle_list()
-                                .front_face_clockwise()
-                                .blend_alpha_blending() // necessary for font transparency
-                                .viewports_scissors_dynamic(1)
-                                .fragment_shader(fs.main_entry_point(), ())
-                                .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
-                                .build(device.clone())
-                                .unwrap());
-
-        UiPipelineState {
-            fs,
-            vs,
-            pipeline,
-        }
-    }
-
-    /// Not ideal, but this needs to be called when we change the screen dimensions.
-    pub fn rebuild_pipeline(&mut self,
-                            device: Arc<Device>,
-                            render_pass: Arc<RenderPassAbstract + Send + Sync>) {
-
-        self.pipeline = 
-            Arc::new(GraphicsPipeline::start()
-                     .vertex_input_single_buffer::<UiVertex>()
-                     .vertex_shader(self.vs.main_entry_point(), ())
-                     .triangle_list()
-                     .front_face_clockwise()
-                     .blend_alpha_blending() // necessary for font transparency
-                     .viewports_scissors_dynamic(1)
-                     .fragment_shader(self.fs.main_entry_point(), ())
-                     .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
-                     .build(device.clone())
-                     .unwrap());
-
-    }
-
-}
-pub mod ui_vs {
-
-    vulkano_shaders::shader!{
-        ty: "vertex",
-        path: "shaders/gui.vert"
-    }
-}
-
-pub mod ui_fs {
-    vulkano_shaders::shader!{
-        ty: "fragment",
-        path: "shaders/gui.frag"
-    }
-}
-
 /// Mega structure for the UI! :) 
 /// UI will have its own pipeline (shaders and stuff) and its own texture for fonts. 
 /// At first, we create vertex and index buffer on the go, but ideally we would
 /// store everything in one buffer.
 pub struct GuiRenderer {
-    device: Arc<Device>,
+    queue: Arc<Queue>,
 
     // The UI state
-    pipeline: UiPipelineState,
+    pipeline: Arc<GraphicsPipelineAbstract + Send + Sync>,
+    vs: ui_vs::Shader,
+    fs: ui_fs::Shader,
+
     font_texture: Texture,
     //dimensions: [u32; 2],
     current_viewport: Viewport,
@@ -145,73 +79,100 @@ pub struct GuiRenderer {
 impl GuiRenderer {
 
 
-    pub fn new(imgui: &mut ImGui,
-               surface: Arc<Surface<Window>>,
-               device: Arc<Device>,
-               render_pass: Arc<RenderPassAbstract + Send + Sync>,
-               queue: Arc<Queue>) -> Self {
-        let window = surface.window();
-        // Load the font texture
-        // --------------------------------------------
-        let (texture, texture_future) = imgui.prepare_texture(|handle| {
-            let r = vulkano::image::immutable::ImmutableImage::from_iter(
-                handle.pixels.iter().cloned(),
-                vulkano::image::Dimensions::Dim2d { width: handle.width, height: handle.height },
-                vulkano::format::R8G8B8A8Unorm,
-                queue.clone()).unwrap();
+    pub fn new<R>(imgui: &mut ImGui,
+                  surface: Arc<Surface<Window>>,
+                  subpass: Subpass<R>, 
+                  queue: Arc<Queue>) -> Self 
+        where R: RenderPassAbstract + Send + Sync + 'static {
 
-            r
-        });
+            let device = queue.device().clone();
+            let window = surface.window();
+            // Load the font texture
+            // --------------------------------------------
+            let (texture, texture_future) = imgui.prepare_texture(|handle| {
+                let r = vulkano::image::immutable::ImmutableImage::from_iter(
+                    handle.pixels.iter().cloned(),
+                    vulkano::image::Dimensions::Dim2d { width: handle.width, height: handle.height },
+                    vulkano::format::R8G8B8A8Unorm,
+                    queue.clone()).unwrap();
 
-        let sampler = Sampler::new(
-            device.clone(),
-            Filter::Linear,
-            Filter::Linear,
-            MipmapMode::Linear,
-            SamplerAddressMode::ClampToEdge,
-            SamplerAddressMode::ClampToEdge,
-            SamplerAddressMode::ClampToEdge,
-            0.0, 1.0, 0.0, 0.0).unwrap();
+                r
+            });
 
-        texture_future
-            .then_signal_fence_and_flush().unwrap()
-            .wait(None).unwrap(); 
+            let sampler = Sampler::new(
+                device.clone(),
+                Filter::Linear,
+                Filter::Linear,
+                MipmapMode::Linear,
+                SamplerAddressMode::ClampToEdge,
+                SamplerAddressMode::ClampToEdge,
+                SamplerAddressMode::ClampToEdge,
+                0.0, 1.0, 0.0, 0.0).unwrap();
 
-        let font_texture = Texture {
-            texture,
-            sampler,
-        };
+            texture_future
+                .then_signal_fence_and_flush().unwrap()
+                .wait(None).unwrap(); 
 
-        // The graphic pipeline
-        // -----------------------------------------------
-        let pipeline = UiPipelineState::new(device.clone(), render_pass.clone());
+            let font_texture = Texture {
+                texture,
+                sampler,
+            };
 
-        // Window size and so on
-        // -----------------------
-        let dimensions = if let Some(dimensions) = window.get_inner_size() {
-            // convert to physical pixels
-            let dimensions: (u32, u32) = dimensions.to_physical(window.get_hidpi_factor()).into();
-            [dimensions.0, dimensions.1]
-        } else {
-            // The window no longer exists so exit the application.
-            panic!("Wwwwwttttfffff");
-        };
-        let current_viewport = Viewport {
-            origin: [0.0, 0.0],
-            dimensions: [dimensions[0] as f32, dimensions[1] as f32],
-            depth_range: 0.0 .. 1.0,
-        };
+            // Window size and so on
+            // -----------------------
+            let dimensions = if let Some(dimensions) = window.get_inner_size() {
+                // convert to physical pixels
+                let dimensions: (u32, u32) = dimensions.to_physical(window.get_hidpi_factor()).into();
+                [dimensions.0, dimensions.1]
+            } else {
+                // The window no longer exists so exit the application.
+                panic!("Wwwwwttttfffff");
+            };
+            let current_viewport = Viewport {
+                origin: [0.0, 0.0],
+                dimensions: [dimensions[0] as f32, dimensions[1] as f32],
+                depth_range: 0.0 .. 1.0,
+            };
 
+            // The graphic pipeline
+            // -----------------------------------------------
+            let vs = ui_vs::Shader::load(device.clone()).unwrap();
+            let fs = ui_fs::Shader::load(device.clone()).unwrap();
+            let pipeline = GuiRenderer::build_pipeline(
+                queue.clone(),
+                subpass,
+                &vs, &fs);
 
-
-        GuiRenderer {
-            device: device.clone(),
-            font_texture,
-            pipeline,
-            //dimensions,
-            current_viewport,
+            GuiRenderer {
+                queue,
+                font_texture,
+                pipeline,
+                vs,
+                fs,
+                current_viewport,
+            }
         }
-    }
+
+    fn build_pipeline<R>(queue: Arc<Queue>,
+                         subpass: Subpass<R>,
+                         vs: &ui_vs::Shader,
+                         fs: &ui_fs::Shader) -> Arc<GraphicsPipelineAbstract + Send + Sync>
+        where R: RenderPassAbstract + Send + Sync + 'static {
+
+            Arc::new(
+                GraphicsPipeline::start()
+                .vertex_input_single_buffer::<UiVertex>()
+                .vertex_shader(vs.main_entry_point(), ())
+                .triangle_list()
+                .front_face_clockwise()
+                .blend_alpha_blending() // necessary for font transparency
+                .viewports_scissors_dynamic(1)
+                .fragment_shader(fs.main_entry_point(), ())
+                .render_pass(subpass)
+                .build(queue.device().clone())
+                .unwrap()
+            )
+        }
 
     /// Render the given ui!
     pub fn render<'a>(&mut self,
@@ -237,11 +198,11 @@ impl GuiRenderer {
 
                 // Create vertex and index buffers here.
                 let vertex_buffer = CpuAccessibleBuffer::from_iter(
-                    self.device.clone(),
+                    self.queue.device().clone(),
                     BufferUsage::all(),
                     vtx.iter().cloned()).unwrap();
                 let index_buffer = CpuAccessibleBuffer::from_iter(
-                    self.device.clone(),
+                    self.queue.device().clone(),
                     BufferUsage::all(),
                     idx.iter().cloned()
                 ).unwrap();
@@ -269,7 +230,7 @@ impl GuiRenderer {
         });
 
         let tex_set = Arc::new(
-            PersistentDescriptorSet::start(self.pipeline.pipeline.clone(), 0)
+            PersistentDescriptorSet::start(self.pipeline.clone(), 0)
             .add_sampled_image(
                 self.font_texture.texture.clone(),
                 self.font_texture.sampler.clone()).unwrap()
@@ -280,7 +241,7 @@ impl GuiRenderer {
         for draw_data in to_draw {
             builder = builder
                 .draw_indexed(
-                    self.pipeline.pipeline.clone(),
+                    self.pipeline.clone(),
                     &draw_data.state,
                     vec![draw_data.vtx_buf.clone()],
                     draw_data.idx_buf.clone(),
@@ -293,9 +254,26 @@ impl GuiRenderer {
     }
 
 
-    pub fn rebuild_pipeline(&mut self,
-                            device: Arc<Device>,
-                            render_pass: Arc<RenderPassAbstract + Send + Sync>) {
-        self.pipeline.rebuild_pipeline(device, render_pass);
+    pub fn rebuild_pipeline<R>(&mut self,
+                            subpass: Subpass<R>)
+        where R: RenderPassAbstract + Send + Sync + 'static {
+        self.pipeline = GuiRenderer::build_pipeline(self.queue.clone(),
+            subpass, &self.vs, &self.fs);
     }
 }
+
+pub mod ui_vs {
+    vulkano_shaders::shader!{
+        ty: "vertex",
+        path: "shaders/gui.vert"
+    }
+}
+
+pub mod ui_fs {
+    vulkano_shaders::shader!{
+        ty: "fragment",
+        path: "shaders/gui.frag"
+    }
+}
+
+

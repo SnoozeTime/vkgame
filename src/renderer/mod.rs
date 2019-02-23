@@ -138,23 +138,14 @@ impl<'a> Renderer<'a> {
         // pipeline will go. It describes the layout of the images where the color
         // depth and/or stencil info will be written.
         // TODO new render pass for picking.
-        let render_pass = Arc::new(vulkano::single_pass_renderpass!(
+        let render_pass = Arc::new(vulkano::ordered_passes_renderpass!(
                 device.clone(),
                 attachments: {
                     // `color` is a custom name we give to the first and only attachment.
                     color: {
-                        // `load: Clear` means that we ask the GPU to clear the content of this
-                        // attachment at the start of the drawing.
                         load: Clear,
-                        // `store: Store` means that we ask the GPU to store the output of the draw
-                        // in the actual image. We could also ask it to discard the result.
                         store: Store,
-                        // `format: <ty>` indicates the type of the format of the image. This has to
-                        // be one of the types of the `vulkano::format` module (or alternatively one
-                        // of your structs that implements the `FormatDesc` trait). Here we use the
-                        // same format as the swapchain.
                         format: swapchain.format(),
-                        // TODO:
                         samples: 1,
                     },
                     depth: {
@@ -164,12 +155,20 @@ impl<'a> Renderer<'a> {
                         samples: 1,
                     }
                 },
-                pass: {
-                    // We use the attachment named `color` as the one and only color attachment.
+                passes: [
+                {
                     color: [color],
-                    // No depth-stencil attachment is indicated with empty brackets.
-                    depth_stencil: {depth}
+                    depth_stencil: {depth},
+                    input: []
+                },
+
+                // Pass for the GUI
+                {
+                    color: [color],
+                    depth_stencil: {},
+                    input: []
                 }
+                ]
         ).unwrap());
 
         // The render pass we created above only describes the layout of our framebuffers. Before we
@@ -183,10 +182,7 @@ impl<'a> Renderer<'a> {
         let previous_frame_end = Some(Box::new(sync::now(device.clone())) as Box<GpuFuture>);
 
         let scene_system = SceneDrawSystem::new(queue.clone(), Subpass::from(render_pass.clone(), 0).unwrap(), dimensions);
-        let gui = GuiRenderer::new(imgui, surface.clone(),
-        device.clone(),
-        render_pass.clone(),
-        queue.clone());
+        let gui = GuiRenderer::new(imgui, surface.clone(), Subpass::from(render_pass.clone(), 1).unwrap(), queue.clone());
         let object_picker = Object3DPicker::new(device.clone(),
                                                 queue.clone(),
                                                 surface.clone(),
@@ -248,7 +244,9 @@ impl<'a> Renderer<'a> {
             &self.images, 
             self.render_pass.clone());
 
-            self.gui.rebuild_pipeline(self.device.clone(),self.render_pass.clone());
+            self.gui.rebuild_pipeline(
+                Subpass::from(self.render_pass.clone(), 1).unwrap(),
+                );
             self.scene_system.rebuild_pipeline(Subpass::from(self.render_pass.clone(), 0).unwrap(), dimensions);
             self.object_picker.rebuild_pipeline(dimensions);
 
@@ -285,6 +283,9 @@ impl<'a> Renderer<'a> {
                 self.scene_system.draw(resources, camera, lights, objects)
                 ).unwrap();
         }
+
+        // Second subpass.
+        command_buffer_builder = command_buffer_builder.next_subpass(false).unwrap();
         // Now display the GUI.
         command_buffer_builder = self.gui.render(command_buffer_builder, ui); 
 
