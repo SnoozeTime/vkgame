@@ -16,7 +16,7 @@ use std::iter;
 
 use crate::ecs::{Entity, ECS, gen_index::GenerationalIndex};
 use super::model::{ModelManager, Vertex};
-use super::{create_mvp, vs};
+use super::scene_system::{create_mvp, vs};
 
 /*
  * This module will implement a technique to get the entity when clicking on a

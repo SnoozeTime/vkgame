@@ -1,25 +1,20 @@
 pub mod model;
 pub mod texture;
 pub mod pick;
+mod scene_system;
 mod ui;
 
 use ui::GuiRenderer;
 use pick::Object3DPicker;
 
 use imgui::{ImGui, Ui};
-use vulkano::descriptor::descriptor_set::{PersistentDescriptorSet};
 use vulkano::image::attachment::AttachmentImage;
-use vulkano::buffer::BufferUsage;
 use vulkano::format::Format;
-use vulkano::pipeline::GraphicsPipelineAbstract;
-use vulkano::buffer::cpu_pool::CpuBufferPool;
-use vulkano::command_buffer::{DynamicState, AutoCommandBufferBuilder};
+use vulkano::command_buffer::{AutoCommandBufferBuilder};
 use vulkano::device::{Device, DeviceExtensions, Queue};
 use vulkano::framebuffer::{Framebuffer, FramebufferAbstract, Subpass, RenderPassAbstract};
 use vulkano::image::SwapchainImage;
 use vulkano::instance::{Instance, PhysicalDevice};
-use vulkano::pipeline::GraphicsPipeline;
-use vulkano::pipeline::viewport::Viewport;
 use vulkano::swapchain::{Surface, AcquireError, PresentMode, SurfaceTransform, Swapchain, SwapchainCreationError};
 use vulkano::swapchain;
 use vulkano::sync::{GpuFuture, FlushError};
@@ -27,24 +22,14 @@ use vulkano::sync;
 
 use winit::Window;
 use std::sync::Arc;
-use std::iter;
-use cgmath::Matrix4;
 
 use crate::error::{TwError, TwResult};
 use crate::resource::Resources;
 use crate::camera::Camera;
 use crate::ecs::components::{TransformComponent, ModelComponent, LightComponent};
 use crate::ecs::{Entity, ECS};
-use self::model::Vertex;
+use scene_system::SceneDrawSystem;
 
-// Can have multiple pipelines in an application. In
-// particular, you need a pipeline for each combinaison
-// of shaders.
-pub struct PipelineState {
-    pub pipeline: Arc<GraphicsPipelineAbstract + Send + Sync>,
-    vs: vs::Shader,
-    fs: fs::Shader,
-}
 
 pub struct Renderer<'a> {
     pub surface: Arc<Surface<winit::Window>>,
@@ -61,20 +46,16 @@ pub struct Renderer<'a> {
     images: Vec<Arc<SwapchainImage<winit::Window>>>,
 
     render_pass: Arc<RenderPassAbstract + Send + Sync>,
-    pub pipeline: PipelineState,
     framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
-
-    pub uniform_buffer: CpuBufferPool<vs::ty::Data>,
-    pub light_buffer: CpuBufferPool<fs::ty::Data>,
 
     pub recreate_swapchain: bool,
     pub previous_frame_end: Option<Box<GpuFuture>>,
 
     // Special pipelines and stuff for the UI
     pub gui: GuiRenderer,
-
     // pipeline for mouse picking
     pub object_picker: Object3DPicker,
+    scene_system: SceneDrawSystem,
 }
 
 impl<'a> Renderer<'a> {
@@ -191,23 +172,17 @@ impl<'a> Renderer<'a> {
                 }
         ).unwrap());
 
-
-        let vs = vs::Shader::load(device.clone()).unwrap();
-        let fs = fs::Shader::load(device.clone()).unwrap();
-
         // The render pass we created above only describes the layout of our framebuffers. Before we
         // can draw we also need to create the actual framebuffers.
         // Since we need to draw to multiple images, we are going to create a different framebuffer for
         // each image.
-        let (pipeline, framebuffers, dimensions) = window_size_dependent_setup(device.clone(), &vs, &fs, &images, render_pass.clone());
+        let (framebuffers, dimensions) = window_size_dependent_setup(device.clone(), &images, render_pass.clone());
         println!("After framebuffer, dimensions: {:?}", dimensions);
         // Initialization is finally finished!
         let recreate_swapchain = false;
         let previous_frame_end = Some(Box::new(sync::now(device.clone())) as Box<GpuFuture>);
 
-        let uniform_buffer = CpuBufferPool::<vs::ty::Data>::new(device.clone(), BufferUsage::all());
-        let light_buffer = CpuBufferPool::<fs::ty::Data>::new(device.clone(), BufferUsage::all());
-
+        let scene_system = SceneDrawSystem::new(queue.clone(), Subpass::from(render_pass.clone(), 0).unwrap(), dimensions);
         let gui = GuiRenderer::new(imgui, surface.clone(),
         device.clone(),
         render_pass.clone(),
@@ -225,15 +200,13 @@ impl<'a> Renderer<'a> {
             images,
 
             render_pass,
-            pipeline: PipelineState { pipeline, vs, fs},
             framebuffers,
-            uniform_buffer,
-            light_buffer,
             recreate_swapchain,
             previous_frame_end,
             gui,
             object_picker,
-            dimensions
+            dimensions,
+            scene_system,
         })
     }
 
@@ -248,7 +221,6 @@ impl<'a> Renderer<'a> {
                        lights: Vec<(&LightComponent, &TransformComponent)>,
                        objects: Vec<(&ModelComponent, &TransformComponent)>) {
 
-        let (view, proj) = camera.get_vp(); 
         self.previous_frame_end.as_mut().unwrap().cleanup_finished();
         let window = self.surface.window();
 
@@ -272,21 +244,18 @@ impl<'a> Renderer<'a> {
             self.images = new_images;
             // Because framebuffers contains an Arc on the old swapchain, we need to
             // recreate framebuffers as well.
-            let (new_pipeline, new_framebuffers, dimensions) = window_size_dependent_setup(self.device.clone(),
-            &self.pipeline.vs, 
-            &self.pipeline.fs, 
+            let (new_framebuffers, dimensions) = window_size_dependent_setup(self.device.clone(),
             &self.images, 
             self.render_pass.clone());
 
-            self.gui.rebuild_pipeline(self.device.clone(),
-            self.render_pass.clone());
+            self.gui.rebuild_pipeline(self.device.clone(),self.render_pass.clone());
+            self.scene_system.rebuild_pipeline(Subpass::from(self.render_pass.clone(), 0).unwrap(), dimensions);
             self.object_picker.rebuild_pipeline(dimensions);
 
             // hey there
             camera.set_aspect((dimensions[0] as f32) / (dimensions[1] as f32));
 
             self.dimensions = dimensions;
-            self.pipeline.pipeline = new_pipeline;
             self.framebuffers = new_framebuffers;
             self.recreate_swapchain = false;
         }
@@ -311,67 +280,11 @@ impl<'a> Renderer<'a> {
         let mut command_buffer_builder = AutoCommandBufferBuilder::primary_one_time_submit(self.device.clone(), self.queue.family()).unwrap()
             .begin_render_pass(self.framebuffers[image_num].clone(), false, clear_values)
             .unwrap();
-
-        // 1st thing: Get the lighting data
-        // ---------------------------------------------
-        let (color, position) = if lights.len() > 0 {
-            let (light, transform) = lights[0];
-            (light.color, transform.position.into())
-        } else {
-            ([0.5, 0.5, 0.5], [5.0, 0.5, 1.0])
-        };
-
-        let light_buffer = {
-            let data = fs::ty::Data {
-                color,
-                position,
-                _dummy0: [0;4], // wtf is that?
-            };
-            self.light_buffer.next(data).unwrap()
-        };
-
-
-        // 2nd thing: Draw all objects
-        // ------------------------------
-        for (model, transform) in objects.iter() {
-            let texture = resources.textures.textures.get(
-                &model.texture_name
-            ).unwrap();
-
-
-            // BUILD DESCRIPTOR SETS.
-            // 1. For texture
-            let tex_set = Arc::new(
-                PersistentDescriptorSet::start(self.pipeline.pipeline.clone(), 1)
-                .add_sampled_image(texture.texture.clone(), texture.sampler.clone()).unwrap()
-                .add_buffer(light_buffer.clone()).unwrap()
-                .build().unwrap()
-            );
-
-
-            let model = resources.models.models.get(
-                &model.mesh_name
-            ).unwrap();
-
-            let uniform_buffer_subbuffer = {
-                let uniform_data = create_mvp(transform, &view, &proj);
-                self.uniform_buffer.next(uniform_data).unwrap()
-            };
-
-            let set = Arc::new(PersistentDescriptorSet::start(self.pipeline.pipeline.clone(), 0)
-                               .add_buffer(uniform_buffer_subbuffer).unwrap()
-                               .build().unwrap()
-            );
-
-            command_buffer_builder = command_buffer_builder
-                .draw_indexed(self.pipeline.pipeline.clone(),
-                &DynamicState::none(),
-                vec![model.vertex_buffer.clone()],
-                model.index_buffer.clone(),
-                (set.clone(), tex_set.clone()),
-                ()).unwrap();
+        unsafe {
+            command_buffer_builder = command_buffer_builder.execute_commands(
+                self.scene_system.draw(resources, camera, lights, objects)
+                ).unwrap();
         }
-
         // Now display the GUI.
         command_buffer_builder = self.gui.render(command_buffer_builder, ui); 
 
@@ -422,11 +335,9 @@ impl<'a> Renderer<'a> {
 /// This method is called once during initialization, then again whenever the window is resized
 fn window_size_dependent_setup(
     device: Arc<Device>,
-    vs: &vs::Shader,
-    fs: &fs::Shader,
     images: &[Arc<SwapchainImage<Window>>],
     render_pass: Arc<RenderPassAbstract + Send + Sync>,
-    ) -> (Arc<GraphicsPipelineAbstract + Send + Sync>, Vec<Arc<FramebufferAbstract + Send + Sync>>, [u32; 2]) {
+    ) -> (Vec<Arc<FramebufferAbstract + Send + Sync>>, [u32; 2]) {
     let dimensions = images[0].dimensions();
 
     let depth_buffer = AttachmentImage::transient(device.clone(), dimensions, Format::D16Unorm).unwrap();
@@ -439,51 +350,6 @@ fn window_size_dependent_setup(
         ) as Arc<FramebufferAbstract + Send + Sync>
     }).collect::<Vec<_>>();
 
-    let pipeline = Arc::new(GraphicsPipeline::start()
-                            .vertex_input_single_buffer::<Vertex>()
-                            .vertex_shader(vs.main_entry_point(), ())
-                            .triangle_list()
-                            //.cull_mode_back()
-                            .viewports_dynamic_scissors_irrelevant(1)
-                            .depth_stencil_simple_depth()
-                            .viewports(iter::once(Viewport {
-                                origin: [0.0, 0.0],
-                                dimensions: [dimensions[0] as f32, dimensions[1] as f32],
-                                depth_range: 0.0 .. 1.0,
-                            }))
-                            .fragment_shader(fs.main_entry_point(), ())
-                            .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
-                            .build(device.clone())
-                            .unwrap());
-
-    (pipeline, framebuffers, dimensions)
+    (framebuffers, dimensions)
 }   
-
-pub mod vs {
-    vulkano_shaders::shader!{
-        ty: "vertex",
-        path: "shaders/main.vert"
-    }
-}
-
-mod fs {
-    vulkano_shaders::shader!{
-        ty: "fragment",
-        path: "shaders/main.frag"
-    }
-}
-
-pub fn create_mvp(t: &TransformComponent, view: &Matrix4<f32>, proj: &Matrix4<f32>) -> vs::ty::Data {
-    let scale = t.scale;
-    let model = Matrix4::from_nonuniform_scale(scale.x, scale.y, scale.z)
-        * Matrix4::from_translation(t.position);
-
-
-    vs::ty::Data {
-        model: model.into(),
-        view: (*view).into(),
-        proj: (*proj).into(),
-    }
-}
-
 
