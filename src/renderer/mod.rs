@@ -9,11 +9,7 @@ use ui::GuiRenderer;
 use pick::Object3DPicker;
 
 use imgui::{ImGui, Ui};
-use vulkano::image::attachment::AttachmentImage;
-use vulkano::format::Format;
-use vulkano::command_buffer::{AutoCommandBufferBuilder};
 use vulkano::device::{Device, DeviceExtensions, Queue};
-use vulkano::framebuffer::{Framebuffer, FramebufferAbstract, Subpass, RenderPassAbstract};
 use vulkano::image::SwapchainImage;
 use vulkano::instance::{Instance, PhysicalDevice};
 use vulkano::swapchain::{Surface, AcquireError, PresentMode, SurfaceTransform, Swapchain, SwapchainCreationError};
@@ -21,7 +17,6 @@ use vulkano::swapchain;
 use vulkano::sync::{GpuFuture, FlushError};
 use vulkano::sync;
 
-use winit::Window;
 use std::sync::Arc;
 
 use crate::error::{TwError, TwResult};
@@ -30,7 +25,7 @@ use crate::camera::Camera;
 use crate::ecs::components::{TransformComponent, ModelComponent, LightComponent};
 use crate::ecs::{Entity, ECS};
 use scene_system::SceneDrawSystem;
-
+use frame::{Pass, FrameSystem};
 
 pub struct Renderer<'a> {
     pub surface: Arc<Surface<winit::Window>>,
@@ -46,11 +41,10 @@ pub struct Renderer<'a> {
     swapchain: Arc<Swapchain<winit::Window>>,
     images: Vec<Arc<SwapchainImage<winit::Window>>>,
 
-    render_pass: Arc<RenderPassAbstract + Send + Sync>,
-    framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
-
     pub recreate_swapchain: bool,
     pub previous_frame_end: Option<Box<GpuFuture>>,
+
+    frame_system: FrameSystem,
 
     // Special pipelines and stuff for the UI
     pub gui: GuiRenderer,
@@ -133,57 +127,22 @@ impl<'a> Renderer<'a> {
 
         };
 
+        let dimensions = images[0].dimensions();
+        let frame_system = FrameSystem::new(queue.clone(), swapchain.format());
 
-        // at this point opengl init would be finished but vulkna requires more.
-        // Render pass is an object that describes where the output of the graphic
-        // pipeline will go. It describes the layout of the images where the color
-        // depth and/or stencil info will be written.
-        // TODO new render pass for picking.
-        let render_pass = Arc::new(vulkano::ordered_passes_renderpass!(
-                device.clone(),
-                attachments: {
-                    // `color` is a custom name we give to the first and only attachment.
-                    color: {
-                        load: Clear,
-                        store: Store,
-                        format: swapchain.format(),
-                        samples: 1,
-                    },
-                    depth: {
-                        load: Clear,
-                        store: DontCare,
-                        format: Format::D16Unorm,
-                        samples: 1,
-                    }
-                },
-                passes: [
-                {
-                    color: [color],
-                    depth_stencil: {depth},
-                    input: []
-                },
-
-                // Pass for the GUI
-                {
-                    color: [color],
-                    depth_stencil: {},
-                    input: []
-                }
-                ]
-        ).unwrap());
-
-        // The render pass we created above only describes the layout of our framebuffers. Before we
-        // can draw we also need to create the actual framebuffers.
-        // Since we need to draw to multiple images, we are going to create a different framebuffer for
-        // each image.
-        let (framebuffers, dimensions) = window_size_dependent_setup(device.clone(), &images, render_pass.clone());
-        println!("After framebuffer, dimensions: {:?}", dimensions);
         // Initialization is finally finished!
         let recreate_swapchain = false;
         let previous_frame_end = Some(Box::new(sync::now(device.clone())) as Box<GpuFuture>);
 
-        let scene_system = SceneDrawSystem::new(queue.clone(), Subpass::from(render_pass.clone(), 0).unwrap(), dimensions);
-        let gui = GuiRenderer::new(imgui, surface.clone(), Subpass::from(render_pass.clone(), 1).unwrap(), queue.clone());
+        let scene_system = SceneDrawSystem::new(
+            queue.clone(),
+            frame_system.deferred_subpass(),
+            dimensions);
+        let gui = GuiRenderer::new(
+            imgui,
+            surface.clone(), 
+            frame_system.ui_subpass(),
+            queue.clone());
         let object_picker = Object3DPicker::new(device.clone(),
                                                 queue.clone(),
                                                 surface.clone(),
@@ -196,10 +155,10 @@ impl<'a> Renderer<'a> {
             swapchain,
             images,
 
-            render_pass,
-            framebuffers,
             recreate_swapchain,
             previous_frame_end,
+
+            frame_system,
             gui,
             object_picker,
             dimensions,
@@ -239,23 +198,19 @@ impl<'a> Renderer<'a> {
 
             self.swapchain = new_swapchain;
             self.images = new_images;
-            // Because framebuffers contains an Arc on the old swapchain, we need to
-            // recreate framebuffers as well.
-            let (new_framebuffers, dimensions) = window_size_dependent_setup(self.device.clone(),
-            &self.images, 
-            self.render_pass.clone());
+            let dimensions = self.images[0].dimensions();
 
             self.gui.rebuild_pipeline(
-                Subpass::from(self.render_pass.clone(), 1).unwrap(),
+                self.frame_system.ui_subpass(),
                 );
-            self.scene_system.rebuild_pipeline(Subpass::from(self.render_pass.clone(), 0).unwrap(), dimensions);
+            self.scene_system.rebuild_pipeline(
+                self.frame_system.deferred_subpass(), dimensions);
             self.object_picker.rebuild_pipeline(dimensions);
 
             // hey there
             camera.set_aspect((dimensions[0] as f32) / (dimensions[1] as f32));
 
             self.dimensions = dimensions;
-            self.framebuffers = new_framebuffers;
             self.recreate_swapchain = false;
         }
 
@@ -273,44 +228,32 @@ impl<'a> Renderer<'a> {
             Err(err) => panic!("{:?}", err)
         };
 
-        // Specify the color to clear the framebuffer with.
-        let clear_values = vec!([0.0, 0.0, 0.0, 1.0].into(), 1f32.into());
-
-        let mut command_buffer_builder = AutoCommandBufferBuilder::primary_one_time_submit(self.device.clone(), self.queue.family()).unwrap()
-            .begin_render_pass(self.framebuffers[image_num].clone(), false, clear_values)
-            .unwrap();
-        unsafe {
-            command_buffer_builder = command_buffer_builder.execute_commands(
-                self.scene_system.draw(resources, camera, lights, objects)
-                ).unwrap();
-        }
-
-        // Second subpass.
-        command_buffer_builder = command_buffer_builder.next_subpass(false).unwrap();
-        // Now display the GUI.
-        let gui_command_buffer = self.gui.render(ui); 
-        unsafe {
-            command_buffer_builder = command_buffer_builder.execute_commands(
-                gui_command_buffer).unwrap();
-        }
-
-        // Finish render pass
-        command_buffer_builder = command_buffer_builder.end_render_pass()
-            .unwrap();
-
-        // Finish building the command buffer by calling `build`.
-        let command_buffer = command_buffer_builder.build().unwrap();
-
-
         let reference = self.previous_frame_end.take().expect("There should be a Future in there");
-        let future = reference.join(acquire_future)
-            .then_execute(self.queue.clone(), command_buffer).unwrap()
-            // The color output is now expected to contain our triangle. But in order to show it on
-            // the screen, we have to *present* the image by calling `present`.
-            //
-            // This function does not actually present the image immediately. Instead it submits a
-            // present command at the end of the queue. This means that it will only be presented once
-            // the GPU has finished executing the command buffer that draws the triangle.
+        let future = reference.join(acquire_future);
+
+
+        let mut frame = self.frame_system.frame(future,
+                                           self.images[image_num].clone());
+        let mut after_future = None;
+        let cb = Arc::new(self.scene_system.draw(resources, camera, lights, objects));
+        let gui_cb = Arc::new(self.gui.render(ui));
+
+        while let Some(pass) = frame.next_pass() {
+            
+            match pass {
+                Pass::Deferred(mut draw_pass) => {
+                    draw_pass.execute(cb.clone());
+                },
+                Pass::Gui(mut draw_pass) => {
+                    draw_pass.execute(gui_cb.clone());
+                },
+                Pass::Finished(af) => {
+                    after_future = Some(af);
+                }
+            }
+        }
+
+        let future = after_future.unwrap()
             .then_swapchain_present(self.queue.clone(), self.swapchain.clone(), image_num)
             .then_signal_fence_and_flush();
 
@@ -336,26 +279,4 @@ impl<'a> Renderer<'a> {
         self.object_picker.pick_object(x, y, ecs, &resources.models)
     }
 }
-
-
-/// This method is called once during initialization, then again whenever the window is resized
-fn window_size_dependent_setup(
-    device: Arc<Device>,
-    images: &[Arc<SwapchainImage<Window>>],
-    render_pass: Arc<RenderPassAbstract + Send + Sync>,
-    ) -> (Vec<Arc<FramebufferAbstract + Send + Sync>>, [u32; 2]) {
-    let dimensions = images[0].dimensions();
-
-    let depth_buffer = AttachmentImage::transient(device.clone(), dimensions, Format::D16Unorm).unwrap();
-    let framebuffers = images.iter().map(|image| {
-        Arc::new(
-            Framebuffer::start(render_pass.clone())
-            .add(image.clone()).unwrap()
-            .add(depth_buffer.clone()).unwrap()
-            .build().unwrap()
-        ) as Arc<FramebufferAbstract + Send + Sync>
-    }).collect::<Vec<_>>();
-
-    (framebuffers, dimensions)
-}   
 
