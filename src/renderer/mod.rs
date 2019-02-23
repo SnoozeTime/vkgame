@@ -4,6 +4,7 @@ pub mod pick;
 mod scene_system;
 mod ui;
 mod frame;
+mod point_lighting_system;
 
 use ui::GuiRenderer;
 use pick::Object3DPicker;
@@ -244,6 +245,7 @@ impl<'a> Renderer<'a> {
                 Pass::Deferred(mut draw_pass) => {
                     draw_pass.execute(cb.clone());
                 },
+                Pass::Lighting(_) => {},
                 Pass::Gui(mut draw_pass) => {
                     draw_pass.execute(gui_cb.clone());
                 },

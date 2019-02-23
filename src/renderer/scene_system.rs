@@ -22,7 +22,6 @@ use crate::resource::Resources;
 use crate::camera::Camera;
 use crate::ecs::components::{TransformComponent, ModelComponent};
 
-
 pub struct SceneDrawSystem {
     queue: Arc<Queue>,
     pipeline: Arc<GraphicsPipelineAbstract + Send + Sync>,
