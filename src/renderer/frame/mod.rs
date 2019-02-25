@@ -240,7 +240,7 @@ impl FrameSystem {
 
                   // Ok, begin the render pass now and return the Frame with all the information
                   let clear_values = vec!([0.0, 0.0, 0.0, 0.0].into(),
-                                          [0.0, 0.0, 0.0, 0.0].into(),
+                                          [0.5, 0.74, 0.96, 1.0].into(),
                                           [0.0, 0.0, 0.0, 0.0].into(),
                                           [0.0, 0.0, 0.0, 0.0].into(),
                                           1f32.into());
