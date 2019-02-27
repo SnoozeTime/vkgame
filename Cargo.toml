@@ -10,6 +10,8 @@ name = "twgraph"
 [dependencies]
 # The `vulkano` crate is the main crate that you must use to use Vulkan.
 vulkano = "0.11"
+vk-sys = "0.3.3"
+
 # Provides the `shader!` macro that is used to generate code for using shaders.
 vulkano-shaders = "0.11"
 
