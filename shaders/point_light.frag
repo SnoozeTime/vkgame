@@ -21,7 +21,8 @@ void main() {
         // Any depth superior or equal to 1.0 means that the pixel has been untouched by the deferred
         // pass. We don't want to deal with them.
         if (in_depth >= 1.0) {
-                discard;
+                f_color = vec4(subpassLoad(u_diffuse).rgb, 1.0);
+                return;
         }
 
         vec3 norm = normalize(subpassLoad(u_normals).rgb);

@@ -124,7 +124,7 @@ impl SceneDrawSystem {
                      .viewports(iter::once(Viewport {
                          origin: [0.0, 0.0],
                          dimensions: [dimensions[0] as f32, dimensions[1] as f32],
-                         depth_range: 0.0 .. 1.0,
+                         depth_range: 0.0 .. 0.99,
                      }))
                      .fragment_shader(fs.main_entry_point(), ())
                      .render_pass(subpass)
@@ -147,7 +147,7 @@ impl SceneDrawSystem {
                      .viewports(iter::once(Viewport {
                          origin: [0.0, 0.0],
                          dimensions: [dimensions[0] as f32, dimensions[1] as f32],
-                         depth_range: 0.0 .. 1.0,
+                         depth_range: 0.0 .. 0.99,
                      }))
                      .fragment_shader(fs.main_entry_point(), ())
                      .render_pass(subpass)
