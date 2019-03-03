@@ -6,6 +6,7 @@ mod ui;
 mod frame;
 mod point_lighting_system;
 mod ambient_lighting_system;
+mod pp_system;
 
 use ui::GuiRenderer;
 use pick::Object3DPicker;
@@ -28,6 +29,14 @@ use crate::ecs::components::{TransformComponent, ModelComponent, LightComponent}
 use crate::ecs::{Entity, ECS};
 use scene_system::SceneDrawSystem;
 use frame::{Pass, FrameSystem};
+
+use vulkano::image::AttachmentImage;
+use vulkano::sampler::Sampler;
+
+pub struct GBufferComponent {
+    pub image: Arc<AttachmentImage>,
+    pub sampler: Arc<Sampler>,
+}
 
 pub struct Renderer<'a> {
     pub surface: Arc<Surface<winit::Window>>,
@@ -248,7 +257,6 @@ impl<'a> Renderer<'a> {
                     draw_pass.execute(cb.clone());
                 },
                 Pass::Lighting(mut lighting_pass) => {
-                    lighting_pass.ambient_light([0.1, 0.1, 0.1]);
                     for (light, transform) in lights.iter() {
                         lighting_pass.point_light(transform.position,
                                                   light.color);

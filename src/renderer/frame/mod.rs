@@ -6,101 +6,122 @@
 use std::sync::Arc;
 use vulkano::command_buffer::AutoCommandBufferBuilder;
 use vulkano::command_buffer::CommandBuffer;
-use vulkano::device::Queue;
+use vulkano::device::{Device, Queue};
 use vulkano::format::Format;
-use vulkano::framebuffer::Framebuffer;
+use vulkano::framebuffer::{FramebufferAbstract, Framebuffer};
 use vulkano::framebuffer::RenderPassAbstract;
 use vulkano::framebuffer::Subpass;
 use vulkano::image::AttachmentImage;
 use vulkano::image::ImageAccess;
-use vulkano::image::ImageViewAccess;
+use vulkano::image::{ImageViewAccess};
 use vulkano::image::ImageUsage;
 use vulkano::sync::GpuFuture;
+use vulkano::sampler::{Sampler, SamplerAddressMode, Filter, MipmapMode};
 
 use cgmath::{Vector3};
 
 use super::point_lighting_system::PointLightingSystem;
 use super::ambient_lighting_system::AmbientLightingSystem;
-
+use super::GBufferComponent;
+use super::pp_system::PPSystem;
 // Renderpass description takes a lot of place so it is created here.
 mod renderpass;
+
+impl GBufferComponent {
+    fn new(device: Arc<Device>,
+           dimensions: [u32; 2], 
+           format: Format, usage: ImageUsage) -> Self {
+    
+        let image = AttachmentImage::with_usage(
+            device.clone(),
+            dimensions, 
+            format,
+            usage).unwrap();
+
+        let sampler = Sampler::new(
+            device.clone(),
+            Filter::Linear,
+            Filter::Linear,
+            MipmapMode::Linear,
+            SamplerAddressMode::ClampToEdge,
+            SamplerAddressMode::ClampToEdge,
+            SamplerAddressMode::ClampToEdge, 0.0, 1.0, 0.0, 1.0).unwrap();
+
+        GBufferComponent {
+            image, sampler,
+        }
+    }
+}
 
 pub struct FrameSystem {
     // Queue used to render graphic
     queue: Arc<Queue>,
 
     // Will determine where are we drawing to.
+    offscreen_render_pass: Arc<RenderPassAbstract + Send + Sync>,
     render_pass: Arc<RenderPassAbstract + Send + Sync>,
 
-    diffuse_buffer: Arc<AttachmentImage>,
-
+    // GBuffer
+    diffuse_buffer: GBufferComponent,
     // Contains fragment_positions;
-    frag_pos_buffer: Arc<AttachmentImage>,
-
+    frag_pos_buffer: GBufferComponent,
     // Contains the normals
-    normals_buffer: Arc<AttachmentImage>,
-
+    normals_buffer: GBufferComponent,
     // Depth buffer. will be recreated if needed.
-    depth_buffer: Arc<AttachmentImage>,
+    depth_buffer: GBufferComponent,
 
     // Lighting systems.
     point_lighting_system: PointLightingSystem,
     ambient_lighting_system: AmbientLightingSystem,
+    //pp_system: PPSystem,
 }
 
 impl FrameSystem {
 
-
     pub fn new(queue: Arc<Queue>, final_output_format: Format) -> Self {
 
-        let render_pass = {
-            use vulkano::framebuffer::RenderPassDesc;
-            Arc::new(renderpass::CustomRenderPassDesc::new(
-                    (final_output_format, 1),
-                    (Format::A2B10G10R10UnormPack32, 1),
-                    (Format::R16G16B16A16Sfloat, 1),
-                    (Format::R16G16B16A16Sfloat, 1),
-                    (Format::D16Unorm, 1),
-                    ).build_render_pass(queue.device().clone()).unwrap())
-        };
+        
+        let (offscreen_render_pass, render_pass) = renderpass::build_render_pass(
+            queue.device().clone(), final_output_format);
 
         let usage = ImageUsage {
-            transient_attachment: true,
-            input_attachment: true,
+            sampled: true,
             .. ImageUsage::none()
         };
         // most likely the dimensions are not good. It's ok, we'll recreate when creating
         // a new frame in case dimension does not match with final image.
-        let depth_buffer = AttachmentImage::with_usage(
+        let depth_buffer = GBufferComponent::new(
             queue.device().clone(),
             [1, 1],
-            Format::D16Unorm, usage).unwrap();
+            Format::D16Unorm, usage);
 
-        let frag_pos_buffer = AttachmentImage::with_usage(
+        let frag_pos_buffer = GBufferComponent::new(
             queue.device().clone(),
             [1, 1],
-            Format::R16G16B16A16Sfloat, usage).unwrap();
+            Format::R16G16B16A16Sfloat, usage);
 
-        let normals_buffer = AttachmentImage::with_usage(
+        let normals_buffer = GBufferComponent::new(
             queue.device().clone(),
             [1, 1],
-            Format::R16G16B16A16Sfloat, usage).unwrap();
+            Format::R16G16B16A16Sfloat, usage);
 
-        let diffuse_buffer = AttachmentImage::with_usage(
+        let diffuse_buffer = GBufferComponent::new(
             queue.device().clone(),
             [1, 1],
-            Format::A2B10G10R10UnormPack32, usage).unwrap();
+            Format::A2B10G10R10UnormPack32, usage);
 
 
-        let lighting_subpass = Subpass::from(render_pass.clone(), 1).unwrap();
+        let lighting_subpass = Subpass::from(render_pass.clone(), 0).unwrap();
         let point_lighting_system = PointLightingSystem::new(
             queue.clone(),
             lighting_subpass.clone());
         let ambient_lighting_system = AmbientLightingSystem::new(
             queue.clone(),
             lighting_subpass.clone());
+        //let pp_system = PPSystem::new(queue.clone(), lighting_subpass.clone()
 
         FrameSystem {
+            offscreen_render_pass,
             render_pass,
             queue: queue.clone(),
             depth_buffer,
@@ -115,18 +136,18 @@ impl FrameSystem {
     /// Return the subpass where we should write objects to the final image.
     #[inline]
     pub fn deferred_subpass(&self) -> Subpass<Arc<RenderPassAbstract + Send + Sync>> {
-        Subpass::from(self.render_pass.clone(), 0).unwrap()
+        Subpass::from(self.offscreen_render_pass.clone(), 0).unwrap()
     }
 
     #[inline]
     pub fn lighting_subpass(&self) -> Subpass<Arc<RenderPassAbstract + Send + Sync>> {
-        Subpass::from(self.render_pass.clone(), 1).unwrap()
+        Subpass::from(self.render_pass.clone(), 0).unwrap()
     }
 
     /// Return the subpass where we should write the GUI to the final image
     #[inline]
     pub fn ui_subpass(&self) -> Subpass<Arc<RenderPassAbstract + Send + Sync>> {
-        Subpass::from(self.render_pass.clone(), 2).unwrap()
+        Subpass::from(self.render_pass.clone(), 1).unwrap()
     }
 
 
@@ -140,7 +161,6 @@ impl FrameSystem {
             dimensions);
     }
 
-
     /// Starts drawing a new frame. final image is the swapchain image that we are going
     /// to present.
     pub fn frame<F, I>(&mut self,
@@ -152,49 +172,47 @@ impl FrameSystem {
                   // First, reate attachments if dimension of image has changed.
 
                   let img_dims = ImageAccess::dimensions(&final_image).width_height();
-                  if ImageAccess::dimensions(&self.depth_buffer).width_height() != img_dims {
+                  if ImageAccess::dimensions(&self.depth_buffer.image).width_height() != img_dims {
 
                       let usage = ImageUsage {
-                          transient_attachment: true,
-                          input_attachment: true,
+                          sampled: true,
                           .. ImageUsage::none()
                       };
-                      self.depth_buffer = AttachmentImage::with_usage(
+                      self.depth_buffer = GBufferComponent::new(
                           self.queue.device().clone(),
                           img_dims,
-                          Format::D16Unorm, usage).unwrap();
+                          Format::D16Unorm, usage);
 
-                      self.frag_pos_buffer = AttachmentImage::with_usage(
+                      self.frag_pos_buffer = GBufferComponent::new(
                           self.queue.device().clone(),
                           img_dims,
-                          Format::R16G16B16A16Sfloat, usage).unwrap();
+                          Format::R16G16B16A16Sfloat, usage);
 
-                      self.normals_buffer = AttachmentImage::with_usage(
+                      self.normals_buffer = GBufferComponent::new(
                           self.queue.device().clone(),
                           img_dims,
-                          Format::R16G16B16A16Sfloat, usage).unwrap();
+                          Format::R16G16B16A16Sfloat, usage);
 
-                      self.diffuse_buffer = AttachmentImage::with_usage(
+                      self.diffuse_buffer = GBufferComponent::new(
                           self.queue.device().clone(),
                           img_dims,
-                          Format::A2B10G10R10UnormPack32, usage).unwrap();
+                          Format::A2B10G10R10UnormPack32, usage);
 
                       self.rebuild_systems(img_dims);
                   }
 
+                  let onscreen_framebuffer = Arc::new(Framebuffer::start(self.render_pass.clone()).add(final_image.clone()).unwrap().build().unwrap());
 
                   // Framebuffer contains all the attachments and output image.
-                  let framebuffer = Arc::new(Framebuffer::start(self.render_pass.clone())
-                                             .add(final_image.clone()).unwrap()
-                                             .add(self.diffuse_buffer.clone()).unwrap()
-                                             .add(self.normals_buffer.clone()).unwrap()
-                                             .add(self.frag_pos_buffer.clone()).unwrap()
-                                             .add(self.depth_buffer.clone()).unwrap()
+                  let framebuffer = Arc::new(Framebuffer::start(self.offscreen_render_pass.clone())
+                                             .add(self.diffuse_buffer.image.clone()).unwrap()
+                                             .add(self.normals_buffer.image.clone()).unwrap()
+                                             .add(self.frag_pos_buffer.image.clone()).unwrap()
+                                             .add(self.depth_buffer.image.clone()).unwrap()
                                              .build().unwrap());
 
                   // Ok, begin the render pass now and return the Frame with all the information
                   let clear_values = vec!([0.0, 0.0, 0.0, 0.0].into(),
-                                          [0.5, 0.74, 0.96, 1.0].into(),
                                           [0.0, 0.0, 0.0, 0.0].into(),
                                           [0.0, 0.0, 0.0, 0.0].into(),
                                           1f32.into());
@@ -204,10 +222,10 @@ impl FrameSystem {
 
                   Frame {
                       system: self,
+                      onscreen_framebuffer,
                       before_main_cb_future: Some(Box::new(before_future)),
                       num_pass: 0,
                       command_buffer,
-
                   }
 
               }
@@ -217,6 +235,8 @@ impl FrameSystem {
 /// Represent the current rendering.
 pub struct Frame<'a> {
     system: &'a mut FrameSystem,
+
+    onscreen_framebuffer: Arc<FramebufferAbstract + Send + Sync>,
 
     // 0 -> haven't begun yet
     // 1 -> finished drawing all the objects
@@ -243,11 +263,17 @@ impl<'a> Frame<'a> {
                 Some(Pass::Deferred(DrawPass { frame: self }))
             },
             1 => {
-                // Need to use next subpass in our render pass. This is done
-                // with the command buffer
-                self.command_buffer = Some(
-                    self.command_buffer.take().unwrap()
-                    .next_subpass(true).unwrap());
+                // Finished drawing to GBUffer so now we can start the next
+                // render pass
+                let clear_values = vec!([0.0, 0.0, 0.0, 0.0].into());
+
+                let cmd_buf = self.command_buffer.take().unwrap()
+                    .end_render_pass().unwrap()
+                    .begin_render_pass(self.onscreen_framebuffer.clone(),
+                                       true,
+                                       clear_values).unwrap();
+
+                self.command_buffer = Some(cmd_buf);
                 Some(Pass::Lighting(LightingPass { frame: self }))
             },
             2 => {
@@ -316,7 +342,7 @@ impl<'f, 's: 'f> LightingPass<'f, 's> {
 
         let command_buffer = {
             self.frame.system.ambient_lighting_system.draw(
-                self.frame.system.diffuse_buffer.clone(),
+                self.frame.system.diffuse_buffer.image.clone(),
                 color)
 
         };
@@ -333,10 +359,10 @@ impl<'f, 's: 'f> LightingPass<'f, 's> {
         let command_buffer = {
 
             self.frame.system.point_lighting_system.draw(
-                self.frame.system.diffuse_buffer.clone(),
-                self.frame.system.normals_buffer.clone(),
-                self.frame.system.frag_pos_buffer.clone(),
-                self.frame.system.depth_buffer.clone(),
+                &self.frame.system.diffuse_buffer,
+                &self.frame.system.normals_buffer,
+                &self.frame.system.frag_pos_buffer,
+                &self.frame.system.depth_buffer,
                 position,
                 color)
         };
@@ -348,6 +374,5 @@ impl<'f, 's: 'f> LightingPass<'f, 's> {
                 .unwrap());
 
         }
-
     }
 }
