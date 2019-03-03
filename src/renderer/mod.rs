@@ -7,6 +7,7 @@ mod frame;
 mod point_lighting_system;
 mod ambient_lighting_system;
 mod pp_system;
+mod skybox;
 
 use ui::GuiRenderer;
 use pick::Object3DPicker;
