@@ -12,7 +12,6 @@ use vulkano::framebuffer::{LoadOp, StoreOp};
 use vulkano::image::ImageLayout;
 use vulkano::sync::AccessFlagBits;
 use vulkano::sync::PipelineStages;
-
 use std::sync::Arc;
 
 
@@ -121,7 +120,6 @@ impl OffscreenRenderPassDesc {
             final_layout: ImageLayout::ColorAttachmentOptimal,
         });
 
-
         attachments.push(AttachmentDescription {
             format: fragment_pos.0,
             samples: fragment_pos.1,
@@ -132,8 +130,6 @@ impl OffscreenRenderPassDesc {
             initial_layout: ImageLayout::Undefined,
             final_layout: ImageLayout::ColorAttachmentOptimal,
         });
-
-
 
         attachments.push(AttachmentDescription {
             format: depth.0,

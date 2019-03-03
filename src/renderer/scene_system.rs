@@ -21,23 +21,11 @@ use crate::resource::Resources;
 use crate::camera::Camera;
 use crate::ecs::components::{TransformComponent, ModelComponent};
 
-/// Will draw the current scene to the screen. Here, I will use
-/// two passes (not vulkan passes) to create cel shading:
-/// - First, draw the objects a big bigger in black for the outline
-/// - Draw normal objects on top
-///
-/// Need two pipelines for that:
-/// - Outline one will cull front faces
-/// - Normal one will cull back faces
 pub struct SceneDrawSystem {
     queue: Arc<Queue>,
     pipeline: Arc<GraphicsPipelineAbstract + Send + Sync>,
     vs: vs::Shader,
     fs: fs::Shader,
-
-    outline_pipeline: Arc<GraphicsPipelineAbstract + Send + Sync>,
-    outline_vs: outline_vs::Shader,
-    outline_fs: outline_fs::Shader,
 
     uniform_buffer: CpuBufferPool<vs::ty::Data>,
 }
@@ -62,27 +50,12 @@ impl SceneDrawSystem {
                 &fs,
                 );
 
-
-            let outline_vs = outline_vs::Shader::load(queue.device().clone()).unwrap();
-            let outline_fs = outline_fs::Shader::load(queue.device().clone()).unwrap();
-            let outline_pipeline = SceneDrawSystem::build_outline_pipeline(
-                queue.clone(),
-                subpass,
-                dimensions,
-                &outline_vs,
-                &outline_fs,
-                );
-
             SceneDrawSystem {
                 queue,
 
                 pipeline,
                 fs,
                 vs,
-
-                outline_pipeline,
-                outline_vs,
-                outline_fs,
 
                 uniform_buffer,
             }
@@ -99,13 +72,6 @@ impl SceneDrawSystem {
                 &self.fs,
                 );
 
-            self.outline_pipeline = SceneDrawSystem::build_outline_pipeline(
-                self.queue.clone(),
-                subpass,
-                dimensions,
-                &self.outline_vs,
-                &self.outline_fs,
-                );
         }
 
     fn build_pipeline<R>(queue: Arc<Queue>,
@@ -131,30 +97,6 @@ impl SceneDrawSystem {
                      .build(queue.device().clone()).unwrap())
         }
 
-    fn build_outline_pipeline<R>(queue: Arc<Queue>,
-                                 subpass: Subpass<R>,
-                                 dimensions: [u32; 2],
-                                 vs: &outline_vs::Shader,
-                                 fs: &outline_fs::Shader) -> Arc<GraphicsPipelineAbstract + Send + Sync> 
-        where R: RenderPassAbstract + Send + Sync + 'static {
-            Arc::new(GraphicsPipeline::start()
-                     .vertex_input_single_buffer::<Vertex>()
-                     .vertex_shader(vs.main_entry_point(), ())
-                     .triangle_list()
-                     .cull_mode_front() // Changes here
-                     .viewports_dynamic_scissors_irrelevant(1)
-                     .depth_stencil_simple_depth()
-                     .viewports(iter::once(Viewport {
-                         origin: [0.0, 0.0],
-                         dimensions: [dimensions[0] as f32, dimensions[1] as f32],
-                         depth_range: 0.0 .. 0.99,
-                     }))
-                     .fragment_shader(fs.main_entry_point(), ())
-                     .render_pass(subpass)
-                     .build(queue.device().clone()).unwrap())
-        }
-
-
     /// Builds a secondary buffer that will draw all the scene object to the current
     /// subpass
     pub fn draw(&self,
@@ -171,41 +113,7 @@ impl SceneDrawSystem {
             self.queue.family(),
             self.pipeline.clone().subpass()).unwrap();
 
-        // 2. Draw all outlines in scene
-        // -----------------------------
-        for (model, transform) in objects.iter() {
-
-            let model_buf = resources.models.models.get(&model.mesh_name);
-            if !model_buf.is_some() {
-                println!("Model {} is not loaded", model.mesh_name);
-                continue;
-            }
-            let model = model_buf.unwrap();
-
-            // Create uniforms.
-            // One is for the position,
-            // Other is for fragment
-            let uniform_buffer_subbuffer = {
-                let uniform_data = create_mvp(transform, &view, &proj);
-                self.uniform_buffer.next(uniform_data).unwrap()
-            };
-
-            let set = Arc::new(PersistentDescriptorSet::start(self.pipeline.clone(), 0)
-                               .add_buffer(uniform_buffer_subbuffer).unwrap()
-                               .build().unwrap()
-            );
-        
-            // Now we can issue the draw command.
-            builder = builder.draw_indexed(self.outline_pipeline.clone(),
-            &DynamicState::none(),
-            vec![model.vertex_buffer.clone()],
-            model.index_buffer.clone(),
-            set.clone(),
-            ()).unwrap();
-        }
-
-
-        // 3. Draw all objects in the scene
+        // 2. Draw all objects in the scene
         // --------------------------------
         for (model, transform) in objects.iter() {
 
@@ -253,7 +161,6 @@ impl SceneDrawSystem {
             ()).unwrap();
         }
 
-
         builder.build().unwrap()
     }
 }
@@ -271,21 +178,6 @@ mod fs {
         path: "shaders/deferred.frag"
     }
 }
-
-mod outline_vs {
-    vulkano_shaders::shader!{
-        ty: "vertex",
-        path: "shaders/outline.vert"
-    }
-}
-
-mod outline_fs {
-    vulkano_shaders::shader!{
-        ty: "fragment",
-        path: "shaders/outline.frag"
-    }
-}
-
 
 pub fn create_mvp(t: &TransformComponent, view: &Matrix4<f32>, proj: &Matrix4<f32>) -> vs::ty::Data {
     let scale = t.scale;

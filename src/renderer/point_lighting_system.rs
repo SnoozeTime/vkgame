@@ -162,8 +162,8 @@ impl PointLightingSystem {
 //            normals_input.sampler.clone()).unwrap()
 //            .add_sampled_image(frag_pos_input.image.clone(),
 //            frag_pos_input.sampler.clone()).unwrap()
-//            .add_sampled_image(depth_input.image.clone(),
-//            depth_input.sampler.clone()).unwrap()
+            .add_sampled_image(depth_input.image.clone(),
+            depth_input.sampler.clone()).unwrap()
             .build().unwrap();
 
         AutoCommandBufferBuilder::secondary_graphics(self.queue.device().clone(),

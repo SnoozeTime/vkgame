@@ -5,7 +5,7 @@
 layout(set = 0, binding = 0) uniform sampler2D u_diffuse;
 //layout(set = 0, binding = 1) uniform sampler2D u_normals;
 //layout(set = 0, binding = 2) uniform sampler2D u_frag_pos;
-//layout(set = 0, binding = 3) uniform sampler2D u_depth;
+layout(set = 0, binding = 1) uniform sampler2D u_depth;
 
 // For the point light
 layout(push_constant) uniform PushConstants {
@@ -18,13 +18,13 @@ layout(location = 0) out vec4 f_color;
 
 void main() {
         f_color = texture(u_diffuse, uv);
-//        float in_depth = subpassLoad(u_depth).x;
+        float in_depth = texture(u_depth, uv).x;
 //        // Any depth superior or equal to 1.0 means that the pixel has been untouched by the deferred
 //        // pass. We don't want to deal with them.
-//        if (in_depth >= 1.0) {
-//                f_color = vec4(subpassLoad(u_diffuse).rgb, 1.0);
-//                return;
-//        }
+        if (in_depth >= 1.0) {
+                f_color = vec4(0.0, 0.0, 0.0, 1.0);
+                return;
+        }
 //
 //        vec3 norm = normalize(subpassLoad(u_normals).rgb);
 //        vec3 lightDir = normalize(push_constants.position.xyz - subpassLoad(u_frag_pos).rgb);

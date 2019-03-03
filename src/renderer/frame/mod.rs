@@ -212,7 +212,7 @@ impl FrameSystem {
                                              .build().unwrap());
 
                   // Ok, begin the render pass now and return the Frame with all the information
-                  let clear_values = vec!([0.0, 0.0, 0.0, 0.0].into(),
+                  let clear_values = vec!([1.0, 1.0, 0.0, 1.0].into(),
                                           [0.0, 0.0, 0.0, 0.0].into(),
                                           [0.0, 0.0, 0.0, 0.0].into(),
                                           1f32.into());
@@ -265,7 +265,7 @@ impl<'a> Frame<'a> {
             1 => {
                 // Finished drawing to GBUffer so now we can start the next
                 // render pass
-                let clear_values = vec!([0.0, 0.0, 0.0, 0.0].into());
+                let clear_values = vec!([0.0, 0.0, 0.0, 1.0].into());
 
                 let cmd_buf = self.command_buffer.take().unwrap()
                     .end_render_pass().unwrap()
