@@ -78,7 +78,7 @@ pub struct FrameSystem {
     point_lighting_system: PointLightingSystem,
     ambient_lighting_system: AmbientLightingSystem,
     directional_lighting_system: DirectionalLightingSystem,
-    //pp_system: PPSystem,
+    pp_system: PPSystem,
     skybox_system: SkyboxSystem,
 }
 
@@ -125,7 +125,8 @@ impl FrameSystem {
             queue.clone(),
             lighting_subpass.clone());
 
-        //let pp_system = PPSystem::new(queue.clone(), lighting_subpass.clone()
+        let pp_system = PPSystem::new(queue.clone(),
+            Subpass::from(render_pass.clone(), 0).unwrap());
 
         let skybox_subpass = Subpass::from(offscreen_render_pass.clone(), 2).unwrap();
         let skybox_system = SkyboxSystem::new(queue.clone(), skybox_subpass);
@@ -141,6 +142,7 @@ impl FrameSystem {
             point_lighting_system,
             ambient_lighting_system,
             directional_lighting_system,
+            pp_system,
             skybox_system,
         }
     }
@@ -176,6 +178,12 @@ impl FrameSystem {
         Subpass::from(self.render_pass.clone(), 0).unwrap()
     }
 
+    #[inline]
+    pub fn pp_subpass(&self) -> Subpass<Arc<RenderPassAbstract + Send + Sync>> {
+        Subpass::from(self.render_pass.clone(), 0).unwrap()
+    }
+
+
 
     fn rebuild_systems(&mut self,
                        dimensions: [u32; 2]) {
@@ -189,6 +197,7 @@ impl FrameSystem {
         self.directional_lighting_system.rebuild_pipeline(
             self.lighting_subpass(),
             dimensions);
+        self.pp_system.rebuild_pipeline(self.pp_subpass(), dimensions);
     }
 
     /// Starts drawing a new frame. final image is the swapchain image that we are going
@@ -318,9 +327,13 @@ impl<'a> Frame<'a> {
 
                 self.command_buffer = Some(cmd_buf);
 
-                Some(Pass::Gui(DrawPass { frame: self }))
+                Some(Pass::PostProcessing(PostProcessingPass { frame: self }))
             },
             4 => {
+                // Post processing is done in the same subpass as GUI.
+                Some(Pass::Gui(DrawPass { frame: self }))
+            },
+            5 => {
                 // Finish render pass, schedule the command and return the future to wait
                 // before rendering.
                 let command_buffer = self.command_buffer.take().unwrap()
@@ -348,6 +361,7 @@ pub enum Pass<'f, 's: 'f>{
     Deferred(DrawPass<'f, 's>),
     Lighting(LightingPass<'f, 's>),
     Skybox(SkyboxPass<'f, 's>),
+    PostProcessing(PostProcessingPass<'f, 's>),
     Gui(DrawPass<'f, 's>),
     Finished(Box<GpuFuture>),
 }
@@ -449,6 +463,25 @@ impl<'f, 's: 'f> SkyboxPass<'f, 's> {
 
         let command_buffer = self.frame.system.skybox_system.draw(camera);
 
+        unsafe {
+            self.frame.command_buffer = Some(
+                self.frame.command_buffer.take().unwrap().execute_commands(command_buffer).unwrap()
+            );
+        }
+    }
+}
+
+pub struct PostProcessingPass<'f, 's: 'f> {
+    frame: &'f mut Frame<'s>,
+}
+
+impl<'f, 's: 'f> PostProcessingPass<'f, 's> {
+
+    pub fn outlines(&mut self) {
+        let command_buffer = self.frame.system.pp_system.draw(
+            &self.frame.system.diffuse_buffer,
+            );
+        
         unsafe {
             self.frame.command_buffer = Some(
                 self.frame.command_buffer.take().unwrap().execute_commands(command_buffer).unwrap()

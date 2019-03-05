@@ -1,10 +1,10 @@
 use vulkano::device::Queue;
+use vulkano::pipeline::blend::{AttachmentBlend, BlendFactor, BlendOp};
 use vulkano::image::ImageViewAccess;
 use vulkano::buffer::BufferUsage;
 use vulkano::buffer::CpuAccessibleBuffer;
 use vulkano::pipeline::{GraphicsPipelineAbstract, GraphicsPipeline};
 use vulkano::framebuffer::{RenderPassAbstract, Subpass};
-use vulkano::pipeline::blend::{AttachmentBlend, BlendFactor, BlendOp};
 use vulkano::pipeline::viewport::Viewport;
 
 use vulkano::command_buffer::AutoCommandBuffer;
@@ -21,42 +21,42 @@ use super::GBufferComponent;
 #[derive(Debug, Clone)]
 struct Vertex {
     position: [f32; 2],
+    uv: [f32; 2],
 }
-vulkano::impl_vertex!(Vertex, position);
+vulkano::impl_vertex!(Vertex, position, uv);
 
 pub struct PPSystem {
     queue: Arc<Queue>,
 
     vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
+    index_buffer: Arc<CpuAccessibleBuffer<[u32]>>,
     vs: vs::Shader,
     fs: fs::Shader,
     pipeline: Arc<GraphicsPipelineAbstract + Send + Sync>,
-
-    descriptor: Arc<DescriptorSet + Send + Sync>,
 }
-
 
 impl PPSystem {
 
     pub fn new<R>(queue: Arc<Queue>,
                   subpass: Subpass<R>,
-                  diffuse: GBufferComponent) -> Self
+                  ) -> Self
         where R: RenderPassAbstract + Send + Sync + 'static {
 
             // Quad that cover the full screen
             let vertex_buffer = {
                 CpuAccessibleBuffer::from_iter(queue.device().clone(), BufferUsage::all(),
                                                [
-                                               Vertex { position: [-1.0, -1.0]},
-                                               Vertex { position: [-1.0, 1.0]},
-                                               Vertex { position: [1.0, 1.0]},
-
-                                               Vertex { position: [-1.0, -1.0]},
-                                               Vertex { position: [1.0, 1.0]},
-                                               Vertex { position: [1.0, -1.0]}
+                                Vertex { position: [-1.0, -1.0], uv: [0.0, 0.0], },
+                                Vertex { position: [-1.0, 1.0], uv: [0.0, 1.0] },
+                                Vertex { position: [1.0, -1.0], uv: [1.0, 0.0]},
+                                Vertex { position: [1.0, 1.0], uv: [1.0, 1.0] },
                                                ].iter().cloned()).expect("Failed to create buffer")
             };
 
+            let index_buffer = {
+                CpuAccessibleBuffer::from_iter(queue.device().clone(), BufferUsage::all(),
+                                               [0, 1, 2, 2, 1, 3].iter().cloned()).unwrap()
+            };
 
             let vs = vs::Shader::load(queue.device().clone())
                 .expect("Failed to create vertex shader module");
@@ -70,19 +70,13 @@ impl PPSystem {
                 &vs,
                 &fs
             );
-            let descriptor = Arc::new(
-                PersistentDescriptorSet::start(pipeline.clone(), 0)
-                .add_sampled_image(diffuse.image.clone(), diffuse.sampler.clone()).unwrap()
-                .build().unwrap()
-            );
-
             PPSystem {
                 queue,
                 vertex_buffer,
+                index_buffer,
                 vs,
                 fs,
                 pipeline,
-                descriptor,
             }
         }
 
@@ -90,7 +84,6 @@ impl PPSystem {
         &mut self,
         subpass: Subpass<R>,
         dimensions: [u32; 2],
-        diffuse: GBufferComponent,
         ) where R: RenderPassAbstract + Send + Sync + 'static {
 
         self.pipeline = PPSystem::build_pipeline(
@@ -99,12 +92,6 @@ impl PPSystem {
             dimensions,
             &self.vs,
             &self.fs);
-
-        self.descriptor = Arc::new(
-                PersistentDescriptorSet::start(self.pipeline.clone(), 0)
-                .add_sampled_image(diffuse.image.clone(), diffuse.sampler.clone()).unwrap()
-                .build().unwrap()
-            );
     }
 
 
@@ -133,18 +120,26 @@ impl PPSystem {
                  .unwrap())
     }
 
-
     /// Draw the color added the light at position `position` and color `color`
-    pub fn draw(&self) -> AutoCommandBuffer
+    pub fn draw(&self,
+                diffuse: &GBufferComponent) -> AutoCommandBuffer
     {
+
+        let descriptor = Arc::new(
+                PersistentDescriptorSet::start(self.pipeline.clone(), 0)
+                .add_sampled_image(diffuse.image.clone(), diffuse.sampler.clone()).unwrap()
+                .build().unwrap()
+            );
+
         AutoCommandBufferBuilder::secondary_graphics(self.queue.device().clone(),
         self.queue.family(),
         self.pipeline.clone().subpass())
             .unwrap()
-            .draw(self.pipeline.clone(),
+            .draw_indexed(self.pipeline.clone(),
             &DynamicState::none(),
             vec![self.vertex_buffer.clone()],
-            self.descriptor.clone(),
+            self.index_buffer.clone(),
+            descriptor.clone(),
             ())
             .unwrap().build().unwrap()
 
@@ -154,15 +149,14 @@ impl PPSystem {
 mod vs {
     vulkano_shaders::shader!{
         ty: "vertex",
-        path: "shaders/edge.vert"
+        path: "shaders/post_processing/edge.vert"
     }
 }
 
 mod fs {
     vulkano_shaders::shader!{
         ty: "fragment",
-        path: "shaders/edge.frag"
+        path: "shaders/post_processing/edge.frag"
     }
 }
-
 

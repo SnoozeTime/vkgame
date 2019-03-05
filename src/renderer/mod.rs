@@ -285,6 +285,9 @@ impl<'a> Renderer<'a> {
                     let (view, proj) = camera.get_vp(); 
                     sky_pass.draw_skybox(camera);
                 },
+                Pass::PostProcessing(mut post_processing) => {
+                    post_processing.outlines();
+                },
                 Pass::Gui(mut draw_pass) => {
                     draw_pass.execute(gui_cb.clone());
                 },
