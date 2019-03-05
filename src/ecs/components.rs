@@ -1,6 +1,6 @@
 use serde_derive::{Serialize, Deserialize};
 use cgmath::Vector3;
-use imgui::{Ui, im_str, ImGuiCond};
+use imgui::{Ui, im_str, ImGuiCond, ImGuiSelectableFlags, ImVec2};
 use crate::editor::Editor;
 use crate::ser::VectorDef;
 use std::default::Default;
@@ -46,7 +46,7 @@ pub struct TransformComponent {
 }
 
 impl Default for TransformComponent {
-    
+
     fn default() -> Self {
         TransformComponent {
             position: Vector3::new(0.0, 0.0, 0.0),
@@ -68,12 +68,30 @@ impl DummyComponent {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum LightType {
+    Point,
+    Directional,
+    Ambient,
+}
+
 // Emit light! Right now, only one is supported.
 // An entity with a light component will need a transform.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LightComponent {
     // Should be between 0 and 1.0
     pub color: [f32; 3],
+    pub light_type: LightType,
+}
+
+impl Default for LightComponent {
+
+    fn default() -> Self {
+        LightComponent {
+            color: [1.0, 1.0, 1.0],
+            light_type: LightType::Directional,
+        }
+    }
 }
 
 impl TransformComponent {
@@ -127,8 +145,102 @@ impl TransformComponent {
 
 
 impl LightComponent {
-    pub fn draw_ui(&mut self, ui: &Ui, _editor: &Editor) {
+    pub fn draw_ui(&mut self, ui: &Ui, editor: &mut Editor) {
         ui.input_float3(im_str!("color"), &mut self.color)
             .build();
+
+        let selection = editor.components_state.get("light.type")
+            .map(|s| s.clone()).unwrap_or(String::from("<None>"));
+        // Then the variant.
+        if ui.small_button(im_str!("Select..")) {
+            ui.open_popup(im_str!("select"));
+        }
+        ui.same_line(0.0);
+
+        ui.text(im_str!("{}", selection));
+
+        ui.popup(im_str!("select"), || {  
+            // SELECT POINT LIGHT
+            if ui.selectable(
+                im_str!("Point"),
+                selection == "Point",
+                ImGuiSelectableFlags::empty(),
+                ImVec2::new(0.0, 0.0)) {
+
+                editor.components_state.insert("light.type".to_string(), "Point".to_string());
+                // Check if was a point light. If yes, do nothing. If no, transition.
+                let new_type = match &self.light_type {
+                    LightType::Point => None,
+                    LightType::Directional => {
+                        Some(LightType::Point)
+                    },
+                    LightType::Ambient => {
+                        Some(LightType::Point)
+                    }
+                };
+
+
+                if let Some(t) = new_type {
+                    self.light_type = t;
+                }
+            }
+
+            if ui.selectable(
+                im_str!("Directional"),
+                selection == "Directional",
+                ImGuiSelectableFlags::empty(),
+                ImVec2::new(0.0, 0.0)) {
+                editor.components_state.insert("light.type".to_string(), "Directional".to_string());
+                // Check if was a point light. If yes, do nothing. If no, transition.
+                let new_type = match &self.light_type {
+                    LightType::Point => {
+                        Some(LightType::Directional)
+                    },
+                    LightType::Directional => {
+                        None
+                    },
+                    LightType::Ambient => {
+                        Some(LightType::Directional)
+                    }
+                };
+
+
+                if let Some(t) = new_type {
+                    self.light_type = t;
+                }
+
+            }
+
+
+            if ui.selectable(
+                im_str!("Ambient"),
+                selection == "Ambient",
+                ImGuiSelectableFlags::empty(),
+                ImVec2::new(0.0, 0.0)) {
+
+                editor.components_state.insert("light.type".to_string(), "Ambient".to_string());
+                // Check if was a point light. If yes, do nothing. If no, transition.
+                let new_type = match &self.light_type {
+                    LightType::Point => {
+                        Some(LightType::Ambient)
+                    },
+                    LightType::Directional => {
+                        Some(LightType::Ambient)
+                    },
+                    LightType::Ambient => {
+                        None 
+                    }
+                };
+
+
+                if let Some(t) = new_type {
+                    self.light_type = t;
+                }
+
+            }
+
+
+        });
+
     }
 }

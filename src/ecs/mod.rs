@@ -14,6 +14,7 @@ use self::components::{
     ModelComponent,
     DummyComponent,
     LightComponent,
+    LightType,
 };
 use self::gen_index::{GenerationalIndexAllocator, GenerationalIndexArray, GenerationalIndex};
 use crate::camera::Camera;
@@ -122,7 +123,7 @@ impl ECS {
             mesh_name: "cube".to_owned(),
             texture_name: "red".to_owned(),
         });
-        
+
         // Second entity
         components.transforms.set(&id2, TransformComponent {
             position: Vector3::new(0.0, 0.0, 0.0),
@@ -141,6 +142,7 @@ impl ECS {
         });
         components.lights.set(&id3, LightComponent {
             color: [1.0, 1.0, 1.0],
+            light_type: LightType::Directional,
         });
         components.dummies.set(&id3, DummyComponent {
             speed: 5.0,
@@ -175,167 +177,167 @@ impl ECS {
 
 /// Macro to set up the component arrays in the ECS. It should be used with
 macro_rules! register_components {
-    { $([$name:ident, $component:ty, $gui_name:expr],)+ } => {
+    { $([$name:ident, $component:ty, $gui_name:expr],)+ } =>
+    {
 
-                                                                 #[derive(Debug, Clone, Serialize, Deserialize)]
-                                                                 pub struct Components {
-                                                                     /// Size of the arrays. They all should be the same.
-                                                                     current_size: usize,
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        pub struct Components {
+            /// Size of the arrays. They all should be the same.
+            current_size: usize,
 
-                                                                     /// Arrays can be accessed with the get methods.
-                                                                     $(
-                                                                         #[serde(default="GenerationalIndexArray::new")]
-                                                                         pub $name: EntityArray<$component>,   
-                                                                     )+
-                                                                 }
+            /// Arrays can be accessed with the get methods.
+            $(
+                #[serde(default="GenerationalIndexArray::new")]
+                pub $name: EntityArray<$component>,   
+            )+
+        }
 
-                                                                 impl Components {
-                                                                     pub fn new() -> Self {
-                                                                         Components {
-                                                                             current_size: 0,
-                                                                             $(
-                                                                                 $name: GenerationalIndexArray(Vec::new()),
-                                                                                 )+
-                                                                         }
-                                                                     }
+            impl Components {
+                pub fn new() -> Self {
+                    Components {
+                        current_size: 0,
+                        $(
+                            $name: GenerationalIndexArray(Vec::new()),
+                            )+
+                    }
+                }
 
-                                                                     /// We assume that this method is called by the ECS, so the index
-                                                                     /// should be safe (meaning that either all the arrays contain
-                                                                     /// the index, or the index is the next one when pushing elements
-                                                                     /// to the arrays)...
-                                                                     pub fn new_entity(&mut self, entity: &GenerationalIndex) {
-                                                                         if entity.index() == self.current_size {
-                                                                             $(
-                                                                                 self.$name.push(None);
-                                                                             )+
-                                                                                 self.current_size += 1;
-                                                                         } else if entity.index() < self.current_size {
-                                                                             $(
-                                                                                 self.$name.empty(entity);
-                                                                             )+
-                                                                         } else {
-                                                                             panic!("Tried to add an entity with index {}, but components arrays
+                /// We assume that this method is called by the ECS, so the index
+                /// should be safe (meaning that either all the arrays contain
+                /// the index, or the index is the next one when pushing elements
+                /// to the arrays)...
+                pub fn new_entity(&mut self, entity: &GenerationalIndex) {
+                    if entity.index() == self.current_size {
+                        $(
+                            self.$name.push(None);
+                        )+
+                            self.current_size += 1;
+                    } else if entity.index() < self.current_size {
+                        $(
+                            self.$name.empty(entity);
+                        )+
+                    } else {
+                        panic!("Tried to add an entity with index {}, but components arrays
                     only have elements up to {} entities", entity.index(), self.current_size);
-                                                                         }
+                    }
 
 
-                                                                     }
+                }
 
-                                                                     pub fn new_from_template(&mut self,
-                                                                                              entity: &GenerationalIndex,
-                                                                                              template: ComponentTemplate) {
-                                                                         self.new_entity(entity);
+                pub fn new_from_template(&mut self,
+                                         entity: &GenerationalIndex,
+                                         template: ComponentTemplate) {
+                    self.new_entity(entity);
 
-                                                                         $(
-                                                                             if template.$name.is_some() {
-                                                                                 self.$name.set(entity, template.$name.unwrap());
-                                                                             }
-                                                                         )+
+                    $(
+                        if template.$name.is_some() {
+                            self.$name.set(entity, template.$name.unwrap());
+                        }
+                    )+
 
-                                                                     }
-                                                                 }
+                }
+            }
 
-                                                                 #[derive(Clone, Debug, Serialize, Deserialize)]
-                                                                 pub struct ComponentTemplate {
-                                                                     $(
-                                                                         #[serde(skip_serializing_if = "Option::is_none")]
-                                                                         #[serde(default)]
-                                                                         pub $name: Option<$component>,
-                                                                         )+
-                                                                 }
+            #[derive(Clone, Debug, Serialize, Deserialize)]
+            pub struct ComponentTemplate {
+                $(
+                    #[serde(skip_serializing_if = "Option::is_none")]
+                    #[serde(default)]
+                    pub $name: Option<$component>,
+                    )+
+            }
 
-                                                                 impl ComponentTemplate {
-                                                                     pub fn new() -> Self {
-                                                                         ComponentTemplate {
-                                                                             $(
-                                                                                 $name: None,
-                                                                                 )+
-                                                                         }
-                                                                     }
+            impl ComponentTemplate {
+                pub fn new() -> Self {
+                    ComponentTemplate {
+                        $(
+                            $name: None,
+                            )+
+                    }
+                }
 
-                                                                 }
+            }
 
-                                                                 use imgui::{Ui, im_str, ImGuiCond, ImGuiSelectableFlags, ImVec2};
-                                                                 use crate::editor::Editor;
-                                                                 impl Components {
-                                                                     pub fn draw_ui(&mut self, ui: &Ui, editor: &mut Editor) {
+            use imgui::{Ui, im_str, ImGuiCond, ImGuiSelectableFlags, ImVec2};
+            use crate::editor::Editor;
+            impl Components {
+                pub fn draw_ui(&mut self, ui: &Ui, editor: &mut Editor) {
 
-                                                                         if let Some(entity) = editor.selected_entity {
-                                                                             $(
-                                                                                 if let Some($name) = self.$name.get_mut(&entity) {
-                                                                                     ui.tree_node(im_str!($gui_name)).opened(true, ImGuiCond::FirstUseEver).build(|| {
-                                                                                         $name.draw_ui(&ui, editor);
-                                                                                     });
-                                                                                 }
-                                                                             )+
+                    if let Some(entity) = editor.selected_entity {
+                        $(
+                            if let Some($name) = self.$name.get_mut(&entity) {
+                                ui.tree_node(im_str!($gui_name)).opened(true, ImGuiCond::FirstUseEver).build(|| {
+                                    $name.draw_ui(&ui, editor);
+                                });
+                            }
+                        )+
 
-                                                                                 new_component_popup(ui, editor);
-                                                                         }
-                                                                     }
-                                                                 }
+                            new_component_popup(ui, editor);
+                    }
+                }
+            }
 
-                                                                 pub fn new_component_popup(ui: &Ui, editor: &mut Editor) {
+            pub fn new_component_popup(ui: &Ui, editor: &mut Editor) {
 
-                                                                     if ui.button(im_str!("Add component"),
-                                                                     (0.0, 0.0)) {
-                                                                         ui.open_popup(im_str!("Add component"));
-                                                                     }
-                                                                     ui.popup_modal(im_str!("Add component"))
-                                                                         .build(|| {
+                if ui.button(im_str!("Add component"),
+                (0.0, 0.0)) {
+                    ui.open_popup(im_str!("Add component"));
+                }
+                ui.popup_modal(im_str!("Add component"))
+                    .build(|| {
 
-                                                                             $(
-                                                                                 let selected  = if let Some(n) = &editor.new_component_name {
-                                                                                     *n == $gui_name.to_string()
-                                                                                 } else {
-                                                                                     false
-                                                                                 };
-
-
-                                                                                 if ui.selectable(im_str!($gui_name), selected, ImGuiSelectableFlags::from_bits(1<<0).unwrap(), ImVec2::new(0.0, 0.0)) {
-                                                                                     editor.new_component_name = Some(String::from($gui_name));
-                                                                                 }
-                                                                             )+
-
-                                                                                 editor.hovered = ui.want_capture_mouse();
+                        $(
+                            let selected  = if let Some(n) = &editor.new_component_name {
+                                *n == $gui_name.to_string()
+                            } else {
+                                false
+                            };
 
 
-                                                                             if ui.button(im_str!("Add"), (0.0, 0.0)) {
-                                                                                 editor.should_add_comp = true;                                                                           
-                                                                                 ui.close_current_popup();
-                                                                             }
+                            if ui.selectable(im_str!($gui_name), selected, ImGuiSelectableFlags::from_bits(1<<0).unwrap(), ImVec2::new(0.0, 0.0)) {
+                                editor.new_component_name = Some(String::from($gui_name));
+                            }
+                        )+
+
+                            editor.hovered = ui.want_capture_mouse();
 
 
-                                                                             if ui.button(im_str!("Close"),
-                                                                             (0.0, 0.0)) {
-                                                                                 editor.new_component_name = None;
-                                                                                 ui.close_current_popup();
-                                                                             }
-                                                                         });
-
-                                                                 }
+                        if ui.button(im_str!("Add"), (0.0, 0.0)) {
+                            editor.should_add_comp = true;                                                                           
+                            ui.close_current_popup();
+                        }
 
 
-                                                                 impl ECS {
+                        if ui.button(im_str!("Close"),
+                        (0.0, 0.0)) {
+                            editor.new_component_name = None;
+                            ui.close_current_popup();
+                        }
+                    });
 
-                                                                     pub fn add_new_component_by_name(&mut self, entity: &Option<Entity>, comp_name: &Option<String>) 
-                                                                     {
-                                                                         entity.as_ref().map(|e| {
-                                                                             $(
-                                                                                 if let Some(n) = comp_name {
-                                                                                     if *n == $gui_name.to_string() {
-                                                                                         self.components.$name.set(e, <$component>::default());
-                                                                                         return;
-                                                                                     }
-                                                                                 }
-                                                                             )+
-
-                                                                         });
-                                                                     }
-
-                                                                 }
+            }
 
 
-                                                             }
+            impl ECS {
+
+                pub fn add_new_component_by_name(&mut self, entity: &Option<Entity>, comp_name: &Option<String>) 
+                {
+                    entity.as_ref().map(|e| {
+                        $(
+                            if let Some(n) = comp_name {
+                                if *n == $gui_name.to_string() {
+                                    self.components.$name.set(e, <$component>::default());
+                                    return;
+                                }
+                            }
+                        )+
+
+                    });
+                }
+
+            }
+
+    }
 
 
 }

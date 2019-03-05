@@ -27,13 +27,15 @@ use std::sync::Arc;
 use crate::error::{TwError, TwResult};
 use crate::resource::Resources;
 use crate::camera::Camera;
-use crate::ecs::components::{TransformComponent, ModelComponent, LightComponent};
+use crate::ecs::components::{TransformComponent, ModelComponent, LightComponent, LightType};
 use crate::ecs::{Entity, ECS};
 use scene_system::SceneDrawSystem;
 use frame::{Pass, FrameSystem};
 
 use vulkano::image::AttachmentImage;
 use vulkano::sampler::Sampler;
+
+use cgmath::Vector3;
 
 pub struct GBufferComponent {
     pub image: Arc<AttachmentImage>,
@@ -157,9 +159,9 @@ impl<'a> Renderer<'a> {
             frame_system.ui_subpass(),
             queue.clone());
         let object_picker = Object3DPicker::new(device.clone(),
-                                                queue.clone(),
-                                                surface.clone(),
-                                                dimensions);
+        queue.clone(),
+        surface.clone(),
+        dimensions);
         Ok(Renderer {
             surface,
             _physical: physical,
@@ -247,22 +249,36 @@ impl<'a> Renderer<'a> {
 
 
         let mut frame = self.frame_system.frame(future,
-                                           self.images[image_num].clone());
+                                                self.images[image_num].clone());
         let mut after_future = None;
         let cb = Arc::new(self.scene_system.draw(resources, camera, objects));
         let gui_cb = Arc::new(self.gui.render(ui));
 
         while let Some(pass) = frame.next_pass() {
-            
+
             match pass {
                 Pass::Deferred(mut draw_pass) => {
                     draw_pass.execute(cb.clone());
                 },
                 Pass::Lighting(mut lighting_pass) => {
-//                    lighting_pass.ambient_light([0.5, 0.5, 0.5]);
+                    //                    lighting_pass.ambient_light([0.5, 0.5, 0.5]);
                     for (light, transform) in lights.iter() {
-                        lighting_pass.directional_light(transform.position,
-                                                  light.color);
+                        match &light.light_type {
+                            LightType::Directional => {
+
+                                lighting_pass.directional_light(transform.position,
+                                                                light.color);
+                            }
+                            LightType::Point => {
+
+                                lighting_pass.point_light(transform.position,
+                                                          light.color);
+                            },
+                            LightType::Ambient => {
+                                lighting_pass.ambient_light(light.color);
+                            }
+                            _ => (),
+                        }
                     }
                 },
                 Pass::Skybox(mut sky_pass) => {

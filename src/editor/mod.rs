@@ -3,8 +3,11 @@ use crate::ecs::{
     ECS,
     Entity,
     new_component_popup,
+
+    components::LightType,
 };
 use crate::ui::Gui;
+use std::collections::HashMap;
 
 pub struct Editor {
     pub selected_entity: Option<Entity>,
@@ -13,6 +16,10 @@ pub struct Editor {
     // For the component creation popup
     pub should_add_comp: bool,
     pub new_component_name: Option<String>,
+
+    // For the components
+    // dirty :D
+    pub components_state: HashMap<String, String>,
 }
 
 impl Editor {
@@ -23,12 +30,37 @@ impl Editor {
             hovered: false,
             new_component_name: None,
             should_add_comp: false,
+            components_state: HashMap::new(),
         }
     }
 }
 
-impl Gui for Editor {
+impl Editor {
 
+    fn select_entity(&mut self, entity: Entity,
+                     ecs: &ECS) {
+        
+        // reset component states.
+        self.components_state.clear();
+        if let Some(light_ref) = ecs.components.lights.get(&entity) {
+            let v = match light_ref.light_type {
+                LightType::Point => String::from("Point"),
+                LightType::Directional => String::from("Directional"),
+                LightType::Ambient => String::from("Ambient"),
+            };
+
+            self.components_state.insert("light.type".to_string(), v);
+        }
+
+        self.selected_entity = Some(entity);
+
+
+    }
+
+
+}
+
+impl Gui for Editor {
     /// This is the function that will create the GUI!
     fn run_ui(&mut self,
               ui: &Ui,
@@ -53,7 +85,7 @@ impl Gui for Editor {
                 if ui.menu_item(im_str!("New entity"))
                     .build() {
                         let entity = ecs.new_entity();
-                        self.selected_entity = Some(entity);
+                        self.select_entity(entity, ecs);
                     }
                 if ui.menu_item(im_str!("New component"))
                     .enabled(self.selected_entity.is_some())
@@ -81,7 +113,7 @@ impl Gui for Editor {
                         ImGuiSelectableFlags::empty(),
                         ImVec2::new(0.0, 0.0)) {
 
-                        self.selected_entity = Some(*entity);
+                        self.select_entity(*entity, ecs);
                     }
                 }
                 if ui.is_window_hovered() || ui.is_window_focused() {
