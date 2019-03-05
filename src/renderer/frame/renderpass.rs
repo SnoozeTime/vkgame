@@ -22,6 +22,7 @@ pub fn build_render_pass(device: Arc<Device>,
      Arc<RenderPassAbstract+Send+Sync>) {
 
     (Arc::new(OffscreenRenderPassDesc::new(
+                    (final_output_format, 1),
                     (Format::A2B10G10R10UnormPack32, 1),
                     (Format::R16G16B16A16Sfloat, 1),
                     (Format::R16G16B16A16Sfloat, 1),
@@ -91,6 +92,7 @@ unsafe impl RenderPassDescClearValues<Vec<ClearValue>> for OffscreenRenderPassDe
 impl OffscreenRenderPassDesc {
 
     pub fn new(
+        final_color: (Format, u32),
     diffuse: (Format, u32),
     normals: (Format, u32),
     fragment_pos: (Format, u32),
@@ -98,6 +100,17 @@ impl OffscreenRenderPassDesc {
     ) -> Self {
 
         let mut attachments = Vec::new();
+        attachments.push(AttachmentDescription {
+            format: final_color.0,
+            samples: final_color.1,
+            load: LoadOp::Clear,
+            store: StoreOp::Store,
+            stencil_load: LoadOp::Clear,
+            stencil_store: StoreOp::Store,
+            initial_layout: ImageLayout::Undefined,
+            final_layout: ImageLayout::ColorAttachmentOptimal,
+        });
+
         attachments.push(AttachmentDescription {
             format: diffuse.0,
             samples: diffuse.1,
@@ -147,21 +160,72 @@ impl OffscreenRenderPassDesc {
         let mut passes = Vec::new();
         passes.push(PassDescription {
             color_attachments: vec![
-                (0, ImageLayout::ColorAttachmentOptimal),
                 (1, ImageLayout::ColorAttachmentOptimal),
                 (2, ImageLayout::ColorAttachmentOptimal),
+                (3, ImageLayout::ColorAttachmentOptimal),
             ],
-            depth_stencil: Some((3, ImageLayout::DepthStencilAttachmentOptimal)),
+            depth_stencil: Some((4, ImageLayout::DepthStencilAttachmentOptimal)),
             input_attachments: vec![],
             resolve_attachments: vec![],
             preserve_attachments: vec![],
 
         });
+  
+        // Lighting pass
+        passes.push(PassDescription {
+            color_attachments: vec![
+                (0, ImageLayout::ColorAttachmentOptimal),
+            ],
+            depth_stencil: None,
+            input_attachments: vec![
+                (1, ImageLayout::ShaderReadOnlyOptimal),
+                (2, ImageLayout::ShaderReadOnlyOptimal),
+                (3, ImageLayout::ShaderReadOnlyOptimal),
+                (4, ImageLayout::ShaderReadOnlyOptimal),
+            ],
+            resolve_attachments: vec![],
+            preserve_attachments: vec![],
+        });
+
+        // Skybox pass
+        passes.push(PassDescription {
+            color_attachments: vec![
+                (0, ImageLayout::ColorAttachmentOptimal),
+            ],
+            depth_stencil: Some((4, ImageLayout::DepthStencilAttachmentOptimal)),
+            input_attachments: vec![
+            ],
+            resolve_attachments: vec![],
+            preserve_attachments: vec![],
+
+        });
+
 
         let mut dependencies = Vec::new();
 
         dependencies.push(PassDependencyDescription {
             source_subpass: 0,
+            destination_subpass: 1,
+            source_stages: PipelineStages { all_graphics: true, .. PipelineStages::none() },         // TODO: correct values
+            destination_stages: PipelineStages { all_graphics: true, .. PipelineStages::none() },         // TODO: correct values
+            source_access: AccessFlagBits::all(),         // TODO: correct values
+            destination_access: AccessFlagBits::all(),         // TODO: correct values
+            by_region: true,            // TODO: correct values
+        });
+
+        dependencies.push(PassDependencyDescription {
+            source_subpass: 1,
+            destination_subpass: 2,
+            source_stages: PipelineStages { all_graphics: true, .. PipelineStages::none() },         // TODO: correct values
+            destination_stages: PipelineStages { all_graphics: true, .. PipelineStages::none() },         // TODO: correct values
+            source_access: AccessFlagBits::all(),         // TODO: correct values
+            destination_access: AccessFlagBits::all(),         // TODO: correct values
+            by_region: true,            // TODO: correct values
+        });
+
+
+        dependencies.push(PassDependencyDescription {
+            source_subpass: 2,
             // outside of render pass
             destination_subpass: vk_sys::SUBPASS_EXTERNAL as usize,
             
@@ -240,29 +304,16 @@ impl OnscreenRenderPassDesc {
         attachments.push(AttachmentDescription {
             format: final_color.0,
             samples: final_color.1,
-            load: LoadOp::Clear,
+            load: LoadOp::DontCare,
             store: StoreOp::Store,
             stencil_load: LoadOp::Clear,
             stencil_store: StoreOp::Store,
-            initial_layout: ImageLayout::Undefined,
+            initial_layout: ImageLayout::ColorAttachmentOptimal,
             final_layout: ImageLayout::ColorAttachmentOptimal,
         });
 
         let mut passes = Vec::new();
         
-        // Lighting pass
-        passes.push(PassDescription {
-            color_attachments: vec![
-                (0, ImageLayout::ColorAttachmentOptimal),
-            ],
-            depth_stencil: None,
-            input_attachments: vec![
-            ],
-            resolve_attachments: vec![],
-            preserve_attachments: vec![],
-
-        });
-
         // GUI pass
         passes.push(PassDescription {
             color_attachments: vec![
@@ -287,18 +338,7 @@ impl OnscreenRenderPassDesc {
             destination_access: AccessFlagBits::all(),         // TODO: correct values
             by_region: true,            // TODO: correct values
         });
-        dependencies.push(PassDependencyDescription {
-            source_subpass: 0,
-            destination_subpass: 1,
-            source_stages: PipelineStages { all_graphics: true, .. PipelineStages::none() },         // TODO: correct values
-            destination_stages: PipelineStages { all_graphics: true, .. PipelineStages::none() },         // TODO: correct values
-            source_access: AccessFlagBits::all(),         // TODO: correct values
-            destination_access: AccessFlagBits::all(),         // TODO: correct values
-            by_region: true,            // TODO: correct values
-        });
-
-
-
+       
         OnscreenRenderPassDesc {
             attachments,
             passes,

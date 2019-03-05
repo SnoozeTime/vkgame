@@ -131,7 +131,7 @@ impl ECS {
         });
         components.models.set(&id2, ModelComponent {
             mesh_name: "floor".to_owned(),
-            texture_name: "floor".to_owned(),
+            texture_name: "green".to_owned(),
         });
 
         components.transforms.set(&id3, TransformComponent {

@@ -258,10 +258,15 @@ impl<'a> Renderer<'a> {
                     draw_pass.execute(cb.clone());
                 },
                 Pass::Lighting(mut lighting_pass) => {
+//                    lighting_pass.ambient_light([0.5, 0.5, 0.5]);
                     for (light, transform) in lights.iter() {
                         lighting_pass.point_light(transform.position,
                                                   light.color);
                     }
+                },
+                Pass::Skybox(mut sky_pass) => {
+                    let (view, proj) = camera.get_vp(); 
+                    sky_pass.draw_skybox(camera);
                 },
                 Pass::Gui(mut draw_pass) => {
                     draw_pass.execute(gui_cb.clone());

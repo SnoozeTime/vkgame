@@ -41,14 +41,14 @@ impl Resources {
         self.textures.load_texture("red".to_string(), Path::new("assets/red.png"), 93, 93, self.device.clone(), self.queue.clone()).unwrap();
         self.textures.load_texture("blue".to_string(), Path::new("assets/blue.png"), 93, 93, self.device.clone(), self.queue.clone()).unwrap();
         self.textures.load_texture("green".to_string(), Path::new("assets/green.png"), 93, 93, self.device.clone(), self.queue.clone()).unwrap();
-        self.textures.load_texture("floor".to_string(), Path::new("assets/textures/Concrete_Panels_001_COLOR.jpg"), 1024, 1024, self.device.clone(), self.queue.clone()).unwrap();
+//        self.textures.load_texture("floor".to_string(), Path::new("assets/textures/Concrete_Panels_001_COLOR.jpg"), 1024, 1024, self.device.clone(), self.queue.clone()).unwrap();
     }
 
     fn init_models(&mut self) {
         println!("Init models!");
         self.models.load_model("cube".to_string(), Path::new("assets/test1.obj"), self.device.clone()).expect("Cannot load model");
         self.models.load_model("floor".to_string(), Path::new("assets/floor.obj"), self.device.clone()).expect("Cannot load model");
-        self.models.load_model("building".to_string(), Path::new("assets/models/arena.obj"), self.device.clone()).expect("Cannot load model");
+        //self.models.load_model("building".to_string(), Path::new("assets/models/arena.obj"), self.device.clone()).expect("Cannot load model");
 
         println!("Finished reading models");
     }

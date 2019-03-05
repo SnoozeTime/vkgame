@@ -17,6 +17,7 @@ use vulkano::image::{ImageViewAccess};
 use vulkano::image::ImageUsage;
 use vulkano::sync::GpuFuture;
 use vulkano::sampler::{Sampler, SamplerAddressMode, Filter, MipmapMode};
+use vulkano::format::ClearValue;
 
 use cgmath::{Vector3};
 
@@ -24,14 +25,16 @@ use super::point_lighting_system::PointLightingSystem;
 use super::ambient_lighting_system::AmbientLightingSystem;
 use super::GBufferComponent;
 use super::pp_system::PPSystem;
+use super::skybox::SkyboxSystem;
 // Renderpass description takes a lot of place so it is created here.
+use crate::camera::Camera;
 mod renderpass;
 
 impl GBufferComponent {
     fn new(device: Arc<Device>,
            dimensions: [u32; 2], 
            format: Format, usage: ImageUsage) -> Self {
-    
+
         let image = AttachmentImage::with_usage(
             device.clone(),
             dimensions, 
@@ -74,20 +77,18 @@ pub struct FrameSystem {
     point_lighting_system: PointLightingSystem,
     ambient_lighting_system: AmbientLightingSystem,
     //pp_system: PPSystem,
+    skybox_system: SkyboxSystem,
 }
 
 impl FrameSystem {
 
     pub fn new(queue: Arc<Queue>, final_output_format: Format) -> Self {
 
-        
+
         let (offscreen_render_pass, render_pass) = renderpass::build_render_pass(
             queue.device().clone(), final_output_format);
 
-        let usage = ImageUsage {
-            sampled: true,
-            .. ImageUsage::none()
-        };
+        let usage = FrameSystem::get_image_usage();
         // most likely the dimensions are not good. It's ok, we'll recreate when creating
         // a new frame in case dimension does not match with final image.
         let depth_buffer = GBufferComponent::new(
@@ -111,7 +112,7 @@ impl FrameSystem {
             Format::A2B10G10R10UnormPack32, usage);
 
 
-        let lighting_subpass = Subpass::from(render_pass.clone(), 0).unwrap();
+        let lighting_subpass = Subpass::from(offscreen_render_pass.clone(), 1).unwrap();
         let point_lighting_system = PointLightingSystem::new(
             queue.clone(),
             lighting_subpass.clone());
@@ -119,6 +120,9 @@ impl FrameSystem {
             queue.clone(),
             lighting_subpass.clone());
         //let pp_system = PPSystem::new(queue.clone(), lighting_subpass.clone()
+
+        let skybox_subpass = Subpass::from(offscreen_render_pass.clone(), 2).unwrap();
+        let skybox_system = SkyboxSystem::new(queue.clone(), skybox_subpass);
 
         FrameSystem {
             offscreen_render_pass,
@@ -130,6 +134,16 @@ impl FrameSystem {
             frag_pos_buffer,
             point_lighting_system,
             ambient_lighting_system,
+            skybox_system,
+        }
+    }
+
+    #[inline]
+    fn get_image_usage() -> ImageUsage {
+        ImageUsage {
+            sampled: true,
+            input_attachment: true,
+            .. ImageUsage::none()
         }
     }
 
@@ -141,13 +155,18 @@ impl FrameSystem {
 
     #[inline]
     pub fn lighting_subpass(&self) -> Subpass<Arc<RenderPassAbstract + Send + Sync>> {
-        Subpass::from(self.render_pass.clone(), 0).unwrap()
+        Subpass::from(self.offscreen_render_pass.clone(), 1).unwrap()
+    }
+
+    #[inline]
+    pub fn skybox_subpass(&self) -> Subpass<Arc<RenderPassAbstract + Send + Sync>> {
+        Subpass::from(self.offscreen_render_pass.clone(), 2).unwrap()
     }
 
     /// Return the subpass where we should write the GUI to the final image
     #[inline]
     pub fn ui_subpass(&self) -> Subpass<Arc<RenderPassAbstract + Send + Sync>> {
-        Subpass::from(self.render_pass.clone(), 1).unwrap()
+        Subpass::from(self.render_pass.clone(), 0).unwrap()
     }
 
 
@@ -159,6 +178,7 @@ impl FrameSystem {
         self.ambient_lighting_system.rebuild_pipeline(
             self.lighting_subpass(),
             dimensions);
+        self.skybox_system.rebuild_pipeline(self.skybox_subpass(), dimensions);
     }
 
     /// Starts drawing a new frame. final image is the swapchain image that we are going
@@ -174,10 +194,7 @@ impl FrameSystem {
                   let img_dims = ImageAccess::dimensions(&final_image).width_height();
                   if ImageAccess::dimensions(&self.depth_buffer.image).width_height() != img_dims {
 
-                      let usage = ImageUsage {
-                          sampled: true,
-                          .. ImageUsage::none()
-                      };
+                      let usage = FrameSystem::get_image_usage();
                       self.depth_buffer = GBufferComponent::new(
                           self.queue.device().clone(),
                           img_dims,
@@ -205,6 +222,7 @@ impl FrameSystem {
 
                   // Framebuffer contains all the attachments and output image.
                   let framebuffer = Arc::new(Framebuffer::start(self.offscreen_render_pass.clone())
+                                             .add(final_image.clone()).unwrap()
                                              .add(self.diffuse_buffer.image.clone()).unwrap()
                                              .add(self.normals_buffer.image.clone()).unwrap()
                                              .add(self.frag_pos_buffer.image.clone()).unwrap()
@@ -212,10 +230,12 @@ impl FrameSystem {
                                              .build().unwrap());
 
                   // Ok, begin the render pass now and return the Frame with all the information
-                  let clear_values = vec!([1.0, 1.0, 0.0, 1.0].into(),
-                                          [0.0, 0.0, 0.0, 0.0].into(),
-                                          [0.0, 0.0, 0.0, 0.0].into(),
-                                          1f32.into());
+                  let clear_values = vec!(
+                      [0.0, 0.0, 0.0, 0.0].into(),
+                      [0.0, 0.0, 0.0, 1.0].into(),
+                      [0.0, 0.0, 0.0, 0.0].into(),
+                      [0.0, 0.0, 0.0, 0.0].into(),
+                      1f32.into());
                   let command_buffer = Some(AutoCommandBufferBuilder::primary_one_time_submit(
                           self.queue.device().clone(), self.queue.family()).unwrap()
                       .begin_render_pass(framebuffer.clone(), true, clear_values).unwrap());
@@ -241,7 +261,8 @@ pub struct Frame<'a> {
     // 0 -> haven't begun yet
     // 1 -> finished drawing all the objects
     // 2 -> finished applying the lights.
-    // 3 -> finished drawing the GUI
+    // 3 -> Finshed drawing the skybox
+    // 4 -> finished drawing the GUI
     num_pass: u8,
 
     // wait before rendering
@@ -263,26 +284,33 @@ impl<'a> Frame<'a> {
                 Some(Pass::Deferred(DrawPass { frame: self }))
             },
             1 => {
-                // Finished drawing to GBUffer so now we can start the next
-                // render pass
-                let clear_values = vec!([0.0, 0.0, 0.0, 1.0].into());
-
-                let cmd_buf = self.command_buffer.take().unwrap()
-                    .end_render_pass().unwrap()
-                    .begin_render_pass(self.onscreen_framebuffer.clone(),
-                                       true,
-                                       clear_values).unwrap();
-
-                self.command_buffer = Some(cmd_buf);
+                self.command_buffer = Some(
+                    self.command_buffer.take().unwrap()
+                    .next_subpass(true).unwrap());
                 Some(Pass::Lighting(LightingPass { frame: self }))
             },
             2 => {
                 self.command_buffer = Some(
                     self.command_buffer.take().unwrap()
                     .next_subpass(true).unwrap());
-                Some(Pass::Gui(DrawPass { frame: self }))
+                Some(Pass::Skybox(SkyboxPass { frame: self }))
             },
             3 => {
+                // Finished drawing skybox, begin next
+                // render pass
+                let clear_values = vec!(ClearValue::None);
+
+                let cmd_buf = self.command_buffer.take().unwrap()
+                    .end_render_pass().unwrap()
+                    .begin_render_pass(self.onscreen_framebuffer.clone(),
+                    true,
+                    clear_values).unwrap();
+
+                self.command_buffer = Some(cmd_buf);
+
+                Some(Pass::Gui(DrawPass { frame: self }))
+            },
+            4 => {
                 // Finish render pass, schedule the command and return the future to wait
                 // before rendering.
                 let command_buffer = self.command_buffer.take().unwrap()
@@ -309,6 +337,7 @@ impl<'a> Frame<'a> {
 pub enum Pass<'f, 's: 'f>{
     Deferred(DrawPass<'f, 's>),
     Lighting(LightingPass<'f, 's>),
+    Skybox(SkyboxPass<'f, 's>),
     Gui(DrawPass<'f, 's>),
     Finished(Box<GpuFuture>),
 }
@@ -359,10 +388,10 @@ impl<'f, 's: 'f> LightingPass<'f, 's> {
         let command_buffer = {
 
             self.frame.system.point_lighting_system.draw(
-                &self.frame.system.diffuse_buffer,
-                &self.frame.system.normals_buffer,
-                &self.frame.system.frag_pos_buffer,
-                &self.frame.system.depth_buffer,
+                self.frame.system.diffuse_buffer.image.clone(),
+                self.frame.system.normals_buffer.image.clone(),
+                self.frame.system.frag_pos_buffer.image.clone(),
+                self.frame.system.depth_buffer.image.clone(),
                 position,
                 color)
         };
@@ -373,6 +402,26 @@ impl<'f, 's: 'f> LightingPass<'f, 's> {
                 self.frame.command_buffer.take().unwrap().execute_commands(command_buffer)
                 .unwrap());
 
+        }
+    }
+}
+
+pub struct SkyboxPass<'f, 's: 'f> {
+    frame: &'f mut Frame<'s>,
+}
+
+impl<'f, 's: 'f> SkyboxPass<'f, 's> {
+
+
+    pub fn draw_skybox(&mut self,
+                       camera: &mut Camera,) {
+
+        let command_buffer = self.frame.system.skybox_system.draw(camera);
+
+        unsafe {
+            self.frame.command_buffer = Some(
+                self.frame.command_buffer.take().unwrap().execute_commands(command_buffer).unwrap()
+            );
         }
     }
 }

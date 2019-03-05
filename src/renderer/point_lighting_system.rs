@@ -20,18 +20,14 @@ use std::sync::Arc;
 #[derive(Debug, Clone)]
 struct Vertex {
     position: [f32; 2],
-    uv: [f32; 2],
 }
-vulkano::impl_vertex!(Vertex, position, uv);
-
-use crate::renderer::GBufferComponent;
+vulkano::impl_vertex!(Vertex, position);
 
 pub struct PointLightingSystem {
 
     queue: Arc<Queue>,
 
     vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
-    index_buffer: Arc<CpuAccessibleBuffer<[u32]>>,
     vs: vs::Shader,
     fs: fs::Shader,
     pipeline: Arc<GraphicsPipelineAbstract + Send + Sync>,
@@ -43,22 +39,14 @@ impl PointLightingSystem {
     pub fn new<R>(queue: Arc<Queue>,
                   subpass: Subpass<R>) -> Self
         where R: RenderPassAbstract + Send + Sync + 'static {
-
-            // vertices
-            // Quad that cover the full screen
+            // that is suspicious
             let vertex_buffer = {
                 CpuAccessibleBuffer::from_iter(queue.device().clone(), BufferUsage::all(),
                                                [
-                                               Vertex { position: [-1.0, -1.0], uv: [0.0, 0.0]},
-                                               Vertex { position: [-1.0, 1.0], uv: [0.0, 1.0]},
-                                               Vertex { position: [1.0, -1.0], uv: [1.0, 0.0]},
-                                               Vertex { position: [1.0, 1.0], uv: [1.0, 1.0]},
+                                               Vertex { position: [-1.0, -1.0]},
+                                               Vertex { position: [-1.0, 3.0]},
+                                               Vertex { position: [3.0, -1.0]}
                                                ].iter().cloned()).expect("Failed to create buffer")
-            };
-
-            let index_buffer = {
-                CpuAccessibleBuffer::from_iter(queue.device().clone(),
-                BufferUsage::all(), [0, 1, 2, 2, 3, 1].iter().cloned()).unwrap()
             };
 
 
@@ -78,7 +66,6 @@ impl PointLightingSystem {
             PointLightingSystem {
                 queue,
                 vertex_buffer,
-                index_buffer,
                 vs,
                 fs,
                 pipeline,
@@ -138,53 +125,52 @@ impl PointLightingSystem {
             .unwrap())
     }
 
-
     /// Draw the color added the light at position `position` and color `color`
-    pub fn draw(&self,
-                color_input: &GBufferComponent,
-                normals_input: &GBufferComponent,
-                frag_pos_input: &GBufferComponent,
-                depth_input: &GBufferComponent,
-                position: Vector3<f32>,
-                color: [f32; 3]) -> AutoCommandBuffer
-    {
-        // Data for the light source
-        let push_constants = fs::ty::PushConstants {
-            position: position.extend(0.0).into(),
-            color: [color[0], color[1], color[2], 1.0],
-        };
+    pub fn draw<C, N, F, D>(&self,
+                         color_input: C,
+                         normals_input: N,
+                         frag_pos_input: F,
+                         depth_input: D,
+                         position: Vector3<f32>,
+                         color: [f32; 3]) -> AutoCommandBuffer
+        where C: ImageViewAccess + Send + Sync + 'static,
+              N: ImageViewAccess + Send + Sync + 'static,
+              F: ImageViewAccess + Send + Sync + 'static,
+              D: ImageViewAccess + Send + Sync + 'static
 
-        // gbuffer. Input that was rendered in previous pass
-        let descriptor_set = PersistentDescriptorSet::start(self.pipeline.clone(), 0)
-            .add_sampled_image(color_input.image.clone(), color_input.sampler.clone())
-            .unwrap()
-//            .add_sampled_image(normals_input.image.clone(),
-//            normals_input.sampler.clone()).unwrap()
-//            .add_sampled_image(frag_pos_input.image.clone(),
-//            frag_pos_input.sampler.clone()).unwrap()
-            .add_sampled_image(depth_input.image.clone(),
-            depth_input.sampler.clone()).unwrap()
-            .build().unwrap();
+              {
+                  // Data for the light source
+                  let push_constants = fs::ty::PushConstants {
+                      position: position.extend(0.0).into(),
+                      color: [color[0], color[1], color[2], 1.0],
+                  };
 
-        AutoCommandBufferBuilder::secondary_graphics(self.queue.device().clone(),
-        self.queue.family(),
-        self.pipeline.clone().subpass())
-            .unwrap()
-            .draw_indexed(self.pipeline.clone(),
-            &DynamicState::none(),
-            vec![self.vertex_buffer.clone()],
-            self.index_buffer.clone(),
-            descriptor_set,
-            push_constants)
-            .unwrap().build().unwrap()
+                  // gbuffer. Input that was rendered in previous pass
+                  let descriptor_set = PersistentDescriptorSet::start(self.pipeline.clone(), 0)
+                      .add_image(color_input).unwrap()
+                      .add_image(normals_input).unwrap()
+                      .add_image(frag_pos_input).unwrap()
+                      .add_image(depth_input).unwrap()
+                      .build().unwrap();
 
-    }
+                  AutoCommandBufferBuilder::secondary_graphics(self.queue.device().clone(),
+                  self.queue.family(),
+                  self.pipeline.clone().subpass())
+                      .unwrap()
+                      .draw(self.pipeline.clone(),
+                      &DynamicState::none(),
+                      vec![self.vertex_buffer.clone()],
+                      descriptor_set,
+                      push_constants)
+                      .unwrap().build().unwrap()
+
+              }
 }
 
 mod vs {
     vulkano_shaders::shader!{
         ty: "vertex",
-        path: "shaders/quad.vert"
+        path: "shaders/point_light.vert"
     }
 }
 

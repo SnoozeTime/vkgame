@@ -1,4 +1,8 @@
 use vulkano::command_buffer::AutoCommandBuffer;
+use crate::camera::Camera;
+use vulkano::command_buffer::AutoCommandBufferBuilder;
+use vulkano::command_buffer::DynamicState;
+use cgmath::{Vector3, Matrix4};
 use vulkano::device::Queue;
 use vulkano::pipeline::{
     GraphicsPipelineAbstract, GraphicsPipeline,
@@ -7,9 +11,16 @@ use vulkano::pipeline::{
 use vulkano::framebuffer::RenderPassAbstract;
 use vulkano::framebuffer::Subpass;
 use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
+use vulkano::image::{ImmutableImage, Dimensions};
+use vulkano::sampler::{Sampler, SamplerAddressMode, Filter, MipmapMode};
+use vulkano::format::Format;
+use vulkano::sync::GpuFuture;
+use vulkano::buffer::cpu_pool::CpuBufferPool;
+use vulkano::descriptor::descriptor_set::PersistentDescriptorSet;
 
-
+use image::{ImageFormat};
 use crate::renderer::model::{Vertex, Model};
+use crate::ecs::components::TransformComponent;
 
 use std::sync::Arc;
 use std::path::Path;
@@ -22,9 +33,12 @@ pub struct SkyboxSystem {
     vs: vs::Shader,
     fs: fs::Shader,
     pipeline: Arc<GraphicsPipelineAbstract + Send + Sync>,
+    uniform_buffer: CpuBufferPool<vs::ty::Data>,
 
     // Data for the cube.
     cube: Model,
+    skybox_img: Arc<ImmutableImage<vulkano::format::Format>>,
+    skybox_sampler: Arc<Sampler>,
 }
 
 impl SkyboxSystem {
@@ -32,28 +46,106 @@ impl SkyboxSystem {
     pub fn new<R>(queue: Arc<Queue>,
                   subpass: Subpass<R>) -> Self 
         where R: RenderPassAbstract + Clone + Send + Sync + 'static
-    {
+        {
 
-        let cube = Model::load_from_obj(queue.device().clone(),
-                                        Path::new("assets/cube.obj")).unwrap();
+            let cube = Model::load_from_obj(queue.device().clone(),
+            Path::new("assets/cube.obj")).unwrap();
 
-        let vs = vs::Shader::load(queue.device().clone()).unwrap();
-        let fs = fs::Shader::load(queue.device().clone()).unwrap();
-        let pipeline = SkyboxSystem::build_pipeline(queue.clone(), subpass, [1, 1], &vs, &fs);
+            // cubemap are textures with 6 images.
+            // left, right, bottom, top, back, and front
+            let img_posx = image::load_from_memory_with_format(include_bytes!("../../assets/sor_sea/sea_lf.JPG"), ImageFormat::JPEG).unwrap().to_rgba();
+            let img_negx = image::load_from_memory_with_format(include_bytes!("../../assets/sor_sea/sea_rt.JPG"), ImageFormat::JPEG).unwrap().to_rgba();
+            let img_posy = image::load_from_memory_with_format(include_bytes!("../../assets/sor_sea/sea_dn.JPG"), ImageFormat::JPEG).unwrap().to_rgba();
+            let img_negy = image::load_from_memory_with_format(include_bytes!("../../assets/sor_sea/sea_up.JPG"), ImageFormat::JPEG).unwrap().to_rgba();
+            let img_posz = image::load_from_memory_with_format(include_bytes!("../../assets/sor_sea/sea_bk.JPG"), ImageFormat::JPEG).unwrap().to_rgba();
+            let img_negz = image::load_from_memory_with_format(include_bytes!("../../assets/sor_sea/sea_ft.JPG"), ImageFormat::JPEG).unwrap().to_rgba();
 
-        SkyboxSystem {
-            queue,
-            cube,
+            let cubemap_images = [img_posx, img_negx, img_posy, img_negy, img_posz, img_negz];
+            let mut image_data: Vec<u8> = Vec::new();
 
-            vs,
-            fs,
-            pipeline,
+            for image in cubemap_images.into_iter() {
+                let mut image0 = image.clone().into_raw().clone();
+                image_data.append(&mut image0);
+            }
+
+            let (skybox_img, gpu_future) = {
+                ImmutableImage::from_iter(image_data.iter().cloned(),
+                Dimensions::Cubemap { size: 512 },
+                Format::R8G8B8A8Srgb,
+                queue.clone()).unwrap()
+            };
+
+            let skybox_sampler = Sampler::new(
+                queue.device().clone(),
+                Filter::Linear,
+                Filter::Linear,
+                MipmapMode::Nearest,
+                SamplerAddressMode::Repeat,
+                SamplerAddressMode::Repeat,
+                SamplerAddressMode::Repeat, 0.0, 1.0, 0.0, 0.0).unwrap();
+
+            // TODO need a better way
+            gpu_future
+                .then_signal_fence_and_flush().unwrap()
+                .wait(None).unwrap(); 
+
+
+            // -----------------------------
+            let vs = vs::Shader::load(queue.device().clone()).unwrap();
+            let fs = fs::Shader::load(queue.device().clone()).unwrap();
+            let pipeline = SkyboxSystem::build_pipeline(queue.clone(), subpass, [1, 1], &vs, &fs);
+
+            let uniform_buffer = CpuBufferPool::<vs::ty::Data>::new(queue.device().clone(), BufferUsage::all());
+            SkyboxSystem {
+                uniform_buffer,
+                queue,
+                cube,
+                skybox_img,
+                skybox_sampler,
+
+                vs,
+                fs,
+                pipeline,
+            }
         }
-    }
 
-//    pub fn draw(&self) -> AutoCommandBuffer {
-//
-//    }
+    pub fn draw(&self,
+                camera: &mut Camera) -> AutoCommandBuffer {
+
+        let (view, proj) = camera.get_vp(); 
+        let transform = TransformComponent {
+            position: Vector3::new(0.0, 0.0, 0.0),
+            rotation: Vector3::new(0.0, 0.0, 0.0),
+            scale: Vector3::new(2000000.0, 2000000.0, 2000000.0),
+        };
+        let uniform_data = {
+            let data = create_mvp(&transform, &view, &proj);
+            self.uniform_buffer.next(data).unwrap()
+        };
+
+        let set = Arc::new(PersistentDescriptorSet::start(self.pipeline.clone(), 0)
+                           .add_buffer(uniform_data).unwrap()
+                           .build().unwrap());
+
+        let tex_set = Arc::new(
+            PersistentDescriptorSet::start(self.pipeline.clone(), 1)
+            .add_sampled_image(self.skybox_img.clone(), self.skybox_sampler.clone()).unwrap().build().unwrap());
+       
+        let mut builder = AutoCommandBufferBuilder::secondary_graphics(
+            self.queue.device().clone(),
+            self.queue.family(),
+            self.pipeline.clone().subpass()).unwrap();
+
+        // Only one cube to draw.
+        builder = builder.draw_indexed(self.pipeline.clone(),
+            &DynamicState::none(),
+            vec![self.cube.vertex_buffer.clone()],
+            self.cube.index_buffer.clone(),
+            (set.clone(), tex_set.clone()),
+            ()).unwrap();
+
+        builder.build().unwrap()
+    }
 
     fn build_pipeline<R>(
         queue: Arc<Queue>,
@@ -69,6 +161,7 @@ impl SkyboxSystem {
             .vertex_shader(vs.main_entry_point(), ())
             .triangle_list()
             .viewports_dynamic_scissors_irrelevant(1)
+            .depth_stencil_simple_depth()
             .viewports(iter::once(Viewport {
                 origin: [0.0, 0.0],
                 dimensions: [dimensions[0] as f32, dimensions[1] as f32],
@@ -78,7 +171,7 @@ impl SkyboxSystem {
             .render_pass(subpass)
             .build(queue.device().clone()).unwrap()
 
-            )
+        )
 
     }
 
@@ -87,10 +180,22 @@ impl SkyboxSystem {
             self.pipeline = SkyboxSystem::build_pipeline(
                 self.queue.clone(),
                 subpass, dimensions, &self.vs, &self.fs
-                );
+            );
         }
 }
 
+pub fn create_mvp(t: &TransformComponent, view: &Matrix4<f32>, proj: &Matrix4<f32>) -> vs::ty::Data {
+    let scale = t.scale;
+    let model = Matrix4::from_nonuniform_scale(scale.x, scale.y, scale.z)
+        * Matrix4::from_translation(t.position);
+
+
+    vs::ty::Data {
+        model: model.into(),
+        view: (*view).into(),
+        proj: (*proj).into(),
+    }
+}
 
 mod vs {
 
@@ -101,7 +206,6 @@ mod vs {
 }
 
 mod fs {
-
     vulkano_shaders::shader!{
         ty: "fragment",
         path: "shaders/skybox.frag"
