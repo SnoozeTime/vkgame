@@ -4,8 +4,7 @@
 // previous render subpass.
 layout(input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput u_diffuse;
 layout(input_attachment_index = 1, set = 0, binding = 1) uniform subpassInput u_normals;
-layout(input_attachment_index = 2, set = 0, binding = 2) uniform subpassInput u_frag_pos;
-layout(input_attachment_index = 3, set = 0, binding = 3) uniform subpassInput u_depth;
+layout(input_attachment_index = 2, set = 0, binding = 2) uniform subpassInput u_depth;
 
 // For the point light
 layout(push_constant) uniform PushConstants {
@@ -26,13 +25,8 @@ void main() {
         }
 
         vec3 norm = normalize(subpassLoad(u_normals).rgb);
-        vec3 lightDir = normalize(push_constants.position.xyz - subpassLoad(u_frag_pos).rgb);
+        vec3 lightDir = normalize(push_constants.position.xyz);
         float diff = max(dot(norm, lightDir), 0.0);
-
-        float light_distance = length(push_constants.position.xyz - subpassLoad(u_frag_pos).xyz);
-        // Further decrease light_percent based on the distance with the light position.
-        float attenuation = 1.0 / (1.0 + 0.05 * light_distance);
-        diff *= attenuation;
 
         vec3 diffuse = diff * push_constants.color.rgb * subpassLoad(u_diffuse).rgb;
         f_color = vec4(diffuse, 1.0);

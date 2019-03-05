@@ -23,6 +23,7 @@ use cgmath::{Vector3};
 
 use super::point_lighting_system::PointLightingSystem;
 use super::ambient_lighting_system::AmbientLightingSystem;
+use super::directional_lighting_system::DirectionalLightingSystem;
 use super::GBufferComponent;
 use super::pp_system::PPSystem;
 use super::skybox::SkyboxSystem;
@@ -76,6 +77,7 @@ pub struct FrameSystem {
     // Lighting systems.
     point_lighting_system: PointLightingSystem,
     ambient_lighting_system: AmbientLightingSystem,
+    directional_lighting_system: DirectionalLightingSystem,
     //pp_system: PPSystem,
     skybox_system: SkyboxSystem,
 }
@@ -119,6 +121,10 @@ impl FrameSystem {
         let ambient_lighting_system = AmbientLightingSystem::new(
             queue.clone(),
             lighting_subpass.clone());
+        let directional_lighting_system = DirectionalLightingSystem::new(
+            queue.clone(),
+            lighting_subpass.clone());
+
         //let pp_system = PPSystem::new(queue.clone(), lighting_subpass.clone()
 
         let skybox_subpass = Subpass::from(offscreen_render_pass.clone(), 2).unwrap();
@@ -134,6 +140,7 @@ impl FrameSystem {
             frag_pos_buffer,
             point_lighting_system,
             ambient_lighting_system,
+            directional_lighting_system,
             skybox_system,
         }
     }
@@ -179,6 +186,9 @@ impl FrameSystem {
             self.lighting_subpass(),
             dimensions);
         self.skybox_system.rebuild_pipeline(self.skybox_subpass(), dimensions);
+        self.directional_lighting_system.rebuild_pipeline(
+            self.lighting_subpass(),
+            dimensions);
     }
 
     /// Starts drawing a new frame. final image is the swapchain image that we are going
@@ -403,6 +413,27 @@ impl<'f, 's: 'f> LightingPass<'f, 's> {
                 .unwrap());
 
         }
+    }
+
+    pub fn directional_light(&mut self, direction: Vector3<f32>, color: [f32; 3]) {
+ 
+        let command_buffer = {
+
+            self.frame.system.directional_lighting_system.draw(
+                self.frame.system.diffuse_buffer.image.clone(),
+                self.frame.system.normals_buffer.image.clone(),
+                self.frame.system.depth_buffer.image.clone(),
+                direction,
+                color)
+        };
+
+
+        unsafe {
+            self.frame.command_buffer = Some(
+                self.frame.command_buffer.take().unwrap().execute_commands(command_buffer)
+                .unwrap());
+
+        }       
     }
 }
 

@@ -2,7 +2,8 @@ use vulkano::command_buffer::AutoCommandBuffer;
 use crate::camera::Camera;
 use vulkano::command_buffer::AutoCommandBufferBuilder;
 use vulkano::command_buffer::DynamicState;
-use cgmath::{Vector3, Matrix4};
+use cgmath::SquareMatrix;
+use cgmath::{InnerSpace, Matrix4, Vector3, Rad, Angle, Point3};
 use vulkano::device::Queue;
 use vulkano::pipeline::{
     GraphicsPipelineAbstract, GraphicsPipeline,
@@ -28,6 +29,7 @@ use std::iter;
 
 pub struct SkyboxSystem {
     queue: Arc<Queue>,
+    dimensions: [u32; 2],
 
     // pipeline + shaders
     vs: vs::Shader,
@@ -53,12 +55,13 @@ impl SkyboxSystem {
 
             // cubemap are textures with 6 images.
             // left, right, bottom, top, back, and front
-            let img_posx = image::load_from_memory_with_format(include_bytes!("../../assets/sor_sea/sea_lf.JPG"), ImageFormat::JPEG).unwrap().to_rgba();
-            let img_negx = image::load_from_memory_with_format(include_bytes!("../../assets/sor_sea/sea_rt.JPG"), ImageFormat::JPEG).unwrap().to_rgba();
-            let img_posy = image::load_from_memory_with_format(include_bytes!("../../assets/sor_sea/sea_dn.JPG"), ImageFormat::JPEG).unwrap().to_rgba();
-            let img_negy = image::load_from_memory_with_format(include_bytes!("../../assets/sor_sea/sea_up.JPG"), ImageFormat::JPEG).unwrap().to_rgba();
-            let img_posz = image::load_from_memory_with_format(include_bytes!("../../assets/sor_sea/sea_bk.JPG"), ImageFormat::JPEG).unwrap().to_rgba();
-            let img_negz = image::load_from_memory_with_format(include_bytes!("../../assets/sor_sea/sea_ft.JPG"), ImageFormat::JPEG).unwrap().to_rgba();
+            let img_negx = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
+            let img_posx = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
+            let img_posy = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
+            let img_negy = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
+            let img_negz = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
+            let img_posz = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
+
 
             let cubemap_images = [img_posx, img_negx, img_posy, img_negy, img_posz, img_negz];
             let mut image_data: Vec<u8> = Vec::new();
@@ -70,7 +73,7 @@ impl SkyboxSystem {
 
             let (skybox_img, gpu_future) = {
                 ImmutableImage::from_iter(image_data.iter().cloned(),
-                Dimensions::Cubemap { size: 512 },
+                Dimensions::Cubemap { size: 512},
                 Format::R8G8B8A8Srgb,
                 queue.clone()).unwrap()
             };
@@ -95,9 +98,11 @@ impl SkyboxSystem {
             let fs = fs::Shader::load(queue.device().clone()).unwrap();
             let pipeline = SkyboxSystem::build_pipeline(queue.clone(), subpass, [1, 1], &vs, &fs);
 
+            let dimensions = [1, 1];
             let uniform_buffer = CpuBufferPool::<vs::ty::Data>::new(queue.device().clone(), BufferUsage::all());
             SkyboxSystem {
                 uniform_buffer,
+                dimensions,
                 queue,
                 cube,
                 skybox_img,
@@ -109,10 +114,36 @@ impl SkyboxSystem {
             }
         }
 
+    fn get_proj(&self) -> Matrix4<f32> {
+        let aspect = self.dimensions[0] as f32 / self.dimensions[1] as f32;
+        let proj = cgmath::perspective(Rad(std::f32::consts::FRAC_PI_4),
+        aspect,
+        0.1,
+        256.0);
+        let mut the_fix = Matrix4::identity();
+        the_fix[1][1] = -1.0;
+        the_fix[2][3] = 0.5;
+        the_fix[2][2] = 0.5;
+
+        the_fix * proj
+    }
+
     pub fn draw(&self,
                 camera: &mut Camera) -> AutoCommandBuffer {
 
-        let (view, proj) = camera.get_vp(); 
+        let (mut view, _) = camera.get_vp(); 
+        // need to remove the rotation from the view matrix.
+        view[0][3] = 0.0;
+        view[1][3] = 0.0;
+        view[2][3] = 0.0;
+        view[0][3] = 0.0;
+        view[1][3] = 0.0;
+        view[2][3] = 0.0;
+        view[3][3] = 0.0;
+
+        let proj = self.get_proj();
+
+
         let transform = TransformComponent {
             position: Vector3::new(0.0, 0.0, 0.0),
             rotation: Vector3::new(0.0, 0.0, 0.0),
@@ -130,7 +161,7 @@ impl SkyboxSystem {
         let tex_set = Arc::new(
             PersistentDescriptorSet::start(self.pipeline.clone(), 1)
             .add_sampled_image(self.skybox_img.clone(), self.skybox_sampler.clone()).unwrap().build().unwrap());
-       
+
         let mut builder = AutoCommandBufferBuilder::secondary_graphics(
             self.queue.device().clone(),
             self.queue.family(),
@@ -138,11 +169,11 @@ impl SkyboxSystem {
 
         // Only one cube to draw.
         builder = builder.draw_indexed(self.pipeline.clone(),
-            &DynamicState::none(),
-            vec![self.cube.vertex_buffer.clone()],
-            self.cube.index_buffer.clone(),
-            (set.clone(), tex_set.clone()),
-            ()).unwrap();
+        &DynamicState::none(),
+        vec![self.cube.vertex_buffer.clone()],
+        self.cube.index_buffer.clone(),
+        (set.clone(), tex_set.clone()),
+        ()).unwrap();
 
         builder.build().unwrap()
     }
@@ -170,13 +201,12 @@ impl SkyboxSystem {
             .fragment_shader(fs.main_entry_point(), ())
             .render_pass(subpass)
             .build(queue.device().clone()).unwrap()
-
         )
-
     }
 
     pub fn rebuild_pipeline<R>(&mut self, subpass: Subpass<R>, dimensions: [u32; 2]) 
         where R: RenderPassAbstract + Clone + Send + Sync + 'static {
+            self.dimensions = dimensions;
             self.pipeline = SkyboxSystem::build_pipeline(
                 self.queue.clone(),
                 subpass, dimensions, &self.vs, &self.fs

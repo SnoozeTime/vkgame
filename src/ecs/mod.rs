@@ -120,7 +120,7 @@ impl ECS {
         });
         components.models.set(&id1, ModelComponent {
             mesh_name: "cube".to_owned(),
-            texture_name: "blue".to_owned(),
+            texture_name: "red".to_owned(),
         });
         
         // Second entity

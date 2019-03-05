@@ -12,6 +12,8 @@ use vulkano::command_buffer::AutoCommandBufferBuilder;
 use vulkano::descriptor::descriptor_set::PersistentDescriptorSet;
 use vulkano::command_buffer::DynamicState;
 
+use cgmath::Vector3;
+
 use std::iter;
 use std::sync::Arc;
 
@@ -21,9 +23,7 @@ struct Vertex {
 }
 vulkano::impl_vertex!(Vertex, position);
 
-/// Ambient lighting system is the easiest of the lighting system.
-/// We just add some light to all the fragments on the screen.
-pub struct AmbientLightingSystem {
+pub struct DirectionalLightingSystem {
 
     queue: Arc<Queue>,
 
@@ -34,7 +34,7 @@ pub struct AmbientLightingSystem {
 }
 
 
-impl AmbientLightingSystem {
+impl DirectionalLightingSystem {
 
     pub fn new<R>(queue: Arc<Queue>,
                   subpass: Subpass<R>) -> Self
@@ -55,7 +55,7 @@ impl AmbientLightingSystem {
             let fs = fs::Shader::load(queue.device().clone())
                 .expect("Failed to create fragment shader module");
 
-            let pipeline = AmbientLightingSystem::build_pipeline(
+            let pipeline = DirectionalLightingSystem::build_pipeline(
                 queue.clone(),
                 subpass,
                 [1, 1],
@@ -63,7 +63,7 @@ impl AmbientLightingSystem {
                 &fs
             );
 
-            AmbientLightingSystem {
+            DirectionalLightingSystem {
                 queue,
                 vertex_buffer,
                 vs,
@@ -78,7 +78,7 @@ impl AmbientLightingSystem {
         dimensions: [u32; 2],
         ) where R: RenderPassAbstract + Send + Sync + 'static {
 
-        self.pipeline = AmbientLightingSystem::build_pipeline(
+        self.pipeline = DirectionalLightingSystem::build_pipeline(
             self.queue.clone(),
             subpass,
             dimensions,
@@ -125,49 +125,55 @@ impl AmbientLightingSystem {
             .unwrap())
     }
 
-
     /// Draw the color added the light at position `position` and color `color`
-    pub fn draw<C>(&self,
-                   color_input: C,
-                   color: [f32; 3]) -> AutoCommandBuffer
-        where C: ImageViewAccess + Send + Sync + 'static
-        {
-            // Data for the light source
-            let push_constants = fs::ty::PushConstants {
-                color: [color[0], color[1], color[2]],
-            };
+    pub fn draw<C, N, D>(&self,
+                         color_input: C,
+                         normals_input: N,
+                         depth_input: D,
+                         direction: Vector3<f32>,
+                         color: [f32; 3]) -> AutoCommandBuffer
+        where C: ImageViewAccess + Send + Sync + 'static,
+              N: ImageViewAccess + Send + Sync + 'static,
+              D: ImageViewAccess + Send + Sync + 'static
 
-            // gbuffer. Input that was rendered in previous pass
-            let descriptor_set = PersistentDescriptorSet::start(self.pipeline.clone(), 0)
-                .add_image(color_input).unwrap()
-                .build().unwrap();
+              {
+                  // Data for the light source
+                  let push_constants = fs::ty::PushConstants {
+                      position: direction.extend(0.0).into(),
+                      color: [color[0], color[1], color[2], 1.0],
+                  };
 
-            AutoCommandBufferBuilder::secondary_graphics(self.queue.device().clone(),
-            self.queue.family(),
-            self.pipeline.clone().subpass())
-                .unwrap()
-                .draw(self.pipeline.clone(),
-                &DynamicState::none(),
-                vec![self.vertex_buffer.clone()],
-                descriptor_set,
-                push_constants)
-                .unwrap().build().unwrap()
+                  // gbuffer. Input that was rendered in previous pass
+                  let descriptor_set = PersistentDescriptorSet::start(self.pipeline.clone(), 0)
+                      .add_image(color_input).unwrap()
+                      .add_image(normals_input).unwrap()
+                      .add_image(depth_input).unwrap()
+                      .build().unwrap();
 
-        }
+                  AutoCommandBufferBuilder::secondary_graphics(self.queue.device().clone(),
+                  self.queue.family(),
+                  self.pipeline.clone().subpass())
+                      .unwrap()
+                      .draw(self.pipeline.clone(),
+                      &DynamicState::none(),
+                      vec![self.vertex_buffer.clone()],
+                      descriptor_set,
+                      push_constants)
+                      .unwrap().build().unwrap()
+
+              }
 }
 
 mod vs {
     vulkano_shaders::shader!{
         ty: "vertex",
-        path: "shaders/light/ambient_light.vert"
+        path: "shaders/light/directional_light.vert"
     }
 }
 
 mod fs {
     vulkano_shaders::shader!{
         ty: "fragment",
-        path: "shaders/light/ambient_light.frag"
+        path: "shaders/light/directional_light.frag"
     }
 }
-
-

@@ -170,15 +170,13 @@ impl PointLightingSystem {
 mod vs {
     vulkano_shaders::shader!{
         ty: "vertex",
-        path: "shaders/point_light.vert"
+        path: "shaders/light/point_light.vert"
     }
 }
 
 mod fs {
     vulkano_shaders::shader!{
         ty: "fragment",
-        path: "shaders/point_light.frag"
+        path: "shaders/light/point_light.frag"
     }
 }
-
-
