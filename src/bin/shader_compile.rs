@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<Error>> {
         content.as_str(), shaderc::ShaderKind::Vertex,
         "shaderrr.glsl", "main", None).unwrap();
 
-    dbg!(binary_result.as_binary().first());
+    dbg!(binary_result.as_binary_u8());
     
     Ok(())
 }

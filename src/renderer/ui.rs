@@ -18,6 +18,19 @@ use std::sync::Arc;
 
 use winit::Window;
 
+use shaderc::{Compiler, CompileOptions};
+use std::fs::File;
+use std::io::Read;
+use vulkano::format::Format;
+use std::borrow::Cow;
+use vulkano::descriptor::descriptor::DescriptorDesc;
+use std::ffi::CStr;
+use vulkano::pipeline::shader::{GraphicsShaderType, ShaderInterfaceDef, ShaderInterfaceDefEntry, ShaderModule};
+use vulkano::descriptor::descriptor::ShaderStages;
+use vulkano::descriptor::pipeline_layout::PipelineLayoutDesc;
+use vulkano::descriptor::pipeline_layout::PipelineLayoutDescPcRange;
+use vulkano::pipeline::shader::GraphicsEntryPointAbstract;
+
 pub struct Texture {
     pub texture: Arc<ImmutableImage<R8G8B8A8Unorm>>,
     pub sampler: Arc<Sampler>,
@@ -271,27 +284,37 @@ impl GuiRenderer {
 	// Yaaaay
 	println!("RECOMPILE SHADERS");
 
-//	let vs = {
-//	    let mut f = File::open("assets/shaders/gui.vert")
-//		.expect("Can't find file src/bin/runtime-shader/vert.spv This example needs to be run from the root of the example crate.");
-//	    let mut v = vec![];
-//	    f.read_to_end(&mut v).unwrap();
-//	    // Create a ShaderModule on a device the same Shader::load does it.
-//	    // NOTE: You will have to verify correctness of the data by yourself!
-//	    unsafe { ShaderModule::new(device.clone(), &v) }.unwrap()
-//	};
-//
-//	let fs = {
-//	    let mut f = File::open("assets/shaders/gui.frag")
-//		.expect("Can't find file src/bin/runtime-shader/frag.spv");
-//	    let mut v = vec![];
-//	    f.read_to_end(&mut v).unwrap();
-//	    unsafe { ShaderModule::new(device.clone(), &v) }.unwrap()
-//	};
+	let vs = {
+	    let mut f = File::open("assets/shaders/gui.vert")
+		.expect("Can't find file src/bin/runtime-shader/vert.spv This example needs to be run from the root of the example crate.");
+	    let mut content = String::new();
+	    f.read_to_string(&mut content).unwrap();
+
+	    let mut compiler = shaderc::Compiler::new().unwrap();
+	    let mut options = shaderc::CompileOptions::new().unwrap();
+	    let binary_result = compiler.compile_into_spirv(
+		content.as_str(), shaderc::ShaderKind::Vertex,
+		"shaderrr.glsl", "main", None).unwrap();
+
+	    // Create a ShaderModule on a device the same Shader::load does it.
+	    // NOTE: You will have to verify correctness of the data by yourself!
+	    unsafe { ShaderModule::new(self.queue.device().clone(), &binary_result.as_binary_u8()) }.unwrap()
+	};
+
+	//        self.vs.shader = Arc::new(vs);
+	//
+	//	let fs = {
+	//	    let mut f = File::open("assets/shaders/gui.frag")
+	//		.expect("Can't find file src/bin/runtime-shader/frag.spv");
+	//	    let mut v = vec![];
+	//	    f.read_to_end(&mut v).unwrap();
+	//	    unsafe { ShaderModule::new(device.clone(), &v) }.unwrap()
+	//	};
     }
 }
 
-pub mod ui_vs {
+
+mod ui_vs {
     vulkano_shaders::shader!{
 	ty: "vertex",
 	path: "assets/shaders/gui.vert"
@@ -303,6 +326,167 @@ pub mod ui_fs {
 	ty: "fragment",
 	path: "assets/shaders/gui.frag"
     }
+}
+
+fn get_vs_shader(vs: ShaderModule) {
+
+    // This structure will tell Vulkan how input entries of our vertex shader look like
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+    struct VertInput;
+
+    unsafe impl ShaderInterfaceDef for VertInput {
+	type Iter = VertInputIter;
+
+	fn elements(&self) -> VertInputIter {
+	    VertInputIter(0)
+	}
+    }
+
+    #[derive(Debug, Copy, Clone)]
+    struct VertInputIter(u16);
+
+    impl Iterator for VertInputIter {
+	type Item = ShaderInterfaceDefEntry;
+
+	#[inline]
+	fn next(&mut self) -> Option<Self::Item> {
+	    // There are things to consider when giving out entries:
+	    // * There must be only one entry per one location, you can't have
+	    //   `color' and `position' entries both at 0..1 locations.  They also
+	    //   should not overlap.
+	    // * Format of each element must be no larger than 128 bits.
+	    if self.0 == 0 {
+		self.0 += 1;
+		return Some(ShaderInterfaceDefEntry {
+		    location: 2..3,
+		    format: Format::R32G32B32A32Sfloat,
+		    name: Some(Cow::Borrowed("color"))
+		})
+	    }
+	    if self.0 == 1 {
+		self.0 += 1;
+		return Some(ShaderInterfaceDefEntry {
+		    location: 1..2,
+		    format: Format::R32G32Sfloat,
+		    name: Some(Cow::Borrowed("uv"))
+		})
+	    }
+	    if self.0 == 0 {
+		self.0 += 1;
+		return Some(ShaderInterfaceDefEntry {
+		    location: 0..1,
+		    format: Format::R32G32Sfloat,
+		    name: Some(Cow::Borrowed("position"))
+		})
+	    }
+
+	    None
+	}
+
+	#[inline]
+	fn size_hint(&self) -> (usize, Option<usize>) {
+	    // We must return exact number of entries left in iterator.
+	    let len = (2 - self.0) as usize;
+	    (len, Some(len))
+	}
+    }
+
+    impl ExactSizeIterator for VertInputIter { }
+
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+    struct VertOutput;
+
+    unsafe impl ShaderInterfaceDef for VertOutput {
+	type Iter = VertOutputIter;
+
+	fn elements(&self) -> VertOutputIter {
+	    VertOutputIter(0)
+	}
+    }
+
+    // This structure will tell Vulkan how output entries (those passed to next
+    // stage) of our vertex shader look like.
+    #[derive(Debug, Copy, Clone)]
+    struct VertOutputIter(u16);
+
+    impl Iterator for VertOutputIter {
+	type Item = ShaderInterfaceDefEntry;
+
+	#[inline]
+	fn next(&mut self) -> Option<Self::Item> {
+	    if self.0 == 0 {
+		self.0 += 1;
+		return Some(ShaderInterfaceDefEntry {
+		    location: 1..2,
+		    format: Format::R32G32B32A32Sfloat,
+		    name: Some(Cow::Borrowed("outColor"))
+		})
+	    }
+
+	    if self.0 == 1 {
+		self.0 += 1;
+		return Some(ShaderInterfaceDefEntry {
+		    location: 0..1,
+		    format: Format::R32G32Sfloat,
+		    name: Some(Cow::Borrowed("outUv"))
+		})
+
+	    }
+	    None
+	}
+
+	#[inline]
+	fn size_hint(&self) -> (usize, Option<usize>) {
+	    let len = (1 - self.0) as usize;
+	    (len, Some(len))
+	}
+    }
+
+    impl ExactSizeIterator for VertOutputIter { }
+
+    // This structure describes layout of this stage.
+    #[derive(Debug, Copy, Clone)]
+    struct VertLayout(ShaderStages);
+    unsafe impl PipelineLayoutDesc for VertLayout {
+	// Number of descriptor sets it takes.
+	fn num_sets(&self) -> usize { 0 }
+	// Number of entries (bindings) in each set.
+	fn num_bindings_in_set(&self, _set: usize) -> Option<usize> { None }
+	// Descriptor descriptions.
+	fn descriptor(&self, _set: usize, _binding: usize) -> Option<DescriptorDesc> { None }
+	// Number of push constants ranges (think: number of push constants).
+	fn num_push_constants_ranges(&self) -> usize { 2 }
+	// Each push constant range in memory.
+	fn push_constants_range(&self, num: usize) -> Option<PipelineLayoutDescPcRange> { 
+	    if num == 0 {
+		Some(PipelineLayoutDescPcRange {
+		    offset: 0,
+		    size: 2*4, // vec2 of floats
+		    stages: ShaderStages { vertex: true, ..ShaderStages::none() },
+		})
+	    } else if num == 1 {
+		Some(PipelineLayoutDescPcRange {
+		    offset: 8,
+		    size: 2*4, // vec2 of floats
+		    stages: ShaderStages { vertex: true, ..ShaderStages::none() },
+		})
+
+	    } else {
+
+		None 
+	    }
+
+	}
+    }
+
+//    let vert_main = unsafe { vs.graphics_entry_point(
+//	    CStr::from_bytes_with_nul_unchecked(b"main\0"),
+//	    VertInput,
+//	    VertOutput,
+//	    VertLayout(ShaderStages { vertex: true, ..ShaderStages::none() }),
+//	    GraphicsShaderType::Vertex
+//    ) };
+
 }
 
 
