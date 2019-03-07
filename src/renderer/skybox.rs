@@ -39,14 +39,16 @@ pub struct SkyboxSystem {
 
     // Data for the cube.
     cube: Model,
-    skybox_img: Arc<ImmutableImage<vulkano::format::Format>>,
-    skybox_sampler: Arc<Sampler>,
+    skybox_color: fs::ty::PushConstants,
+    //skybox_img: Arc<ImmutableImage<vulkano::format::Format>>,
+    //skybox_sampler: Arc<Sampler>,
 }
 
 impl SkyboxSystem {
 
     pub fn new<R>(queue: Arc<Queue>,
-                  subpass: Subpass<R>) -> Self 
+                  subpass: Subpass<R>,
+                  color: [f32; 3]) -> Self 
         where R: RenderPassAbstract + Clone + Send + Sync + 'static
         {
 
@@ -55,48 +57,56 @@ impl SkyboxSystem {
 
             // cubemap are textures with 6 images.
             // left, right, bottom, top, back, and front
-            let img_negx = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
-            let img_posx = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
-            let img_posy = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
-            let img_negy = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
-            let img_negz = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
-            let img_posz = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
+            //let img_negx = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
+//            let img_posx = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
+//            let img_posy = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
+//            let img_negy = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
+//            let img_negz = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
+//            let img_posz = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
 
 
-            let cubemap_images = [img_posx, img_negx, img_posy, img_negy, img_posz, img_negz];
-            let mut image_data: Vec<u8> = Vec::new();
-
-            for image in cubemap_images.into_iter() {
-                let mut image0 = image.clone().into_raw().clone();
-                image_data.append(&mut image0);
-            }
-
-            let (skybox_img, gpu_future) = {
-                ImmutableImage::from_iter(image_data.iter().cloned(),
-                Dimensions::Cubemap { size: 512},
-                Format::R8G8B8A8Srgb,
-                queue.clone()).unwrap()
-            };
-
-            let skybox_sampler = Sampler::new(
-                queue.device().clone(),
-                Filter::Linear,
-                Filter::Linear,
-                MipmapMode::Nearest,
-                SamplerAddressMode::Repeat,
-                SamplerAddressMode::Repeat,
-                SamplerAddressMode::Repeat, 0.0, 1.0, 0.0, 0.0).unwrap();
-
-            // TODO need a better way
-            gpu_future
-                .then_signal_fence_and_flush().unwrap()
-                .wait(None).unwrap(); 
+//            let cubemap_images = [img_posx, img_negx, img_posy, img_negy, img_posz, img_negz];
+//            let mut image_data: Vec<u8> = Vec::new();
+//
+//            for image in cubemap_images.into_iter() {
+//                let mut image0 = image.clone().into_raw().clone();
+//                image_data.append(&mut image0);
+//            }
+//
+//            let (skybox_img, gpu_future) = {
+//                ImmutableImage::from_iter(image_data.iter().cloned(),
+//                Dimensions::Cubemap { size: 512},
+//                Format::R8G8B8A8Srgb,
+//                queue.clone()).unwrap()
+//            };
+//
+//            let skybox_sampler = Sampler::new(
+//                queue.device().clone(),
+//                Filter::Linear,
+//                Filter::Linear,
+//                MipmapMode::Nearest,
+//                SamplerAddressMode::Repeat,
+//                SamplerAddressMode::Repeat,
+//                SamplerAddressMode::Repeat, 0.0, 1.0, 0.0, 0.0).unwrap();
+//
+//            // TODO need a better way
+//            gpu_future
+//                .then_signal_fence_and_flush().unwrap()
+//                .wait(None).unwrap(); 
 
 
             // -----------------------------
             let vs = vs::Shader::load(queue.device().clone()).unwrap();
             let fs = fs::Shader::load(queue.device().clone()).unwrap();
             let pipeline = SkyboxSystem::build_pipeline(queue.clone(), subpass, [1, 1], &vs, &fs);
+
+            let skybox_color = fs::ty::PushConstants {
+
+                color: [color[0]/255.0,
+                        color[1]/255.0,
+                        color[2]/255.0,
+                        1.0],
+                    };
 
             let dimensions = [1, 1];
             let uniform_buffer = CpuBufferPool::<vs::ty::Data>::new(queue.device().clone(), BufferUsage::all());
@@ -105,9 +115,9 @@ impl SkyboxSystem {
                 dimensions,
                 queue,
                 cube,
-                skybox_img,
-                skybox_sampler,
-
+                //skybox_img,
+                //skybox_sampler,
+                skybox_color,
                 vs,
                 fs,
                 pipeline,
@@ -158,10 +168,10 @@ impl SkyboxSystem {
                            .add_buffer(uniform_data).unwrap()
                            .build().unwrap());
 
-        let tex_set = Arc::new(
-            PersistentDescriptorSet::start(self.pipeline.clone(), 1)
-            .add_sampled_image(self.skybox_img.clone(), self.skybox_sampler.clone()).unwrap().build().unwrap());
-
+//        let tex_set = Arc::new(
+//            PersistentDescriptorSet::start(self.pipeline.clone(), 1)
+//            .add_sampled_image(self.skybox_img.clone(), self.skybox_sampler.clone()).unwrap().build().unwrap());
+//
         let mut builder = AutoCommandBufferBuilder::secondary_graphics(
             self.queue.device().clone(),
             self.queue.family(),
@@ -172,8 +182,8 @@ impl SkyboxSystem {
         &DynamicState::none(),
         vec![self.cube.vertex_buffer.clone()],
         self.cube.index_buffer.clone(),
-        (set.clone(), tex_set.clone()),
-        ()).unwrap();
+        set,
+        self.skybox_color.clone()).unwrap();
 
         builder.build().unwrap()
     }
@@ -186,7 +196,6 @@ impl SkyboxSystem {
         fs: &fs::Shader) -> Arc<GraphicsPipelineAbstract + Send + Sync> where R: RenderPassAbstract + Send + Sync + 'static {
 
         Arc::new(
-
             GraphicsPipeline::start()
             .vertex_input_single_buffer::<Vertex>()
             .vertex_shader(vs.main_entry_point(), ())
@@ -238,6 +247,6 @@ mod vs {
 mod fs {
     vulkano_shaders::shader!{
         ty: "fragment",
-        path: "shaders/skybox.frag"
+        path: "shaders/skybox_color.frag"
     }
 }

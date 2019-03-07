@@ -17,6 +17,7 @@ use imgui::{ImGui, Ui};
 use vulkano::device::{Device, DeviceExtensions, Queue};
 use vulkano::image::SwapchainImage;
 use vulkano::instance::{Instance, PhysicalDevice};
+
 use vulkano::swapchain::{Surface, AcquireError, PresentMode, SurfaceTransform, Swapchain, SwapchainCreationError};
 use vulkano::swapchain;
 use vulkano::sync::{GpuFuture, FlushError};
@@ -29,6 +30,7 @@ use crate::resource::Resources;
 use crate::camera::Camera;
 use crate::ecs::components::{TransformComponent, ModelComponent, LightComponent, LightType};
 use crate::ecs::{Entity, ECS};
+use crate::time::dt_as_secs;
 use scene_system::SceneDrawSystem;
 use frame::{Pass, FrameSystem};
 
@@ -36,6 +38,8 @@ use vulkano::image::AttachmentImage;
 use vulkano::sampler::Sampler;
 
 use cgmath::Vector3;
+
+use std::time::{Instant, Duration};
 
 pub struct GBufferComponent {
     pub image: Arc<AttachmentImage>,
@@ -110,12 +114,12 @@ impl<'a> Renderer<'a> {
         let (swapchain, images) = {
 
             let caps = surface.capabilities(physical)?;
-            println!("{:?}", caps);
             let usage = caps.supported_usage_flags;
             // alpha mode indicates how the alpha value of the final image will behave.
             let alpha = caps.supported_composite_alpha.iter().next()
                 .ok_or(TwError::RenderingSystemInitialization("Cannot find supported composite alpha when creating swapchain".to_owned()))?;
             let format = caps.supported_formats[0].0;
+            println!("{:?}", caps);
             let initial_dimensions = if let Some(dimensions) = window.get_inner_size() {
                 // convert to physical pixels
                 let dimensions: (u32, u32) = dimensions.to_physical(window.get_hidpi_factor()).into();
@@ -126,7 +130,8 @@ impl<'a> Renderer<'a> {
             };
 
             // Please take a look at the docs for the meaning of the parameters we didn't mention.
-            Swapchain::new(device.clone(),
+
+            let tmp = Swapchain::new(device.clone(),
             surface.clone(),
             caps.min_image_count,
             format,
@@ -138,8 +143,8 @@ impl<'a> Renderer<'a> {
             alpha,
             PresentMode::Fifo,
             true,
-            None)?
-
+            None)?;
+            tmp
         };
 
         let dimensions = images[0].dimensions();
@@ -147,21 +152,25 @@ impl<'a> Renderer<'a> {
 
         // Initialization is finally finished!
         let recreate_swapchain = false;
-        let previous_frame_end = Some(Box::new(sync::now(device.clone())) as Box<GpuFuture>);
 
-        let scene_system = SceneDrawSystem::new(
-            queue.clone(),
-            frame_system.deferred_subpass(),
-            dimensions);
-        let gui = GuiRenderer::new(
-            imgui,
-            surface.clone(), 
-            frame_system.ui_subpass(),
-            queue.clone());
-        let object_picker = Object3DPicker::new(device.clone(),
-        queue.clone(),
-        surface.clone(),
-        dimensions);
+        let scene_system = timed!(SceneDrawSystem::new(
+                queue.clone(),
+                frame_system.deferred_subpass(),
+                dimensions));
+
+        let (gui, gui_fut) = timed!(GuiRenderer::new(
+                imgui,
+                surface.clone(), 
+                frame_system.ui_subpass(),
+                queue.clone()));
+
+        let object_picker = timed!(Object3DPicker::new(
+                device.clone(),
+                queue.clone(),
+                surface.clone(),
+                dimensions));
+
+        let previous_frame_end = Some(gui_fut);
         Ok(Renderer {
             surface,
             _physical: physical,

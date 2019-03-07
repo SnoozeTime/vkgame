@@ -82,14 +82,14 @@ impl GuiRenderer {
     pub fn new<R>(imgui: &mut ImGui,
                   surface: Arc<Surface<Window>>,
                   subpass: Subpass<R>, 
-                  queue: Arc<Queue>) -> Self 
+                  queue: Arc<Queue>) -> (Self, Box<GpuFuture>) 
         where R: RenderPassAbstract + Send + Sync + 'static {
 
             let device = queue.device().clone();
             let window = surface.window();
             // Load the font texture
             // --------------------------------------------
-            let (texture, texture_future) = imgui.prepare_texture(|handle| {
+            let (texture, future) = imgui.prepare_texture(|handle| {
                 let r = vulkano::image::immutable::ImmutableImage::from_iter(
                     handle.pixels.iter().cloned(),
                     vulkano::image::Dimensions::Dim2d { width: handle.width, height: handle.height },
@@ -109,9 +109,10 @@ impl GuiRenderer {
                 SamplerAddressMode::ClampToEdge,
                 0.0, 1.0, 0.0, 0.0).unwrap();
 
-            texture_future
-                .then_signal_fence_and_flush().unwrap()
-                .wait(None).unwrap(); 
+            // blocking here...
+           // texture_future
+           //     .then_signal_fence_and_flush().unwrap()
+           //     .wait(None).unwrap(); 
 
             let font_texture = Texture {
                 texture,
@@ -143,14 +144,14 @@ impl GuiRenderer {
                 subpass,
                 &vs, &fs);
 
-            GuiRenderer {
+            (GuiRenderer {
                 queue,
                 font_texture,
                 pipeline,
                 vs,
                 fs,
                 current_viewport,
-            }
+            }, Box::new(future))
         }
 
     fn build_pipeline<R>(queue: Arc<Queue>,

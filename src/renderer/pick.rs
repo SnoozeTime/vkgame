@@ -120,7 +120,8 @@ pub struct Object3DPicker {
     pub pipeline: PickPipelineState,
     pub framebuffer: Arc<FramebufferAbstract + Send + Sync>,
     pub image: Arc<AttachmentImage>,
-    pub buf: Arc<CpuAccessibleBuffer<[u8]>>,
+    // Async instantiation. First click will be slow :D
+    pub buf: Option<Arc<CpuAccessibleBuffer<[u8]>>>,
 }
 
 
@@ -173,12 +174,6 @@ impl Object3DPicker {
                                    .add(depth_buffer.clone()).unwrap()
                                    .build().unwrap());
 
-        // This will contain the data copied from CPU.
-        let buf = CpuAccessibleBuffer::from_iter(
-            device.clone(), BufferUsage::all(),
-            (0 .. dimensions[0] * dimensions[1] * 4).map(|_| 0u8))
-            .expect("failed to create buffer");
-
 
         let pipeline = PickPipelineState::new(
             device.clone(),
@@ -196,8 +191,17 @@ impl Object3DPicker {
             framebuffer,
             uniform_buffer,
             image,
-            buf,
+            buf: None,
         }
+    }
+
+    fn create_buffer(&mut self, dimensions: [u32; 2]) {
+        // This will contain the data copied from CPU.
+        self.buf = timed!(Some(CpuAccessibleBuffer::from_iter(
+                    self.queue.device().clone(),
+                    BufferUsage::all(),
+                    (0 .. dimensions[0] * dimensions[1] * 4).map(|_| 0u8))
+                .expect("failed to create buffer")));
     }
 
     pub fn create_pushconstants(col: usize) -> pick_vs::ty::PushConstants {
@@ -237,19 +241,21 @@ impl Object3DPicker {
         let depth_buffer = AttachmentImage::transient(self.device.clone(),
         dimensions,
         Format::D16Unorm).unwrap();
-
-
+        self.buf = None;
         self.framebuffer = Arc::new(Framebuffer::start(self.render_pass.clone())
                                     .add(self.image.clone()).unwrap()
                                     .add(depth_buffer.clone()).unwrap()
                                     .build().unwrap());
 
         self.pipeline.rebuild_pipeline(self.device.clone(),
-            self.render_pass.clone(), dimensions);
+        self.render_pass.clone(), dimensions);
     }
 
     pub fn pick_object(&mut self, x: f64, y: f64, ecs: &ECS, model_manager: &ModelManager) -> Option<Entity> {
 
+        if !self.buf.is_some() {
+            self.create_buffer(self.image.dimensions());
+        }
         let hidpi_factor = self.surface.window().get_hidpi_factor();
         let x = (x * hidpi_factor).round() as usize;
         let y = (y * hidpi_factor).round() as usize;
@@ -314,7 +320,7 @@ impl Object3DPicker {
         // Now, copy the image to the cpu accessible buffer
         command_buffer_builder = command_buffer_builder
             .copy_image_to_buffer(self.image.clone(),
-            self.buf.clone()).unwrap();
+            self.buf.as_ref().unwrap().clone()).unwrap();
 
         // Finish building the command buffer by calling `build`.
         let command_buffer = command_buffer_builder.build().unwrap();
@@ -323,7 +329,7 @@ impl Object3DPicker {
         finished.then_signal_fence_and_flush().unwrap()
             .wait(None).unwrap();
 
-        let buffer_content = self.buf.read().unwrap();
+        let buffer_content = self.buf.as_ref().unwrap().read().unwrap();
 
         //  let image = ImageBuffer::<Rgba<u8>, _>::from_raw(
         //      self.dimensions[0], self.dimensions[1], &buffer_content[..]).unwrap();

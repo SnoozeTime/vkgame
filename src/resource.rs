@@ -27,8 +27,8 @@ impl Resources {
             queue,
         };
 
-        r.init_textures();
-        r.init_models();
+        timed!(r.init_textures());
+        timed!(r.init_models());
 
         r
     }

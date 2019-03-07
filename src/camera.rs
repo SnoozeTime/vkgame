@@ -42,16 +42,16 @@ impl CameraInputHandler {
             keyboard_handler: Box::new(move |ref mut camera, dt, direction| {
 
                 match direction {
-                    CameraDirection::Forward => camera.transform.position += camera.speed * dt_as_secs(dt) * camera.front,
-                    CameraDirection::Backward => camera.transform.position -= camera.speed * dt_as_secs(dt) * camera.front,
-                    CameraDirection::Left => camera.transform.position -= camera.speed * dt_as_secs(dt) * camera.right,
-                    CameraDirection::Right => camera.transform.position += camera.speed * dt_as_secs(dt)  * camera.right,
+                    CameraDirection::Forward => camera.transform.position += camera.speed * dt_as_secs(dt) as f32 * camera.front,
+                    CameraDirection::Backward => camera.transform.position -= camera.speed * dt_as_secs(dt) as f32 * camera.front,
+                    CameraDirection::Left => camera.transform.position -= camera.speed * dt_as_secs(dt) as f32 * camera.right,
+                    CameraDirection::Right => camera.transform.position += camera.speed * dt_as_secs(dt) as f32 * camera.right,
                 }
 
 
             }),
             mouse_handler: Box::new(move |ref mut camera, dt, mouse_x, mouse_y| {
-                let dt = dt_as_secs(dt);
+                let dt = dt_as_secs(dt) as f32;
                 let mouse_x = mouse_x as f32;
                 let mouse_y = mouse_y as f32;
                 let x_offset = mouse_x * dt;
@@ -82,16 +82,16 @@ impl CameraInputHandler {
                 let proj_front = camera.front - (camera.front.dot(up)) * up;
                 let proj_right = camera.right - (camera.right.dot(up)) * up;
                 match direction {
-                    CameraDirection::Forward => camera.transform.position += camera.speed * dt_as_secs(dt) *proj_front,
-                    CameraDirection::Backward => camera.transform.position -= camera.speed * dt_as_secs(dt) * proj_front,
-                    CameraDirection::Left => camera.transform.position -= camera.speed * dt_as_secs(dt) * proj_right,
-                    CameraDirection::Right => camera.transform.position += camera.speed * dt_as_secs(dt) * proj_right,
+                    CameraDirection::Forward => camera.transform.position += camera.speed * dt_as_secs(dt) as f32 *proj_front,
+                    CameraDirection::Backward => camera.transform.position -= camera.speed * dt_as_secs(dt) as f32 * proj_front,
+                    CameraDirection::Left => camera.transform.position -= camera.speed * dt_as_secs(dt) as f32 * proj_right,
+                    CameraDirection::Right => camera.transform.position += camera.speed * dt_as_secs(dt) as f32 * proj_right,
                 }
 
 
             }),
             mouse_handler: Box::new(move |ref mut camera, dt, mouse_x, mouse_y| {
-                let dt = dt_as_secs(dt);
+                let dt = dt_as_secs(dt) as f32;
                 let mouse_x = mouse_x as f32;
                 let mouse_y = mouse_y as f32;
                 let x_offset = mouse_x * dt;

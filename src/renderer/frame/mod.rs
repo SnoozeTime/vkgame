@@ -31,6 +31,8 @@ use super::skybox::SkyboxSystem;
 use crate::camera::Camera;
 mod renderpass;
 
+use std::time::{Instant, Duration};
+
 impl GBufferComponent {
     fn new(device: Arc<Device>,
            dimensions: [u32; 2], 
@@ -87,49 +89,49 @@ impl FrameSystem {
     pub fn new(queue: Arc<Queue>, final_output_format: Format) -> Self {
 
 
-        let (offscreen_render_pass, render_pass) = renderpass::build_render_pass(
-            queue.device().clone(), final_output_format);
+        let (offscreen_render_pass, render_pass) = timed!(renderpass::build_render_pass(
+            queue.device().clone(), final_output_format));
 
         let usage = FrameSystem::get_image_usage();
         // most likely the dimensions are not good. It's ok, we'll recreate when creating
         // a new frame in case dimension does not match with final image.
-        let depth_buffer = GBufferComponent::new(
+        let depth_buffer = timed!(GBufferComponent::new(
             queue.device().clone(),
             [1, 1],
-            Format::D16Unorm, usage);
+            Format::D16Unorm, usage));
 
-        let frag_pos_buffer = GBufferComponent::new(
+        let frag_pos_buffer = timed!(GBufferComponent::new(
             queue.device().clone(),
             [1, 1],
-            Format::R16G16B16A16Sfloat, usage);
+            Format::R16G16B16A16Sfloat, usage));
 
-        let normals_buffer = GBufferComponent::new(
+        let normals_buffer = timed!(GBufferComponent::new(
             queue.device().clone(),
             [1, 1],
-            Format::R16G16B16A16Sfloat, usage);
+            Format::R16G16B16A16Sfloat, usage));
 
-        let diffuse_buffer = GBufferComponent::new(
+        let diffuse_buffer = timed!(GBufferComponent::new(
             queue.device().clone(),
             [1, 1],
-            Format::A2B10G10R10UnormPack32, usage);
+            Format::A2B10G10R10UnormPack32, usage));
 
 
-        let lighting_subpass = Subpass::from(offscreen_render_pass.clone(), 1).unwrap();
-        let point_lighting_system = PointLightingSystem::new(
+        let lighting_subpass = timed!(Subpass::from(offscreen_render_pass.clone(), 1).unwrap());
+        let point_lighting_system = timed!(PointLightingSystem::new(
             queue.clone(),
-            lighting_subpass.clone());
-        let ambient_lighting_system = AmbientLightingSystem::new(
+            lighting_subpass.clone()));
+        let ambient_lighting_system = timed!(AmbientLightingSystem::new(
             queue.clone(),
-            lighting_subpass.clone());
-        let directional_lighting_system = DirectionalLightingSystem::new(
+            lighting_subpass.clone()));
+        let directional_lighting_system = timed!(DirectionalLightingSystem::new(
             queue.clone(),
-            lighting_subpass.clone());
+            lighting_subpass.clone()));
 
-        let pp_system = PPSystem::new(queue.clone(),
-            Subpass::from(render_pass.clone(), 0).unwrap());
+        let pp_system = timed!(PPSystem::new(queue.clone(),
+            Subpass::from(render_pass.clone(), 0).unwrap()));
 
         let skybox_subpass = Subpass::from(offscreen_render_pass.clone(), 2).unwrap();
-        let skybox_system = SkyboxSystem::new(queue.clone(), skybox_subpass);
+        let skybox_system = timed!(SkyboxSystem::new(queue.clone(), skybox_subpass, [152.0, 218.0, 241.0]));
 
         FrameSystem {
             offscreen_render_pass,

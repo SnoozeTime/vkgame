@@ -108,7 +108,7 @@ impl<'a> RenderingSystem<'a> {
                   dt: Duration,
                   gui: &mut Gui)
     {
-        let dt = dt_as_secs(dt);
+        let dt = dt_as_secs(dt) as f32;
 
         // TODO SHOULD NOT BE DONE HERE.
         // It needs to be in its own class and we can pass the ui here maybe.
@@ -173,7 +173,7 @@ impl DummySystem {
     }
 
     pub fn do_dumb_thing(&mut self, dt: Duration, ecs: &mut ECS) {
-        let dt = dt_as_secs(dt);
+        let dt = dt_as_secs(dt) as f32;
 
         self.angle += dt;
         for (i, transform) in ecs.components.transforms.iter_mut()

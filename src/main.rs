@@ -9,6 +9,7 @@ use twgraph::ecs::{
     ECS,
     systems::{RenderingSystem},
 };
+use twgraph::time::dt_as_secs;
 use twgraph::resource::Resources;
 use twgraph::scene::{Scene, EditorScene, GameScene};
 use twgraph::event::{Event, EditorEvent};
@@ -35,10 +36,19 @@ fn main() {
     // Get the surface and window. Window is from winit library
     let events_loop = EventsLoop::new();
 
+    let now = Instant::now();
     let mut render_system = RenderingSystem::new(&instance, &events_loop);
+    let elapsed_render = Instant::now() - now;
+
+
+    let now = Instant::now();
     let resources = Resources::new(
         render_system.get_device().clone(),
         render_system.get_queue().clone());
+    let elapsed_resources = Instant::now() - now;
+
+    println!("CREATE RENDERER: {}", dt_as_secs(elapsed_render));
+    println!("CREATE RESOURCES: {}", dt_as_secs(elapsed_resources));
     let mut input = Input::new(events_loop);
 
     let mut old_instant = Instant::now();
