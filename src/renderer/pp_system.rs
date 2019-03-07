@@ -149,14 +149,14 @@ impl PPSystem {
 mod vs {
     vulkano_shaders::shader!{
         ty: "vertex",
-        path: "shaders/post_processing/edge.vert"
+        path: "assets/shaders/post_processing/edge.vert"
     }
 }
 
 mod fs {
     vulkano_shaders::shader!{
         ty: "fragment",
-        path: "shaders/post_processing/edge.frag"
+        path: "assets/shaders/post_processing/edge.frag"
     }
 }
 

@@ -240,13 +240,13 @@ mod vs {
 
     vulkano_shaders::shader!{
         ty: "vertex",
-        path: "shaders/skybox.vert"
+        path: "assets/shaders/skybox.vert"
     }
 }
 
 mod fs {
     vulkano_shaders::shader!{
         ty: "fragment",
-        path: "shaders/skybox_color.frag"
+        path: "assets/shaders/skybox_color.frag"
     }
 }

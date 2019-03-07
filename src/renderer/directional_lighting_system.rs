@@ -167,13 +167,13 @@ impl DirectionalLightingSystem {
 mod vs {
     vulkano_shaders::shader!{
         ty: "vertex",
-        path: "shaders/light/directional_light.vert"
+        path: "assets/shaders/light/directional_light.vert"
     }
 }
 
 mod fs {
     vulkano_shaders::shader!{
         ty: "fragment",
-        path: "shaders/light/directional_light.frag"
+        path: "assets/shaders/light/directional_light.frag"
     }
 }

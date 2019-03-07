@@ -31,6 +31,8 @@ use crate::camera::Camera;
 use crate::ecs::components::{TransformComponent, ModelComponent, LightComponent, LightType};
 use crate::ecs::{Entity, ECS};
 use crate::time::dt_as_secs;
+use crate::event::{ResourceEvent, Event};
+use std::path::PathBuf;
 use scene_system::SceneDrawSystem;
 use frame::{Pass, FrameSystem};
 
@@ -330,6 +332,17 @@ impl<'a> Renderer<'a> {
     /// finding what pixel has been clicked by the mouse.
     pub fn pick_object(&mut self, x: f64, y: f64, ecs: &ECS, resources: &Resources) -> Option<Entity> {
         self.object_picker.pick_object(x, y, ecs, &resources.models)
+    }
+
+    pub fn handle_events(&mut self, events: &Vec<Event>) {
+
+        for ev in events {
+            if let Event::ResourceEvent(ResourceEvent::ResourceReloaded(ref path)) = &ev {
+                if (*path).ends_with("gui.vert") || (*path).ends_with("gui.frag") {
+                    self.gui.recompile_shaders();
+                }
+            }
+        }
     }
 }
 

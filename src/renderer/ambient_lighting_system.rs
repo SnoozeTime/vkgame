@@ -159,14 +159,14 @@ impl AmbientLightingSystem {
 mod vs {
     vulkano_shaders::shader!{
         ty: "vertex",
-        path: "shaders/light/ambient_light.vert"
+        path: "assets/shaders/light/ambient_light.vert"
     }
 }
 
 mod fs {
     vulkano_shaders::shader!{
         ty: "fragment",
-        path: "shaders/light/ambient_light.frag"
+        path: "assets/shaders/light/ambient_light.frag"
     }
 }
 

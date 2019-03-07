@@ -168,14 +168,14 @@ impl SceneDrawSystem {
 pub mod vs {
     vulkano_shaders::shader!{
         ty: "vertex",
-        path: "shaders/main.vert"
+        path: "assets/shaders/main.vert"
     }
 }
 
 mod fs {
     vulkano_shaders::shader!{
         ty: "fragment",
-        path: "shaders/deferred.frag"
+        path: "assets/shaders/deferred.frag"
     }
 }
 

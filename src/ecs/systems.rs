@@ -153,6 +153,11 @@ impl<'a> RenderingSystem<'a> {
                 );
     }
 
+    pub fn handle_events(&mut self, events: &Vec<crate::event::Event>) {
+
+        self.renderer.handle_events(events);
+    }
+
     pub fn pick_object(&mut self, x: f64, y: f64, ecs: &ECS, resources: &Resources) -> Option<Entity> {
         self.renderer.pick_object(x, y, ecs, resources)
     }

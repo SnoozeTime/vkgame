@@ -94,14 +94,14 @@ impl PickPipelineState {
 pub mod pick_vs {
     vulkano_shaders::shader!{
         ty: "vertex",
-        path: "shaders/pick.vert"
+        path: "assets/shaders/pick.vert"
     }
 }
 
 mod pick_fs {
     vulkano_shaders::shader!{
         ty: "fragment",
-        path: "shaders/pick.frag"
+        path: "assets/shaders/pick.frag"
     }
 }
 

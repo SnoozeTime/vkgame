@@ -521,14 +521,14 @@ fn window_size_dependent_setup(
 mod vs {
     vulkano_shaders::shader!{
         ty: "vertex",
-        path: "shaders/gui.vert"
+        path: "assets/shaders/gui.vert"
     }
 }
 
 mod fs {
     vulkano_shaders::shader!{
         ty: "fragment",
-        path: "shaders/gui.frag" 
+        path: "assets/shaders/gui.frag" 
     }
 }
 

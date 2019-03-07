@@ -15,6 +15,9 @@ vk-sys = "0.3.3"
 # Provides the `shader!` macro that is used to generate code for using shaders.
 vulkano-shaders = "0.11"
 
+# it is inside vulkano-shaders but I am using this for runtime compilation (shader hot reload)
+shaderc = "0.3"
+
 # The Vulkan library doesn't provide any functionality to create and handle windows, as
 # this would be out of scope. In order to open a window, we are going to use the `winit` crate.
 winit = "0.18"
@@ -24,7 +27,7 @@ vulkano-win = "0.11"
 
 cgmath = "0.16.1"
 image = "0.20.0"
-time = "0.1.38"
+# time = "0.1.38"
 
 # Loading .obj 3d models
 tobj = "0.1.6"
@@ -40,3 +43,6 @@ imgui-winit-support = "0.0.22"
 
 # Command line parser
 clap = "2.32"
+
+# Cross-platform filesystem notifier
+notify = "4.0.0"

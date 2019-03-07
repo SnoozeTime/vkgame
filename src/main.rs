@@ -42,7 +42,7 @@ fn main() {
 
 
     let now = Instant::now();
-    let resources = Resources::new(
+    let mut resources = Resources::new(
         render_system.get_device().clone(),
         render_system.get_queue().clone());
     let elapsed_resources = Instant::now() - now;
@@ -70,6 +70,11 @@ fn main() {
     }
 
     'game_loop: loop {  
+        // CHECK FOR RESOURCE UPDATE - I Guess this is just for dev purposes :D So
+        // should find a flag to deactivate on release build.
+        // See here https://doc.rust-lang.org/cargo/reference/manifest.html#the-profile-sections
+        let events = resources.poll_events();
+        render_system.handle_events(&events); 
 
         let nb_scene = scenes.len();
         let scene = &mut scenes[nb_scene - 1];
