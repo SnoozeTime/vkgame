@@ -8,6 +8,7 @@ mod point_lighting_system;
 mod ambient_lighting_system;
 mod directional_lighting_system;
 mod pp_system;
+mod shader;
 mod skybox;
 
 use ui::GuiRenderer;
@@ -297,7 +298,7 @@ impl<'a> Renderer<'a> {
                     sky_pass.draw_skybox(camera);
                 },
                 Pass::PostProcessing(mut post_processing) => {
-                    post_processing.outlines();
+                    //post_processing.outlines();
                 },
                 Pass::Gui(mut draw_pass) => {
                     draw_pass.execute(gui_cb.clone());
@@ -338,9 +339,9 @@ impl<'a> Renderer<'a> {
 
         for ev in events {
             if let Event::ResourceEvent(ResourceEvent::ResourceReloaded(ref path)) = &ev {
-                if (*path).ends_with("gui.vert") || (*path).ends_with("gui.frag") {
-                    self.gui.recompile_shaders();
-                }
+                dbg!(if (*path).ends_with(".vert") || (*path).ends_with("skybox_color.frag") {
+                    self.frame_system.skybox_system.recompile_shaders();
+                });
             }
         }
     }

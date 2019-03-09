@@ -154,7 +154,6 @@ impl<'a> RenderingSystem<'a> {
     }
 
     pub fn handle_events(&mut self, events: &Vec<crate::event::Event>) {
-
         self.renderer.handle_events(events);
     }
 

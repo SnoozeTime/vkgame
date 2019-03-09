@@ -8,5 +8,6 @@ layout (push_constant) uniform PushConstants {
 } push_constants;
 
 void main() {
+
         f_color = push_constants.color;
 }

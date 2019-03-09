@@ -9,7 +9,6 @@ layout (push_constant) uniform PushConstants {
         vec2 translate;
 } pushConstants;
 
-
 layout (location = 0) out vec2 outUv;
 layout (location = 1) out vec4 outColor;
 

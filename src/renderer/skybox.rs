@@ -221,6 +221,13 @@ impl SkyboxSystem {
                 subpass, dimensions, &self.vs, &self.fs
             );
         }
+
+    pub fn recompile_shaders(&mut self) {
+        println!("Recompiling");
+        if let Ok(_) = self.fs.recompile(self.queue.device().clone()) {
+            self.rebuild_pipeline(self.pipeline.clone().subpass(), self.dimensions);
+        }
+    }
 }
 
 pub fn create_mvp(t: &TransformComponent, view: &Matrix4<f32>, proj: &Matrix4<f32>) -> vs::ty::Data {
@@ -237,7 +244,6 @@ pub fn create_mvp(t: &TransformComponent, view: &Matrix4<f32>, proj: &Matrix4<f3
 }
 
 mod vs {
-
     vulkano_shaders::shader!{
         ty: "vertex",
         path: "assets/shaders/skybox.vert"
@@ -245,8 +251,29 @@ mod vs {
 }
 
 mod fs {
-    vulkano_shaders::shader!{
-        ty: "fragment",
-        path: "assets/shaders/skybox_color.frag"
+    
+    twgraph_shader::twshader! {
+
+        path: "assets/shaders/skybox_color.frag",
+        kind: "fragment",
+        input: [
+            // vec3 frag_tex_coords
+            {
+                format: R32G32B32Sfloat,
+                name: "frag_tex_coords"
+            }
+        ],
+        output: [
+            // vec4 f_color
+            {
+                format: R32G32B32A32Sfloat,
+                name: "f_color"
+            }
+        ],
+        // vec4 of 4 bytes :)
+        push_constants: {
+            name: PushConstants,
+            ranges: [(color, 4)],
+        }
     }
 }
