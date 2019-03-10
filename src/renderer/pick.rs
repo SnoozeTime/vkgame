@@ -27,7 +27,6 @@ use super::scene_system::{create_mvp, vs};
  * Then, by using the position of the mouse and reading from the created image,
  * we can get the entity ID.
  * */
-
 pub struct PickPipelineState {
     pub pipeline: Arc<GraphicsPipelineAbstract + Send + Sync>,
     vs: pick_vs::Shader,
@@ -87,21 +86,6 @@ impl PickPipelineState {
                                  .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
                                  .build(device.clone())
                                  .unwrap())
-    }
-}
-
-
-pub mod pick_vs {
-    vulkano_shaders::shader!{
-        ty: "vertex",
-        path: "assets/shaders/pick.vert"
-    }
-}
-
-mod pick_fs {
-    vulkano_shaders::shader!{
-        ty: "fragment",
-        path: "assets/shaders/pick.frag"
     }
 }
 
@@ -355,3 +339,69 @@ impl Object3DPicker {
         None
     }
 }
+
+pub mod pick_vs {
+    twgraph_shader::twshader! {
+        kind: "vertex",
+        path: "assets/shaders/pick.vert",
+        input: [
+            {
+                name: "position",
+                format: R32G32B32Sfloat
+            },
+            {
+                name: "texcoords",
+                format: R32G32Sfloat
+            },
+            {
+                name: "normals",
+                format: R32G32B32Sfloat
+            }
+        ],
+        output: [
+            {
+                name: "frag_color",
+                format: R32G32B32A32Sfloat
+            }
+        ],
+        push_constants: {
+            name: PushConstants,
+            ranges: [
+                (color, 4)
+            ]
+        },
+        descriptors: [
+            {
+                name: Data,
+                ty: Buffer,
+                data: [
+                    (model, "mat4"),
+                    (view, "mat4"),
+                    (proj, "mat4")
+                ],
+                set: 0,
+                binding: 0
+            }
+        ]
+    }
+}
+
+mod pick_fs {
+    twgraph_shader::twshader!{
+        kind: "fragment",
+        path: "assets/shaders/pick.frag",
+        input: [
+            {
+                name: "frag_color",
+                format: R32G32B32A32Sfloat
+            }
+        ],
+        output: [
+            {
+                name: "f_color",
+                format: R32G32B32A32Sfloat
+            }
+        ]
+    }
+}
+

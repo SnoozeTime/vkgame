@@ -244,9 +244,44 @@ pub fn create_mvp(t: &TransformComponent, view: &Matrix4<f32>, proj: &Matrix4<f3
 }
 
 mod vs {
-    vulkano_shaders::shader!{
-        ty: "vertex",
-        path: "assets/shaders/skybox.vert"
+    
+    twgraph_shader::twshader! {
+
+        path: "assets/shaders/skybox.vert",
+        kind: "vertex",
+        input: [
+            {
+                format: R32G32B32Sfloat,
+                name: "position"
+            },
+            {
+                format: R32G32Sfloat,
+                name: "texcoords"
+            },
+            {
+                format: R32G32B32Sfloat,
+                name: "normals"
+            }
+        ],
+        output: [
+            {
+                format: R32G32B32Sfloat,
+                name: "frag_tex_coords"
+            }
+        ],
+        descriptors: [
+            {
+                name: Data,
+                ty: Buffer,
+                binding: 0,
+                set: 0,
+                data: [
+                    (model, "mat4"),
+                    (view, "mat4"),
+                    (proj, "mat4")
+                ]
+            }
+        ],
     }
 }
 

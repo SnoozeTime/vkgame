@@ -8,7 +8,6 @@ mod point_lighting_system;
 mod ambient_lighting_system;
 mod directional_lighting_system;
 mod pp_system;
-mod shader;
 mod skybox;
 
 use ui::GuiRenderer;

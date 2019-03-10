@@ -1271,7 +1271,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "twgraph-shader"
 version = "0.1.0"
-source = "git+https://github.com/SnoozeTime/twgraph-shaders.git#9eabaf3066e643d599e3ae0b81e78d0275ac54b7"
+source = "git+https://github.com/SnoozeTime/twgraph-shaders.git#f59551e6076539d4925cb4dc9ee872d2c8921ec0"
 dependencies = [
  "proc-macro2 0.4.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 0.6.11 (registry+https://github.com/rust-lang/crates.io-index)",

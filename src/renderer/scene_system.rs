@@ -166,16 +166,101 @@ impl SceneDrawSystem {
 }
 
 pub mod vs {
-    vulkano_shaders::shader!{
-        ty: "vertex",
-        path: "assets/shaders/main.vert"
+    twgraph_shader::twshader!{
+        kind: "vertex",
+        path: "assets/shaders/main.vert",
+        input: [
+            {
+                name: "position",
+                format: R32G32B32Sfloat
+            },
+            {
+                name: "texcoords",
+                format: R32G32Sfloat
+            },
+            {
+                name: "normals",
+                format: R32G32B32Sfloat
+            }
+        ],
+        output: [
+            {
+                name: "frag_color",
+                format: R32G32B32A32Sfloat
+            },
+            {
+                name: "frag_tex_coords",
+                format: R32G32Sfloat
+            },
+            {
+                name: "frag_position",
+                format: R32G32B32Sfloat
+            },
+            {
+                name: "frag_normal",
+                format: R32G32B32Sfloat
+            }
+        ],
+        descriptors: [
+            {
+                name: Data,
+                ty: Buffer,
+                set: 0,
+                binding: 0,
+                data: [
+                    (model, "mat4"),
+                    (view, "mat4"),
+                    (proj, "mat4")
+                ]
+            }
+        ]
     }
 }
 
 mod fs {
-    vulkano_shaders::shader!{
-        ty: "fragment",
-        path: "assets/shaders/deferred.frag"
+    twgraph_shader::twshader!{
+        kind: "fragment",
+        path: "assets/shaders/deferred.frag",
+        input: [
+            {
+                name: "frag_color",
+                format: R32G32B32A32Sfloat
+            },
+            {
+                name: "frag_tex_coords",
+                format: R32G32Sfloat
+            },
+            {
+                name: "frag_position",
+                format: R32G32B32Sfloat
+            },
+            {
+                name: "frag_normal",
+                format: R32G32B32Sfloat
+            }
+        ],
+        output: [
+            {
+                name: "f_color",
+                format: R32G32B32A32Sfloat
+            },
+            {
+                name: "f_normal",
+                format: R32G32B32Sfloat
+            },
+            {
+                name: "f_pos",
+                format: R32G32B32Sfloat
+            }
+        ],
+        descriptors: [
+            {
+                name: texSampler,
+                ty: SampledImage,
+                set: 1,
+                binding: 0
+            }
+        ],
     }
 }
 

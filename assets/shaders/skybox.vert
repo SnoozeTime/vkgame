@@ -2,6 +2,7 @@
 
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec2 texcoords;
+// not used but I push it anyway to reuse my meshes
 layout(location = 2) in vec3 normals;
 
 layout(location = 0) out vec3 frag_tex_coords;
