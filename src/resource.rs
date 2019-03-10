@@ -10,6 +10,8 @@ use crate::event::{Event, ResourceEvent};
 use crate::renderer::model::ModelManager;
 use crate::renderer::texture::TextureManager;
 
+use std::ffi::OsStr;
+
 pub struct Resources {
     pub models: ModelManager,
     pub textures: TextureManager,
@@ -68,6 +70,8 @@ impl Resources {
         self.textures.load_texture("red".to_string(), Path::new("assets/red.png"), 93, 93, self.device.clone(), self.queue.clone()).unwrap();
         self.textures.load_texture("blue".to_string(), Path::new("assets/blue.png"), 93, 93, self.device.clone(), self.queue.clone()).unwrap();
         self.textures.load_texture("green".to_string(), Path::new("assets/green.png"), 93, 93, self.device.clone(), self.queue.clone()).unwrap();
+        self.textures.load_texture("green2".to_string(), Path::new("assets/green2.png"), 93, 93, self.device.clone(), self.queue.clone()).unwrap();
+        self.textures.load_texture("brown".to_string(), Path::new("assets/brown.png"), 92, 92, self.device.clone(), self.queue.clone()).unwrap();
         //        self.textures.load_texture("floor".to_string(), Path::new("assets/textures/Concrete_Panels_001_COLOR.jpg"), 1024, 1024, self.device.clone(), self.queue.clone()).unwrap();
     }
 
@@ -76,6 +80,8 @@ impl Resources {
         self.models.load_model("cube".to_string(), Path::new("assets/test1.obj"), self.device.clone()).expect("Cannot load model");
         self.models.load_model("floor".to_string(), Path::new("assets/floor.obj"), self.device.clone()).expect("Cannot load model");
         self.models.load_model("room".to_string(), Path::new("assets/room.obj"), self.device.clone()).expect("Cannot load model");
+        self.models.load_model("tree1_trunk".to_string(), Path::new("assets/tree1_trunk.obj"), self.device.clone()).expect("Cannot load model");
+        self.models.load_model("tree1_leaves".to_string(), Path::new("assets/tree1_leaves.obj"), self.device.clone()).expect("Cannot load model");
         //self.models.load_model("building".to_string(), Path::new("assets/models/arena.obj"), self.device.clone()).expect("Cannot load model");
 
         println!("Finished reading models");
@@ -95,6 +101,18 @@ impl Resources {
 
                 Ok(ev) => {
                     if let DebouncedEvent::Write(path) = ev {
+                        // Check if it is a model. If yes, reload/load it.
+                        if let Some(extension) = path.extension() {
+                            match extension {
+                                x if x == OsStr::new("obj") => {
+                                    if let Some(filename) = path.file_stem().and_then(|osstr| osstr.to_str()) {
+                                        println!("Will reload: {}", filename);
+                                        self.models.load_model(filename.to_string(), &path, self.device.clone());
+                                    }
+                                },
+                                _ => ()
+                            }
+                        }
                         events.push(Event::ResourceEvent(ResourceEvent::ResourceReloaded(path)));
                     }
                 },
@@ -105,9 +123,4 @@ impl Resources {
 
         events
     }
-}
-
-pub trait Reloadeable {
-    fn should_reload(&self, event: &Event) -> bool;
-    fn reload(&mut self, event: &Event);
 }

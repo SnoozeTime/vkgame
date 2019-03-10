@@ -62,7 +62,7 @@ fn main() {
     }
 
     if let Some(_matches) = matches.subcommand_matches("editor") {
-        scenes.push(Box::new(EditorScene::new(&render_system)));
+        scenes.push(Box::new(EditorScene::new(&render_system, &resources)));
     }
 
     if scenes.len() == 0 {

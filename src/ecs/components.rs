@@ -16,9 +16,44 @@ pub struct ModelComponent {
 }
 
 impl ModelComponent {
-    pub fn draw_ui(&mut self, ui: &Ui, _editor: &Editor) {
-        ui.text(im_str!("Model: {}", self.mesh_name)); 
-        ui.text(im_str!("Texture: {}", self.texture_name)); 
+    pub fn draw_ui(&mut self, ui: &Ui, editor: &Editor) {
+
+        if ui.small_button(im_str!("Select..")) {
+            ui.open_popup(im_str!("select"));
+        }
+        ui.same_line(0.0);
+        ui.text(im_str!("{}", self.mesh_name));
+        ui.popup(im_str!("select"), || {  
+
+            for model_name in &editor.all_models {
+                let selected = *model_name == self.mesh_name;
+
+                if ui.selectable(im_str!("{}", model_name), selected, 
+                                 ImGuiSelectableFlags::empty(),
+                                 ImVec2::new(0.0, 0.0)) {
+                    self.mesh_name = (*model_name).clone();
+                }
+            }
+        });
+
+        if ui.small_button(im_str!("Select texture...")) {
+            ui.open_popup(im_str!("select_texture"));
+        }
+        ui.same_line(0.0);
+        ui.text(im_str!("{}", self.texture_name));
+        ui.popup(im_str!("select_texture"), || {
+
+            for texture_name in &editor.all_textures {
+                let selected = *texture_name == self.texture_name;
+
+                if ui.selectable(im_str!("{}", texture_name), selected, 
+                                 ImGuiSelectableFlags::empty(),
+                                 ImVec2::new(0.0, 0.0)) {
+                    self.texture_name = (*texture_name).clone();
+                }
+            }
+
+        });
     }
 
 }

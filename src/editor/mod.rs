@@ -10,6 +10,7 @@ use crate::ui::Gui;
 use std::collections::HashMap;
 mod file_select;
 use file_select::{file_select, FileSelect};
+use crate::resource::Resources;
 
 pub struct Editor {
     pub selected_entity: Option<Entity>,
@@ -25,11 +26,26 @@ pub struct Editor {
 
     show_fileselect: bool,
     file_select: FileSelect,
+
+    pub all_textures: Vec<String>,
+    pub all_models: Vec<String>,
 }
 
 impl Editor {
 
-    pub fn new() -> Self {
+    pub fn new(resources: &Resources) -> Self {
+
+        let mut all_models = vec![];
+        for (model_name, _) in &resources.models.models {
+            all_models.push((*model_name).clone());
+        }
+
+
+        let mut all_textures = vec![];
+        for (texture_name, _) in &resources.textures.textures {
+            all_textures.push((*texture_name).clone());
+        }
+
         Editor {
             selected_entity: None,
             hovered: false,
@@ -38,6 +54,8 @@ impl Editor {
             components_state: HashMap::new(),
             show_fileselect: false,
             file_select: FileSelect::new(),
+            all_textures,
+            all_models,
         }
     }
 }

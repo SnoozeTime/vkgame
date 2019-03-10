@@ -113,11 +113,16 @@ impl ECS {
         let id1 = ecs.new_entity();
         let id2 = ecs.new_entity();
         let id3 = ecs.new_entity();
+        
+        // tree
+        let id4 = ecs.new_entity();
+        let id5 = ecs.new_entity();
+        
         let components = &mut ecs.components;
         components.transforms.set(&id1, TransformComponent {
             position: Vector3::new(0.0, 0.0, 1.0),
             rotation: Vector3::new(0.0, 0.0, 0.0),
-            scale: Vector3::new(2.0, 2.0, 2.0),
+            scale: Vector3::new(1.0, 1.0, 1.0),
         });
         components.models.set(&id1, ModelComponent {
             mesh_name: "room".to_owned(),
@@ -144,9 +149,30 @@ impl ECS {
             color: [1.0, 1.0, 1.0],
             light_type: LightType::Directional,
         });
-        components.dummies.set(&id3, DummyComponent {
-            speed: 5.0,
+
+        // My tree
+       components.transforms.set(&id4, TransformComponent {
+            position: Vector3::new(0.0, 0.0, 1.0),
+            rotation: Vector3::new(0.0, 0.0, 0.0),
+            scale: Vector3::new(1.0, 1.0, 1.0),
         });
+        components.models.set(&id4, ModelComponent {
+            mesh_name: "tree1_leaves".to_owned(),
+            texture_name: "green2".to_owned(),
+        });
+
+        components.transforms.set(&id5, TransformComponent {
+            position: Vector3::new(0.0, 0.0, 1.0),
+            rotation: Vector3::new(0.0, 0.0, 0.0),
+            scale: Vector3::new(1.0, 1.0, 1.0),
+        });
+        components.models.set(&id5, ModelComponent {
+            mesh_name: "tree1_trunk".to_owned(),
+            texture_name: "brown".to_owned(),
+        });
+
+
+       
 
         ecs
     }
@@ -273,14 +299,23 @@ macro_rules! register_components {
 
                     if let Some(entity) = editor.selected_entity {
                         $(
+                            let mut should_delete = false;
                             if let Some($name) = self.$name.get_mut(&entity) {
                                 ui.tree_node(im_str!($gui_name)).opened(true, ImGuiCond::FirstUseEver).build(|| {
+                                    ui.same_line(0.0);
+                                    if ui.small_button(im_str!("Delete")) {
+                                        should_delete = true;
+                                    }
                                     $name.draw_ui(&ui, editor);
                                 });
                             }
+
+                            if should_delete {
+                            self.$name.empty(&entity);
+                            }
                         )+
 
-                            new_component_popup(ui, editor);
+                        new_component_popup(ui, editor);
                     }
                 }
             }

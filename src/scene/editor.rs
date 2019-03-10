@@ -24,18 +24,18 @@ pub struct EditorScene {
 
 impl EditorScene {
 
-    pub fn new<'a>(render_system: &RenderingSystem<'a>) -> Self {
+    pub fn new<'a>(render_system: &RenderingSystem<'a>, resources: &Resources) -> Self {
         let ecs = ECS::dummy_ecs();
-        EditorScene::from_ecs(ecs, render_system)
+        EditorScene::from_ecs(ecs, render_system, resources)
     }
 
-    pub fn from_path<'a>(path: String, render_system: &RenderingSystem<'a>) -> Self {
+    pub fn from_path<'a>(path: String, render_system: &RenderingSystem<'a>, resources: &Resources) -> Self {
         let ecs = ECS::load(path).unwrap();
 
-        EditorScene::from_ecs(ecs, render_system)
+        EditorScene::from_ecs(ecs, render_system, resources)
     }
 
-    fn from_ecs<'a>(mut ecs: ECS, render_system: &RenderingSystem<'a>) -> Self {
+    fn from_ecs<'a>(mut ecs: ECS, render_system: &RenderingSystem<'a>, resources: &Resources) -> Self {
 
         let transform = TransformComponent {
             position: Vector3::new(0.0, 1.0, 0.0),
@@ -51,7 +51,7 @@ impl EditorScene {
 
         EditorScene {
             ecs,
-            editor: Editor::new(),
+            editor: Editor::new(resources),
             object_picker: Object3DPicker::new(
                 render_system.get_device(),
                 render_system.get_queue(),
