@@ -1,4 +1,4 @@
-use std::time::{Instant, Duration};
+use std::time::Duration;
 
 // Should be alright with the conversion. A frame duration will not exceed f32...
 pub fn dt_as_secs(dt: Duration) -> f64 {

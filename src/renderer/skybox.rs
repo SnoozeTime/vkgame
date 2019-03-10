@@ -3,7 +3,7 @@ use crate::camera::Camera;
 use vulkano::command_buffer::AutoCommandBufferBuilder;
 use vulkano::command_buffer::DynamicState;
 use cgmath::SquareMatrix;
-use cgmath::{InnerSpace, Matrix4, Vector3, Rad, Angle, Point3};
+use cgmath::{Matrix4, Vector3, Rad};
 use vulkano::device::Queue;
 use vulkano::pipeline::{
     GraphicsPipelineAbstract, GraphicsPipeline,
@@ -11,15 +11,10 @@ use vulkano::pipeline::{
 };
 use vulkano::framebuffer::RenderPassAbstract;
 use vulkano::framebuffer::Subpass;
-use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
-use vulkano::image::{ImmutableImage, Dimensions};
-use vulkano::sampler::{Sampler, SamplerAddressMode, Filter, MipmapMode};
-use vulkano::format::Format;
-use vulkano::sync::GpuFuture;
+use vulkano::buffer::BufferUsage;
 use vulkano::buffer::cpu_pool::CpuBufferPool;
 use vulkano::descriptor::descriptor_set::PersistentDescriptorSet;
 
-use image::{ImageFormat};
 use crate::renderer::model::{Vertex, Model};
 use crate::ecs::components::TransformComponent;
 

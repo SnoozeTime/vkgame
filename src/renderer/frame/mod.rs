@@ -31,7 +31,6 @@ use super::skybox::SkyboxSystem;
 use crate::camera::Camera;
 mod renderpass;
 
-use std::time::{Instant, Duration};
 
 impl GBufferComponent {
     fn new(device: Arc<Device>,

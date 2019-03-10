@@ -30,18 +30,12 @@ use crate::resource::Resources;
 use crate::camera::Camera;
 use crate::ecs::components::{TransformComponent, ModelComponent, LightComponent, LightType};
 use crate::ecs::{Entity, ECS};
-use crate::time::dt_as_secs;
 use crate::event::{ResourceEvent, Event};
-use std::path::PathBuf;
 use scene_system::SceneDrawSystem;
 use frame::{Pass, FrameSystem};
 
 use vulkano::image::AttachmentImage;
 use vulkano::sampler::Sampler;
-
-use cgmath::Vector3;
-
-use std::time::{Instant, Duration};
 
 pub struct GBufferComponent {
     pub image: Arc<AttachmentImage>,
@@ -288,16 +282,14 @@ impl<'a> Renderer<'a> {
                             LightType::Ambient => {
                                 lighting_pass.ambient_light(light.color);
                             }
-                            _ => (),
                         }
                     }
                 },
                 Pass::Skybox(mut sky_pass) => {
-                    let (view, proj) = camera.get_vp(); 
                     sky_pass.draw_skybox(camera);
                 },
                 Pass::PostProcessing(mut post_processing) => {
-                    //post_processing.outlines();
+                    post_processing.outlines();
                 },
                 Pass::Gui(mut draw_pass) => {
                     draw_pass.execute(gui_cb.clone());

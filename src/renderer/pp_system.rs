@@ -1,6 +1,4 @@
 use vulkano::device::Queue;
-use vulkano::pipeline::blend::{AttachmentBlend, BlendFactor, BlendOp};
-use vulkano::image::ImageViewAccess;
 use vulkano::buffer::BufferUsage;
 use vulkano::buffer::CpuAccessibleBuffer;
 use vulkano::pipeline::{GraphicsPipelineAbstract, GraphicsPipeline};
@@ -9,10 +7,8 @@ use vulkano::pipeline::viewport::Viewport;
 
 use vulkano::command_buffer::AutoCommandBuffer;
 use vulkano::command_buffer::AutoCommandBufferBuilder;
-use vulkano::descriptor::descriptor_set::{DescriptorSet, PersistentDescriptorSet};
+use vulkano::descriptor::descriptor_set::PersistentDescriptorSet;
 use vulkano::command_buffer::DynamicState;
-
-use cgmath::Vector3;
 
 use std::iter;
 use std::sync::Arc;
@@ -147,16 +143,51 @@ impl PPSystem {
 }
 
 mod vs {
-    vulkano_shaders::shader!{
-        ty: "vertex",
-        path: "assets/shaders/post_processing/edge.vert"
+    twgraph_shader::twshader!{
+        kind: "vertex",
+        path: "assets/shaders/post_processing/edge.vert",
+        input: [
+            {
+                name: "position",
+                format: R32G32Sfloat
+            },
+            {
+                name: "uv",
+                format: R32G32Sfloat
+            }
+        ],
+        output: [
+            {
+                name: "outUv",
+                format: R32G32Sfloat
+            }
+        ]   
     }
 }
 
 mod fs {
-    vulkano_shaders::shader!{
-        ty: "fragment",
-        path: "assets/shaders/post_processing/edge.frag"
+    twgraph_shader::twshader! {
+        kind: "fragment",
+        path: "assets/shaders/post_processing/edge.frag",
+        input: [
+            {
+                name: "uv",
+                format: R32G32Sfloat
+            }
+        ],
+        output: [
+            {
+                name: "f_color",
+                format: R32G32B32A32Sfloat
+            }
+        ],
+        descriptors: [
+            {
+                name: diffuseSampler,
+                ty: SampledImage,
+                set: 0,
+                binding: 0
+            }
+        ]
     }
 }
-

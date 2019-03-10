@@ -21,7 +21,7 @@ pub struct Resources {
     // Will receive event from watcher.
     rx: Receiver<DebouncedEvent>,
     watcher: RecommendedWatcher,
-    resource_path: PathBuf,
+    _resource_path: PathBuf,
 }
 
 impl Resources {
@@ -43,7 +43,7 @@ impl Resources {
             queue,
             rx,
             watcher,
-            resource_path: resource_path.to_path_buf(),
+            _resource_path: resource_path.to_path_buf(),
         };
 
         timed!(r.init_textures());

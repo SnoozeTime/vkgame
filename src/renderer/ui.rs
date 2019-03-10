@@ -18,19 +18,6 @@ use std::sync::Arc;
 
 use winit::Window;
 
-use shaderc::{Compiler, CompileOptions};
-use std::fs::File;
-use std::io::Read;
-use vulkano::format::Format;
-use std::borrow::Cow;
-use vulkano::descriptor::descriptor::DescriptorDesc;
-use std::ffi::CStr;
-use vulkano::pipeline::shader::{GraphicsShaderType, ShaderInterfaceDef, ShaderInterfaceDefEntry, ShaderModule};
-use vulkano::descriptor::descriptor::ShaderStages;
-use vulkano::descriptor::pipeline_layout::PipelineLayoutDesc;
-use vulkano::descriptor::pipeline_layout::PipelineLayoutDescPcRange;
-use vulkano::pipeline::shader::GraphicsEntryPointAbstract;
-
 pub struct Texture {
     pub texture: Arc<ImmutableImage<R8G8B8A8Unorm>>,
     pub sampler: Arc<Sampler>,
@@ -278,49 +265,8 @@ impl GuiRenderer {
             self.pipeline = GuiRenderer::build_pipeline(self.queue.clone(),
             subpass, &self.vs, &self.fs);
         }
-
-    pub fn recompile_shaders(&mut self) {
-
-        // Yaaaay
-        println!("RECOMPILE SHADERS");
-
-        let vs = {
-            let mut f = File::open("assets/shaders/gui.vert")
-                .expect("Can't find file src/bin/runtime-shader/vert.spv This example needs to be run from the root of the example crate.");
-            let mut content = String::new();
-            f.read_to_string(&mut content).unwrap();
-
-            let mut compiler = shaderc::Compiler::new().unwrap();
-            let mut options = shaderc::CompileOptions::new().unwrap();
-            let binary_result = compiler.compile_into_spirv(
-                content.as_str(), shaderc::ShaderKind::Vertex,
-                "shaderrr.glsl", "main", None).unwrap();
-
-            // Create a ShaderModule on a device the same Shader::load does it.
-            // NOTE: You will have to verify correctness of the data by yourself!
-            unsafe { ShaderModule::new(self.queue.device().clone(), &binary_result.as_binary_u8()) }.unwrap()
-        };
-
-        //        self.vs.shader = Arc::new(vs);
-        //
-        //	let fs = {
-        //	    let mut f = File::open("assets/shaders/gui.frag")
-        //		.expect("Can't find file src/bin/runtime-shader/frag.spv");
-        //	    let mut v = vec![];
-        //	    f.read_to_end(&mut v).unwrap();
-        //	    unsafe { ShaderModule::new(device.clone(), &v) }.unwrap()
-        //	};
-    }
 }
 
-//
-//mod ui_vs {
-//    vulkano_shaders::shader!{
-//        ty: "vertex",
-//        path: "assets/shaders/gui.vert"
-//    }
-//}
-//
 mod ui_vs {
     
     twgraph_shader::twshader!{
@@ -364,10 +310,33 @@ mod ui_vs {
 
 }
 
-pub mod ui_fs {
-    vulkano_shaders::shader!{
-        ty: "fragment",
-        path: "assets/shaders/gui.frag"
+mod ui_fs {
+    twgraph_shader::twshader! {
+        kind: "fragment",
+        path: "assets/shaders/gui.frag",
+        input: [
+            {
+                name: "inUv",
+                format: R32G32Sfloat
+            },
+            {
+                name: "inColor",
+                format: R32G32B32A32Sfloat
+            }
+        ],
+        output: [
+            {
+                name: "f_color",
+                format: R32G32B32A32Sfloat
+            }
+        ],
+        descriptors: [
+            {
+                name: fontSampler,
+                ty: SampledImage,
+                set: 0,
+                binding: 0,
+            }
+        ]
     }
 }
-
