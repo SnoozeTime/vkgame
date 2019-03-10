@@ -13,7 +13,6 @@ layout(push_constant) uniform PushConstants {
         vec4 position;
 } push_constants;
 
-layout(location = 0) in vec2 v_screen_coords;
 layout(location = 0) out vec4 f_color;
 
 void main() {

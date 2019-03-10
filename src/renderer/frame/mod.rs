@@ -79,7 +79,7 @@ pub struct FrameSystem {
     point_lighting_system: PointLightingSystem,
     ambient_lighting_system: AmbientLightingSystem,
     directional_lighting_system: DirectionalLightingSystem,
-    pp_system: PPSystem,
+    pub pp_system: PPSystem,
     pub skybox_system: SkyboxSystem,
 }
 

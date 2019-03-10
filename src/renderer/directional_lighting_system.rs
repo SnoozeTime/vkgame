@@ -165,15 +165,63 @@ impl DirectionalLightingSystem {
 }
 
 mod vs {
-    vulkano_shaders::shader!{
-        ty: "vertex",
-        path: "assets/shaders/light/directional_light.vert"
+    twgraph_shader::twshader!{
+        kind: "vertex",
+        path: "assets/shaders/light/directional_light.vert",
+        input: [
+            {
+                name: "position",
+                format: R32G32Sfloat
+            }
+        ],
+        output: [
+            {
+                name: "v_screen_coords",
+                format: R32G32Sfloat
+            }
+        ]
     }
 }
 
 mod fs {
-    vulkano_shaders::shader!{
-        ty: "fragment",
-        path: "assets/shaders/light/directional_light.frag"
+    twgraph_shader::twshader!{
+        kind: "fragment",
+        path: "assets/shaders/light/directional_light.frag",
+        input: [
+            {
+                name: "v_screen_coords",
+                format: R32G32Sfloat
+            }
+        ],
+        output: [
+            {
+                name: "f_color",
+                format: R32G32B32A32Sfloat
+            }
+        ],
+        push_constants: {
+            name: PushConstants,
+            ranges: [(color, 4), (position, 4)]
+        },
+        descriptors: [
+            {
+                name: u_diffuse,
+                ty: InputAttachment,
+                set: 0,
+                binding: 0
+            },
+            {
+                name: u_normals,
+                ty: InputAttachment,
+                set: 0,
+                binding: 1
+            },
+            {
+                name: U_depth,
+                ty: InputAttachment,
+                set: 0,
+                binding: 2
+            }
+        ]
     }
 }

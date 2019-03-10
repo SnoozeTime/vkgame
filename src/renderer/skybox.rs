@@ -17,6 +17,7 @@ use vulkano::descriptor::descriptor_set::PersistentDescriptorSet;
 
 use crate::renderer::model::{Vertex, Model};
 use crate::ecs::components::TransformComponent;
+use crate::event::{Event, ResourceEvent};
 
 use std::sync::Arc;
 use std::path::Path;
@@ -53,41 +54,41 @@ impl SkyboxSystem {
             // cubemap are textures with 6 images.
             // left, right, bottom, top, back, and front
             //let img_negx = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
-//            let img_posx = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
-//            let img_posy = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
-//            let img_negy = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
-//            let img_negz = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
-//            let img_posz = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
+            //            let img_posx = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
+            //            let img_posy = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
+            //            let img_negy = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
+            //            let img_negz = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
+            //            let img_posz = image::load_from_memory_with_format(include_bytes!("../../assets/skyblue.png"), ImageFormat::PNG).unwrap().to_rgba();
 
 
-//            let cubemap_images = [img_posx, img_negx, img_posy, img_negy, img_posz, img_negz];
-//            let mut image_data: Vec<u8> = Vec::new();
-//
-//            for image in cubemap_images.into_iter() {
-//                let mut image0 = image.clone().into_raw().clone();
-//                image_data.append(&mut image0);
-//            }
-//
-//            let (skybox_img, gpu_future) = {
-//                ImmutableImage::from_iter(image_data.iter().cloned(),
-//                Dimensions::Cubemap { size: 512},
-//                Format::R8G8B8A8Srgb,
-//                queue.clone()).unwrap()
-//            };
-//
-//            let skybox_sampler = Sampler::new(
-//                queue.device().clone(),
-//                Filter::Linear,
-//                Filter::Linear,
-//                MipmapMode::Nearest,
-//                SamplerAddressMode::Repeat,
-//                SamplerAddressMode::Repeat,
-//                SamplerAddressMode::Repeat, 0.0, 1.0, 0.0, 0.0).unwrap();
-//
-//            // TODO need a better way
-//            gpu_future
-//                .then_signal_fence_and_flush().unwrap()
-//                .wait(None).unwrap(); 
+            //            let cubemap_images = [img_posx, img_negx, img_posy, img_negy, img_posz, img_negz];
+            //            let mut image_data: Vec<u8> = Vec::new();
+            //
+            //            for image in cubemap_images.into_iter() {
+            //                let mut image0 = image.clone().into_raw().clone();
+            //                image_data.append(&mut image0);
+            //            }
+            //
+            //            let (skybox_img, gpu_future) = {
+            //                ImmutableImage::from_iter(image_data.iter().cloned(),
+            //                Dimensions::Cubemap { size: 512},
+            //                Format::R8G8B8A8Srgb,
+            //                queue.clone()).unwrap()
+            //            };
+            //
+            //            let skybox_sampler = Sampler::new(
+            //                queue.device().clone(),
+            //                Filter::Linear,
+            //                Filter::Linear,
+            //                MipmapMode::Nearest,
+            //                SamplerAddressMode::Repeat,
+            //                SamplerAddressMode::Repeat,
+            //                SamplerAddressMode::Repeat, 0.0, 1.0, 0.0, 0.0).unwrap();
+            //
+            //            // TODO need a better way
+            //            gpu_future
+            //                .then_signal_fence_and_flush().unwrap()
+            //                .wait(None).unwrap(); 
 
 
             // -----------------------------
@@ -98,10 +99,10 @@ impl SkyboxSystem {
             let skybox_color = fs::ty::PushConstants {
 
                 color: [color[0]/255.0,
-                        color[1]/255.0,
-                        color[2]/255.0,
-                        1.0],
-                    };
+                color[1]/255.0,
+                color[2]/255.0,
+                1.0],
+            };
 
             let dimensions = [1, 1];
             let uniform_buffer = CpuBufferPool::<vs::ty::Data>::new(queue.device().clone(), BufferUsage::all());
@@ -163,10 +164,10 @@ impl SkyboxSystem {
                            .add_buffer(uniform_data).unwrap()
                            .build().unwrap());
 
-//        let tex_set = Arc::new(
-//            PersistentDescriptorSet::start(self.pipeline.clone(), 1)
-//            .add_sampled_image(self.skybox_img.clone(), self.skybox_sampler.clone()).unwrap().build().unwrap());
-//
+        //        let tex_set = Arc::new(
+        //            PersistentDescriptorSet::start(self.pipeline.clone(), 1)
+        //            .add_sampled_image(self.skybox_img.clone(), self.skybox_sampler.clone()).unwrap().build().unwrap());
+        //
         let mut builder = AutoCommandBufferBuilder::secondary_graphics(
             self.queue.device().clone(),
             self.queue.family(),
@@ -223,6 +224,27 @@ impl SkyboxSystem {
             self.rebuild_pipeline(self.pipeline.clone().subpass(), self.dimensions);
         }
     }
+
+    pub fn handle_event(&mut self, ev: &Event) {
+
+        if let Event::ResourceEvent(ResourceEvent::ResourceReloaded(ref path)) = ev {
+
+            if (*path).ends_with("skybox.vert") ||
+                (*path).ends_with("skybox_color.frag") {
+
+                    println!("Recompiling skybox");
+                    if let Err(err) = self.vs.recompile(self.queue.device().clone())
+                        .and_then(|_| self.fs.recompile(self.queue.device().clone()))
+                            .and_then(|_| {self.rebuild_pipeline(self.pipeline.clone().subpass(),
+                            self.dimensions); Ok(()) }) {
+
+                                dbg!(err);
+                            }
+
+                }
+        }
+
+    }
 }
 
 pub fn create_mvp(t: &TransformComponent, view: &Matrix4<f32>, proj: &Matrix4<f32>) -> vs::ty::Data {
@@ -239,66 +261,66 @@ pub fn create_mvp(t: &TransformComponent, view: &Matrix4<f32>, proj: &Matrix4<f3
 }
 
 mod vs {
-    
+
     twgraph_shader::twshader! {
 
         path: "assets/shaders/skybox.vert",
         kind: "vertex",
         input: [
-            {
-                format: R32G32B32Sfloat,
-                name: "position"
-            },
-            {
-                format: R32G32Sfloat,
-                name: "texcoords"
-            },
-            {
-                format: R32G32B32Sfloat,
-                name: "normals"
-            }
+        {
+            format: R32G32B32Sfloat,
+            name: "position"
+        },
+        {
+            format: R32G32Sfloat,
+            name: "texcoords"
+        },
+        {
+            format: R32G32B32Sfloat,
+            name: "normals"
+        }
         ],
         output: [
-            {
-                format: R32G32B32Sfloat,
-                name: "frag_tex_coords"
-            }
+        {
+            format: R32G32B32Sfloat,
+            name: "frag_tex_coords"
+        }
         ],
         descriptors: [
-            {
-                name: Data,
-                ty: Buffer,
-                binding: 0,
-                set: 0,
-                data: [
-                    (model, "mat4"),
-                    (view, "mat4"),
-                    (proj, "mat4")
-                ]
-            }
+        {
+            name: Data,
+            ty: Buffer,
+            binding: 0,
+            set: 0,
+            data: [
+                (model, "mat4"),
+                (view, "mat4"),
+                (proj, "mat4")
+            ]
+        }
         ],
     }
 }
 
 mod fs {
-    
+
     twgraph_shader::twshader! {
 
         path: "assets/shaders/skybox_color.frag",
         kind: "fragment",
         input: [
             // vec3 frag_tex_coords
-            {
-                format: R32G32B32Sfloat,
-                name: "frag_tex_coords"
-            }
+        {
+            format: R32G32B32Sfloat,
+            name: "frag_tex_coords"
+        }
         ],
         output: [
             // vec4 f_color
-            {
-                format: R32G32B32A32Sfloat,
-                name: "f_color"
-            }
+        {
+            format: R32G32B32A32Sfloat,
+            name: "f_color"
+        }
         ],
         // vec4 of 4 bytes :)
         push_constants: {

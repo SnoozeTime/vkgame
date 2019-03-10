@@ -104,5 +104,9 @@ impl Resources {
 
         events
     }
+}
 
+pub trait Reloadeable {
+    fn should_reload(&self, event: &Event) -> bool;
+    fn reload(&mut self, event: &Event);
 }

@@ -9,6 +9,7 @@ use vulkano::command_buffer::AutoCommandBuffer;
 use vulkano::command_buffer::AutoCommandBufferBuilder;
 use vulkano::descriptor::descriptor_set::PersistentDescriptorSet;
 use vulkano::command_buffer::DynamicState;
+use crate::event::{Event, ResourceEvent};
 
 use std::iter;
 use std::sync::Arc;
@@ -29,6 +30,7 @@ pub struct PPSystem {
     vs: vs::Shader,
     fs: fs::Shader,
     pipeline: Arc<GraphicsPipelineAbstract + Send + Sync>,
+    dimensions: [u32; 2],
 }
 
 impl PPSystem {
@@ -73,6 +75,7 @@ impl PPSystem {
                 vs,
                 fs,
                 pipeline,
+                dimensions: [1, 1],
             }
         }
 
@@ -82,6 +85,7 @@ impl PPSystem {
         dimensions: [u32; 2],
         ) where R: RenderPassAbstract + Send + Sync + 'static {
 
+        self.dimensions = dimensions;
         self.pipeline = PPSystem::build_pipeline(
             self.queue.clone(),
             subpass,
@@ -138,6 +142,27 @@ impl PPSystem {
             descriptor.clone(),
             ())
             .unwrap().build().unwrap()
+
+    }
+
+    pub fn handle_event(&mut self, ev: &Event) {
+
+        if let Event::ResourceEvent(ResourceEvent::ResourceReloaded(ref path)) = ev {
+
+            if (*path).ends_with("edge.vert") ||
+                (*path).ends_with("edge.frag") {
+
+                    println!("Recompiling post_processing");
+                    if let Err(err) = self.vs.recompile(self.queue.device().clone())
+                        .and_then(|_| self.fs.recompile(self.queue.device().clone()))
+                            .and_then(|_| {self.rebuild_pipeline(self.pipeline.clone().subpass(),
+                            self.dimensions); Ok(()) }) {
+
+                                dbg!(err);
+                            }
+
+                }
+        }
 
     }
 }

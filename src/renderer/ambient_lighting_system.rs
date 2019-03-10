@@ -157,17 +157,43 @@ impl AmbientLightingSystem {
 }
 
 mod vs {
-    vulkano_shaders::shader!{
-        ty: "vertex",
-        path: "assets/shaders/light/ambient_light.vert"
+    twgraph_shader::twshader!{
+        kind: "vertex",
+        path: "assets/shaders/light/ambient_light.vert",
+        input: [
+            {
+                name: "position",
+                format: R32G32Sfloat
+            }
+        ],
+        output: [
+        ]
     }
 }
 
 mod fs {
-    vulkano_shaders::shader!{
-        ty: "fragment",
-        path: "assets/shaders/light/ambient_light.frag"
+    twgraph_shader::twshader!{
+        kind: "fragment",
+        path: "assets/shaders/light/ambient_light.frag",
+        input: [
+        ],
+        output: [
+            {
+                name: "f_color",
+                format: R32G32B32A32Sfloat
+            }
+        ],
+        push_constants: {
+            name: PushConstants,
+            ranges: [(color, 3)]
+        },
+        descriptors: [
+            {
+                name: u_diffuse,
+                ty: InputAttachment,
+                set: 0,
+                binding: 0
+            }
+        ]
     }
 }
-
-

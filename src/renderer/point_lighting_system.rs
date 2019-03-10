@@ -167,16 +167,63 @@ impl PointLightingSystem {
               }
 }
 
+
 mod vs {
-    vulkano_shaders::shader!{
-        ty: "vertex",
-        path: "assets/shaders/light/point_light.vert"
+    twgraph_shader::twshader!{
+        kind: "vertex",
+        path: "assets/shaders/light/point_light.vert",
+        input: [
+            {
+                name: "position",
+                format: R32G32Sfloat
+            }
+        ],
+        output: [
+        ]
     }
 }
 
 mod fs {
-    vulkano_shaders::shader!{
-        ty: "fragment",
-        path: "assets/shaders/light/point_light.frag"
+    twgraph_shader::twshader!{
+        kind: "fragment",
+        path: "assets/shaders/light/point_light.frag",
+        input: [
+        ],
+        output: [
+            {
+                name: "f_color",
+                format: R32G32B32A32Sfloat
+            }
+        ],
+        push_constants: {
+            name: PushConstants,
+            ranges: [(color, 4), (position, 4)]
+        },
+        descriptors: [
+            {
+                name: u_diffuse,
+                ty: InputAttachment,
+                set: 0,
+                binding: 0
+            },
+            {
+                name: u_normals,
+                ty: InputAttachment,
+                set: 0,
+                binding: 1
+            },
+            {
+                name: u_frag_pos,
+                ty: InputAttachment,
+                set: 0,
+                binding: 2
+            },
+            {
+                name: u_depth,
+                ty: InputAttachment,
+                set: 0,
+                binding: 3
+            }
+        ]
     }
 }
