@@ -120,7 +120,7 @@ impl ECS {
             scale: Vector3::new(2.0, 2.0, 2.0),
         });
         components.models.set(&id1, ModelComponent {
-            mesh_name: "cube".to_owned(),
+            mesh_name: "room".to_owned(),
             texture_name: "red".to_owned(),
         });
 
@@ -169,10 +169,18 @@ impl ECS {
         let mut content = String::new();
         file.read_to_string(&mut content)?;
         let ecs = serde_json::from_str(&content).unwrap();
-        println!("ECS after loading{:?}", ecs);
         Ok(ecs)
     }
 
+    pub fn load_and_replace<P: AsRef<std::path::Path>>(&mut self,
+                                                       path: P) -> TwResult<()> {
+        let new_ecs = ECS::load(path)?;
+
+        self.components = new_ecs.components;
+        self.allocator = new_ecs.allocator;
+
+        Ok(())
+    }
 }
 
 /// Macro to set up the component arrays in the ECS. It should be used with

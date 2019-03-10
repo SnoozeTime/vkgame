@@ -17,6 +17,8 @@ use cgmath::Vector3;
 use std::iter;
 use std::sync::Arc;
 
+use crate::event::{Event, ResourceEvent};
+
 #[derive(Debug, Clone)]
 struct Vertex {
     position: [f32; 2],
@@ -31,6 +33,7 @@ pub struct DirectionalLightingSystem {
     vs: vs::Shader,
     fs: fs::Shader,
     pipeline: Arc<GraphicsPipelineAbstract + Send + Sync>,
+    dimensions: [u32; 2],
 }
 
 
@@ -69,6 +72,7 @@ impl DirectionalLightingSystem {
                 vs,
                 fs,
                 pipeline,
+                dimensions: [1, 1],
             }
         }
 
@@ -78,6 +82,7 @@ impl DirectionalLightingSystem {
         dimensions: [u32; 2],
         ) where R: RenderPassAbstract + Send + Sync + 'static {
 
+        self.dimensions = dimensions;
         self.pipeline = DirectionalLightingSystem::build_pipeline(
             self.queue.clone(),
             subpass,
@@ -162,6 +167,29 @@ impl DirectionalLightingSystem {
                       .unwrap().build().unwrap()
 
               }
+
+
+    pub fn handle_event(&mut self, ev: &Event) {
+
+        if let Event::ResourceEvent(ResourceEvent::ResourceReloaded(ref path)) = ev {
+
+            if (*path).ends_with("directional_light.vert") ||
+                (*path).ends_with("directional_light.frag") {
+
+                    if let Err(err) = self.vs.recompile(self.queue.device().clone())
+                        .and_then(|_| self.fs.recompile(self.queue.device().clone()))
+                            .and_then(|_| {self.rebuild_pipeline(self.pipeline.clone().subpass(),
+                            self.dimensions); Ok(()) }) {
+
+                                dbg!(err);
+                            }
+
+                }
+        }
+
+    }
+
+
 }
 
 mod vs {
@@ -169,16 +197,16 @@ mod vs {
         kind: "vertex",
         path: "assets/shaders/light/directional_light.vert",
         input: [
-            {
-                name: "position",
-                format: R32G32Sfloat
-            }
+        {
+            name: "position",
+            format: R32G32Sfloat
+        }
         ],
         output: [
-            {
-                name: "v_screen_coords",
-                format: R32G32Sfloat
-            }
+        {
+            name: "v_screen_coords",
+            format: R32G32Sfloat
+        }
         ]
     }
 }
@@ -188,40 +216,40 @@ mod fs {
         kind: "fragment",
         path: "assets/shaders/light/directional_light.frag",
         input: [
-            {
-                name: "v_screen_coords",
-                format: R32G32Sfloat
-            }
+        {
+            name: "v_screen_coords",
+            format: R32G32Sfloat
+        }
         ],
         output: [
-            {
-                name: "f_color",
-                format: R32G32B32A32Sfloat
-            }
+        {
+            name: "f_color",
+            format: R32G32B32A32Sfloat
+        }
         ],
         push_constants: {
             name: PushConstants,
             ranges: [(color, 4), (position, 4)]
         },
         descriptors: [
-            {
-                name: u_diffuse,
-                ty: InputAttachment,
-                set: 0,
-                binding: 0
-            },
-            {
-                name: u_normals,
-                ty: InputAttachment,
-                set: 0,
-                binding: 1
-            },
-            {
-                name: U_depth,
-                ty: InputAttachment,
-                set: 0,
-                binding: 2
-            }
+        {
+            name: u_diffuse,
+            ty: InputAttachment,
+            set: 0,
+            binding: 0
+        },
+        {
+            name: u_normals,
+            ty: InputAttachment,
+            set: 0,
+            binding: 1
+        },
+        {
+            name: U_depth,
+            ty: InputAttachment,
+            set: 0,
+            binding: 2
+        }
         ]
     }
 }

@@ -19,6 +19,7 @@ use std::iter;
 use crate::renderer::model::Vertex;
 use crate::resource::Resources;
 use crate::camera::Camera;
+use crate::event::{Event, ResourceEvent};
 use crate::ecs::components::{TransformComponent, ModelComponent};
 
 pub struct SceneDrawSystem {
@@ -26,6 +27,7 @@ pub struct SceneDrawSystem {
     pipeline: Arc<GraphicsPipelineAbstract + Send + Sync>,
     vs: vs::Shader,
     fs: fs::Shader,
+    dimensions: [u32; 2],
 
     uniform_buffer: CpuBufferPool<vs::ty::Data>,
 }
@@ -58,12 +60,13 @@ impl SceneDrawSystem {
                 vs,
 
                 uniform_buffer,
+                dimensions: [1, 1],
             }
         } 
 
     pub fn rebuild_pipeline<R>(&mut self, subpass: Subpass<R>, dimensions: [u32; 2])
         where R: RenderPassAbstract + Clone + Send + Sync + 'static {
-
+            self.dimensions = dimensions;
             self.pipeline = SceneDrawSystem::build_pipeline(
                 self.queue.clone(),
                 subpass.clone(),
@@ -163,6 +166,28 @@ impl SceneDrawSystem {
 
         builder.build().unwrap()
     }
+
+    pub fn handle_event(&mut self, ev: &Event) {
+
+        if let Event::ResourceEvent(ResourceEvent::ResourceReloaded(ref path)) = ev {
+
+            if (*path).ends_with("main.vert") ||
+                (*path).ends_with("deferred.frag") {
+
+                    println!("Recompiling skybox");
+                    if let Err(err) = self.vs.recompile(self.queue.device().clone())
+                        .and_then(|_| self.fs.recompile(self.queue.device().clone()))
+                            .and_then(|_| {self.rebuild_pipeline(self.pipeline.clone().subpass(),
+                            self.dimensions); Ok(()) }) {
+
+                                dbg!(err);
+                            }
+
+                }
+        }
+
+    }
+
 }
 
 pub mod vs {

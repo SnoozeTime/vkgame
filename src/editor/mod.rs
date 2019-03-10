@@ -8,6 +8,8 @@ use crate::ecs::{
 };
 use crate::ui::Gui;
 use std::collections::HashMap;
+mod file_select;
+use file_select::{file_select, FileSelect};
 
 pub struct Editor {
     pub selected_entity: Option<Entity>,
@@ -20,6 +22,9 @@ pub struct Editor {
     // For the components
     // dirty :D
     pub components_state: HashMap<String, String>,
+
+    show_fileselect: bool,
+    file_select: FileSelect,
 }
 
 impl Editor {
@@ -31,6 +36,8 @@ impl Editor {
             new_component_name: None,
             should_add_comp: false,
             components_state: HashMap::new(),
+            show_fileselect: false,
+            file_select: FileSelect::new(),
         }
     }
 }
@@ -72,12 +79,18 @@ impl Gui for Editor {
         ui.main_menu_bar(|| {
             ui.menu(im_str!("File")).build(|| {
                 self.hovered = true;
-                ui.menu_item(im_str!("Save"))
+                if ui.menu_item(im_str!("Save"))
                     .shortcut(im_str!("CTRL+S"))
-                    .build();
-                ui.menu_item(im_str!("Load"))
+                    .build() {
+                        self.file_select.set_save_file(); 
+                        self.show_fileselect = true;
+                    }
+                if ui.menu_item(im_str!("Load"))
                     .shortcut(im_str!("CTRL+L"))
-                    .build();
+                    .build() {
+                        self.file_select.set_load_file(); 
+                        self.show_fileselect = true;
+                    }
             });
 
             ui.menu(im_str!("Edit")).build(|| {
@@ -95,6 +108,10 @@ impl Gui for Editor {
             });
 
         });
+
+        if self.show_fileselect {
+            file_select(ui, ecs, self);
+        }
 
         ui.window(im_str!("Scene"))
             .size((300.0, 100.0), ImGuiCond::FirstUseEver)

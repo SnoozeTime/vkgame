@@ -29,6 +29,7 @@ use super::pp_system::PPSystem;
 use super::skybox::SkyboxSystem;
 // Renderpass description takes a lot of place so it is created here.
 use crate::camera::Camera;
+use crate::event::{Event, ResourceEvent};
 mod renderpass;
 
 
@@ -269,6 +270,14 @@ impl FrameSystem {
                   }
 
               }
+
+    pub fn handle_event(&mut self, ev: &Event) {
+        self.point_lighting_system.handle_event(ev);
+        self.directional_lighting_system.handle_event(ev);
+        self.ambient_lighting_system.handle_event(ev);
+        self.skybox_system.handle_event(ev);
+        self.pp_system.handle_event(ev);
+    }
 }
 
 

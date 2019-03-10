@@ -75,6 +75,7 @@ impl Resources {
         println!("Init models!");
         self.models.load_model("cube".to_string(), Path::new("assets/test1.obj"), self.device.clone()).expect("Cannot load model");
         self.models.load_model("floor".to_string(), Path::new("assets/floor.obj"), self.device.clone()).expect("Cannot load model");
+        self.models.load_model("room".to_string(), Path::new("assets/room.obj"), self.device.clone()).expect("Cannot load model");
         //self.models.load_model("building".to_string(), Path::new("assets/models/arena.obj"), self.device.clone()).expect("Cannot load model");
 
         println!("Finished reading models");

@@ -16,6 +16,7 @@ use cgmath::Vector3;
 
 use std::iter;
 use std::sync::Arc;
+use crate::event::{Event, ResourceEvent};
 
 #[derive(Debug, Clone)]
 struct Vertex {
@@ -26,7 +27,7 @@ vulkano::impl_vertex!(Vertex, position);
 pub struct PointLightingSystem {
 
     queue: Arc<Queue>,
-
+    dimensions: [u32; 2],
     vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
     vs: vs::Shader,
     fs: fs::Shader,
@@ -69,6 +70,7 @@ impl PointLightingSystem {
                 vs,
                 fs,
                 pipeline,
+                dimensions: [1,1],
             }
         }
 
@@ -78,6 +80,7 @@ impl PointLightingSystem {
         dimensions: [u32; 2],
         ) where R: RenderPassAbstract + Send + Sync + 'static {
 
+        self.dimensions = dimensions;
         self.pipeline = PointLightingSystem::build_pipeline(
             self.queue.clone(),
             subpass,
@@ -165,6 +168,27 @@ impl PointLightingSystem {
                       .unwrap().build().unwrap()
 
               }
+
+    pub fn handle_event(&mut self, ev: &Event) {
+
+        if let Event::ResourceEvent(ResourceEvent::ResourceReloaded(ref path)) = ev {
+
+            if (*path).ends_with("point_light.vert") ||
+                (*path).ends_with("point_light.frag") {
+
+                    if let Err(err) = self.vs.recompile(self.queue.device().clone())
+                        .and_then(|_| self.fs.recompile(self.queue.device().clone()))
+                            .and_then(|_| {self.rebuild_pipeline(self.pipeline.clone().subpass(),
+                            self.dimensions); Ok(()) }) {
+
+                                dbg!(err);
+                            }
+
+                }
+        }
+
+    }
+
 }
 
 

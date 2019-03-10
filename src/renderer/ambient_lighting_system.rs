@@ -12,6 +12,7 @@ use vulkano::command_buffer::AutoCommandBufferBuilder;
 use vulkano::descriptor::descriptor_set::PersistentDescriptorSet;
 use vulkano::command_buffer::DynamicState;
 
+use crate::event::{Event, ResourceEvent};
 use std::iter;
 use std::sync::Arc;
 
@@ -31,6 +32,7 @@ pub struct AmbientLightingSystem {
     vs: vs::Shader,
     fs: fs::Shader,
     pipeline: Arc<GraphicsPipelineAbstract + Send + Sync>,
+    dimensions: [u32; 2],
 }
 
 
@@ -69,6 +71,7 @@ impl AmbientLightingSystem {
                 vs,
                 fs,
                 pipeline,
+                dimensions: [1, 1],
             }
         }
 
@@ -77,7 +80,7 @@ impl AmbientLightingSystem {
         subpass: Subpass<R>,
         dimensions: [u32; 2],
         ) where R: RenderPassAbstract + Send + Sync + 'static {
-
+        self.dimensions = dimensions;
         self.pipeline = AmbientLightingSystem::build_pipeline(
             self.queue.clone(),
             subpass,
@@ -154,6 +157,27 @@ impl AmbientLightingSystem {
                 .unwrap().build().unwrap()
 
         }
+    
+    pub fn handle_event(&mut self, ev: &Event) {
+
+        if let Event::ResourceEvent(ResourceEvent::ResourceReloaded(ref path)) = ev {
+
+            if (*path).ends_with("ambient_light.vert") ||
+                (*path).ends_with("ambient_light.frag") {
+
+                    if let Err(err) = self.vs.recompile(self.queue.device().clone())
+                        .and_then(|_| self.fs.recompile(self.queue.device().clone()))
+                            .and_then(|_| {self.rebuild_pipeline(self.pipeline.clone().subpass(),
+                            self.dimensions); Ok(()) }) {
+
+                                dbg!(err);
+                            }
+
+                }
+        }
+
+    }
+
 }
 
 mod vs {

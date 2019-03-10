@@ -152,7 +152,6 @@ impl PPSystem {
             if (*path).ends_with("edge.vert") ||
                 (*path).ends_with("edge.frag") {
 
-                    println!("Recompiling post_processing");
                     if let Err(err) = self.vs.recompile(self.queue.device().clone())
                         .and_then(|_| self.fs.recompile(self.queue.device().clone()))
                             .and_then(|_| {self.rebuild_pipeline(self.pipeline.clone().subpass(),

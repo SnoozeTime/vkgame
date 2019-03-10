@@ -329,13 +329,8 @@ impl<'a> Renderer<'a> {
     pub fn handle_events(&mut self, events: &Vec<Event>) {
 
         for ev in events {
-            self.frame_system.skybox_system.handle_event(&ev);
-            self.frame_system.pp_system.handle_event(&ev);
-//            if let Event::ResourceEvent(ResourceEvent::ResourceReloaded(ref path)) = &ev {
-//                dbg!(if (*path).ends_with(".vert") || (*path).ends_with("skybox_color.frag") {
-//                    self.frame_system.skybox_system.recompile_shaders();
-//                });
-//            }
+            self.scene_system.handle_event(&ev);
+            self.frame_system.handle_event(&ev);
         }
     }
 }

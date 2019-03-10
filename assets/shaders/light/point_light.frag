@@ -31,8 +31,9 @@ void main() {
 
         float light_distance = length(push_constants.position.xyz - subpassLoad(u_frag_pos).xyz);
         // Further decrease light_percent based on the distance with the light position.
-        diff *= 1.0 / exp(light_distance);
 
+        float attenuation = 1.0 / (1.0 + 0.01 * light_distance);
+        diff *= attenuation;
         vec3 diffuse = diff * push_constants.color.rgb * subpassLoad(u_diffuse).rgb;
         f_color = vec4(diffuse, 1.0);
 }

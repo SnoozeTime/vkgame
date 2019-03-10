@@ -218,13 +218,6 @@ impl SkyboxSystem {
             );
         }
 
-    pub fn recompile_shaders(&mut self) {
-        println!("Recompiling");
-        if let Ok(_) = self.fs.recompile(self.queue.device().clone()) {
-            self.rebuild_pipeline(self.pipeline.clone().subpass(), self.dimensions);
-        }
-    }
-
     pub fn handle_event(&mut self, ev: &Event) {
 
         if let Event::ResourceEvent(ResourceEvent::ResourceReloaded(ref path)) = ev {
@@ -232,7 +225,6 @@ impl SkyboxSystem {
             if (*path).ends_with("skybox.vert") ||
                 (*path).ends_with("skybox_color.frag") {
 
-                    println!("Recompiling skybox");
                     if let Err(err) = self.vs.recompile(self.queue.device().clone())
                         .and_then(|_| self.fs.recompile(self.queue.device().clone()))
                             .and_then(|_| {self.rebuild_pipeline(self.pipeline.clone().subpass(),

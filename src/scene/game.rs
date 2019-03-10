@@ -1,11 +1,14 @@
 use std::time::Duration;
 use imgui::Ui;
 
+use cgmath::Vector3;
+
 use crate::ecs::{
     ECS,
+    components::TransformComponent,
     systems::{RenderingSystem, DummySystem},
 };
-use crate::camera::CameraDirection;
+use crate::camera::{CameraDirection, Camera, CameraInputHandler};
 use crate::input::{KeyType, Input, Axis};
 use crate::resource::Resources;
 use crate::event::Event;
@@ -32,26 +35,35 @@ pub struct GameScene {
 
 impl GameScene {
     pub fn new<'a>(render_system: &RenderingSystem<'a>) -> Self {
-        let mut ecs = ECS::dummy_ecs();
-        let dimensions = render_system.dimensions();
-        let aspect = (dimensions[0] as f32) / (dimensions[1] as f32);
-        ecs.camera.set_aspect(aspect);
-        GameScene {
-            ecs,
-            game_ui: GameUi{},
-            dummy_system: DummySystem::new(),
-        }
+        let ecs = ECS::dummy_ecs();
+        GameScene::from_ecs(ecs, render_system)
+    }
+
+    pub fn from_path<'a>(path: String, render_system: &RenderingSystem<'a>) -> Self {
+        let ecs = ECS::load(path).unwrap();
+
+        GameScene::from_ecs(ecs, render_system)
     }
 
     pub fn from_ecs<'a>(mut ecs: ECS, render_system: &RenderingSystem<'a>) -> Self {
+
+        let transform = TransformComponent {
+            position: Vector3::new(0.0, 1.0, 0.0),
+            rotation: Vector3::new(0.0, 0.0, 0.0),
+            scale: Vector3::new(1.0, 1.0, 1.0),
+        };
+
         let dimensions = render_system.dimensions();
         let aspect = (dimensions[0] as f32) / (dimensions[1] as f32);
-        ecs.camera.set_aspect(aspect);
+        ecs.camera = Camera::new(transform, 
+                                 aspect,
+                                 CameraInputHandler::fps_handler());
         GameScene {
             ecs,
             game_ui: GameUi{},
             dummy_system: DummySystem::new(),
         }
+
     }
 
 
@@ -61,7 +73,7 @@ impl GameScene {
 impl Scene for GameScene {
 
     fn update(&mut self, dt: Duration) -> Option<Vec<Event>> {
-        self.dummy_system.do_dumb_thing(dt, &mut self.ecs);
+        //self.dummy_system.do_dumb_thing(dt, &mut self.ecs);
         None
     }
 
@@ -89,6 +101,7 @@ impl Scene for GameScene {
             self.ecs.camera.process_keyboard(dt,
                                              CameraDirection::Right);
         }
+
 
         let (h_axis, v_axis) = (input.get_axis(Axis::Horizontal),
         input.get_axis(Axis::Vertical));
