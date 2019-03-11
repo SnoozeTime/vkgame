@@ -72,7 +72,7 @@ impl Resources {
         self.textures.load_texture("green".to_string(), Path::new("assets/green.png"), 93, 93, self.device.clone(), self.queue.clone()).unwrap();
         self.textures.load_texture("green2".to_string(), Path::new("assets/green2.png"), 93, 93, self.device.clone(), self.queue.clone()).unwrap();
         self.textures.load_texture("brown".to_string(), Path::new("assets/brown.png"), 92, 92, self.device.clone(), self.queue.clone()).unwrap();
-        //        self.textures.load_texture("floor".to_string(), Path::new("assets/textures/Concrete_Panels_001_COLOR.jpg"), 1024, 1024, self.device.clone(), self.queue.clone()).unwrap();
+        self.textures.load_texture("tree1".to_string(), Path::new("assets/tree1.png"), 512, 512, self.device.clone(), self.queue.clone()).unwrap();
     }
 
     fn init_models(&mut self) {
@@ -80,12 +80,36 @@ impl Resources {
         self.models.load_model("cube".to_string(), Path::new("assets/test1.obj"), self.device.clone()).expect("Cannot load model");
         self.models.load_model("floor".to_string(), Path::new("assets/floor.obj"), self.device.clone()).expect("Cannot load model");
         self.models.load_model("room".to_string(), Path::new("assets/room.obj"), self.device.clone()).expect("Cannot load model");
-        self.models.load_model("tree1_trunk".to_string(), Path::new("assets/tree1_trunk.obj"), self.device.clone()).expect("Cannot load model");
-        self.models.load_model("tree1_leaves".to_string(), Path::new("assets/tree1_leaves.obj"), self.device.clone()).expect("Cannot load model");
+        self.models.load_model("tree1".to_string(), Path::new("assets/tree1.obj"), self.device.clone()).expect("Cannot load model");
         //self.models.load_model("building".to_string(), Path::new("assets/models/arena.obj"), self.device.clone()).expect("Cannot load model");
 
         println!("Finished reading models");
     }
+
+    fn reload_model(&mut self, path: &PathBuf) {
+        if let Some(filename) = path.file_stem().and_then(|osstr| osstr.to_str()) {
+            println!("Will reload: {}", filename);
+            self.models.load_model(filename.to_string(), &path, self.device.clone());
+        }
+    }
+
+    fn reload_texture(&mut self, path: &PathBuf) {
+        println!("Reloading texture {:?}", path);
+        if let Some(filename) = path.file_stem()
+            .and_then(|osstr| osstr.to_str())
+            .map(|s| s.to_string()) {
+
+        if let Some(texture) = self.textures.textures.get(&filename) {
+                let w = texture.width;
+                let h = texture.height;
+                if let Err(err) = self.textures.load_texture(filename, &path, w, h, self.device.clone(), self.queue.clone()) {
+                    println!("Error while reloading texture {:?}: {:?}", path, err);
+                }
+            }
+        }
+    }
+
+
 
     /// Poll for resource events
     /// When a resource is updated, an event will be generated. Then, the relevant system
@@ -105,11 +129,16 @@ impl Resources {
                         if let Some(extension) = path.extension() {
                             match extension {
                                 x if x == OsStr::new("obj") => {
-                                    if let Some(filename) = path.file_stem().and_then(|osstr| osstr.to_str()) {
-                                        println!("Will reload: {}", filename);
-                                        self.models.load_model(filename.to_string(), &path, self.device.clone());
-                                    }
+                                    self.reload_model(&path);
                                 },
+                                x if (x == OsStr::new("png")) 
+                                    || (x == OsStr::new("jpg"))
+                                    || (x == OsStr::new("jpeg"))
+                                    || (x == OsStr::new("JPEG"))
+                                    || (x == OsStr::new("JPG"))
+                                    || (x == OsStr::new("PNG")) => {
+                                    self.reload_texture(&path);
+                                },    
                                 _ => ()
                             }
                         }
