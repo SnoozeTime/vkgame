@@ -92,5 +92,6 @@ impl TextureManager {
         self.textures.insert(texture_name, texture);
         Ok(())
     }
+
 }
 

@@ -72,7 +72,7 @@ impl GameScene {
 
 impl Scene for GameScene {
 
-    fn update(&mut self, dt: Duration) -> Option<Vec<Event>> {
+    fn update(&mut self, _dt: Duration) -> Option<Vec<Event>> {
         //self.dummy_system.do_dumb_thing(dt, &mut self.ecs);
         None
     }

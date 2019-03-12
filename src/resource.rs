@@ -1,6 +1,6 @@
 use std::path::{PathBuf, Path};
 use std::sync::Arc;
-use vulkano::device::{Device, Queue};
+use vulkano::device::{Queue};
 
 use notify::{Watcher, RecommendedWatcher, RecursiveMode, watcher, DebouncedEvent};
 use std::sync::mpsc::{Receiver, channel, TryRecvError};
@@ -69,6 +69,7 @@ impl Resources {
         self.textures.load_texture("green2".to_string(), Path::new("assets/green2.png"), self.queue.device().clone(), self.queue.clone()).unwrap();
         self.textures.load_texture("brown".to_string(), Path::new("assets/brown.png"), self.queue.device().clone(), self.queue.clone()).unwrap();
         self.textures.load_texture("tree1".to_string(), Path::new("assets/tree1.png"), self.queue.device().clone(), self.queue.clone()).unwrap();
+        self.textures.load_texture("terrain1".to_string(), Path::new("assets/terrain1.png"), self.queue.device().clone(), self.queue.clone()).unwrap();
     }
 
     fn init_models(&mut self) {

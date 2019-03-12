@@ -30,7 +30,7 @@ use crate::resource::Resources;
 use crate::camera::Camera;
 use crate::ecs::components::{TransformComponent, ModelComponent, LightComponent, LightType};
 use crate::ecs::{Entity, ECS};
-use crate::event::{ResourceEvent, Event};
+use crate::event::Event;
 use scene_system::SceneDrawSystem;
 use frame::{Pass, FrameSystem};
 

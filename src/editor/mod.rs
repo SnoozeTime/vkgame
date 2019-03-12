@@ -2,7 +2,6 @@ use imgui::{Ui, im_str, ImGuiCond, ImGuiSelectableFlags, ImVec2, ImString};
 use crate::ecs::{
     ECS,
     Entity,
-    new_component_popup,
     gen_index::GenerationalIndexArray,
     components::{NameComponent, LightType},
 };
@@ -12,8 +11,6 @@ mod file_select;
 use file_select::{file_select, FileSelect};
 use crate::resource::Resources;
 
-
-type EntityNames = GenerationalIndexArray<String>;
 
 pub struct Editor {
     pub selected_entity: Option<Entity>,
@@ -130,7 +127,6 @@ fn display_menu(ui: &Ui, editor: &mut Editor, ecs: &mut ECS) {
                     .build() {
 
                         open_delete_popup = true;
-                        //new_component_popup(ui, self);
                     }
 
             if ui.menu_item(im_str!("Rename entity"))

@@ -25,7 +25,7 @@ impl GenerationalIndex {
 
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct AllocatorEntry {
+struct AllocatorEntry {
     is_live: bool,
     generation: u64,
 }
@@ -44,10 +44,6 @@ impl GenerationalIndexAllocator {
             entries: Vec::new(),
             free: Vec::new(),
         }
-    }
-
-    pub fn entities(&self) -> &Vec<AllocatorEntry> {
-        &self.entries
     }
 
     pub fn live_entities(&self) -> Vec<GenerationalIndex> {

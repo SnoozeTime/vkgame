@@ -29,7 +29,7 @@ use super::pp_system::PPSystem;
 use super::skybox::SkyboxSystem;
 // Renderpass description takes a lot of place so it is created here.
 use crate::camera::Camera;
-use crate::event::{Event, ResourceEvent};
+use crate::event::Event;
 mod renderpass;
 
 

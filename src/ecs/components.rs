@@ -14,7 +14,7 @@ pub struct NameComponent {
 }
 
 impl NameComponent {
-    pub fn draw_ui(&mut self, ui: &Ui, editor: &Editor) {
+    pub fn draw_ui(&mut self, _ui: &Ui, _editor: &Editor) {
         // nothing to see here.
     }
 }
