@@ -17,7 +17,6 @@ pub struct Resources {
     pub textures: TextureManager,
 
     // Need to keep that in order to load new textures or models.
-    device: Arc<Device>,
     queue: Arc<Queue>,
 
     // Will receive event from watcher.
@@ -28,7 +27,7 @@ pub struct Resources {
 
 impl Resources {
 
-    pub fn new(device: Arc<Device>, queue: Arc<Queue>) -> Self {
+    pub fn new(queue: Arc<Queue>) -> Self {
         let textures = TextureManager::new();
         let models = ModelManager::new();
 
@@ -41,7 +40,6 @@ impl Resources {
         let mut r = Resources {
             models,
             textures,
-            device,
             queue,
             rx,
             watcher,
@@ -63,25 +61,23 @@ impl Resources {
     }
 
     fn init_textures(&mut self) {
-        self.textures.load_texture("bonjour".to_string(),
-        Path::new("assets/image_img.png"),
-        93, 93, self.device.clone(), self.queue.clone()).unwrap();
-        self.textures.load_texture("white".to_string(), Path::new("assets/white.png"), 93, 93, self.device.clone(), self.queue.clone()).unwrap();
-        self.textures.load_texture("red".to_string(), Path::new("assets/red.png"), 93, 93, self.device.clone(), self.queue.clone()).unwrap();
-        self.textures.load_texture("blue".to_string(), Path::new("assets/blue.png"), 93, 93, self.device.clone(), self.queue.clone()).unwrap();
-        self.textures.load_texture("green".to_string(), Path::new("assets/green.png"), 93, 93, self.device.clone(), self.queue.clone()).unwrap();
-        self.textures.load_texture("green2".to_string(), Path::new("assets/green2.png"), 93, 93, self.device.clone(), self.queue.clone()).unwrap();
-        self.textures.load_texture("brown".to_string(), Path::new("assets/brown.png"), 92, 92, self.device.clone(), self.queue.clone()).unwrap();
-        self.textures.load_texture("tree1".to_string(), Path::new("assets/tree1.png"), 512, 512, self.device.clone(), self.queue.clone()).unwrap();
+        // TODO Just use the path to load. String will be allocated automatically
+        self.textures.load_texture("white".to_string(), Path::new("assets/white.png"), self.queue.device().clone(), self.queue.clone()).unwrap();
+        self.textures.load_texture("red".to_string(), Path::new("assets/red.png"), self.queue.device().clone(), self.queue.clone()).unwrap();
+        self.textures.load_texture("blue".to_string(), Path::new("assets/blue.png"), self.queue.device().clone(), self.queue.clone()).unwrap();
+        self.textures.load_texture("green".to_string(), Path::new("assets/green.png"), self.queue.device().clone(), self.queue.clone()).unwrap();
+        self.textures.load_texture("green2".to_string(), Path::new("assets/green2.png"), self.queue.device().clone(), self.queue.clone()).unwrap();
+        self.textures.load_texture("brown".to_string(), Path::new("assets/brown.png"), self.queue.device().clone(), self.queue.clone()).unwrap();
+        self.textures.load_texture("tree1".to_string(), Path::new("assets/tree1.png"), self.queue.device().clone(), self.queue.clone()).unwrap();
     }
 
     fn init_models(&mut self) {
         println!("Init models!");
-        self.models.load_model("cube".to_string(), Path::new("assets/test1.obj"), self.device.clone()).expect("Cannot load model");
-        self.models.load_model("floor".to_string(), Path::new("assets/floor.obj"), self.device.clone()).expect("Cannot load model");
-        self.models.load_model("room".to_string(), Path::new("assets/room.obj"), self.device.clone()).expect("Cannot load model");
-        self.models.load_model("tree1".to_string(), Path::new("assets/tree1.obj"), self.device.clone()).expect("Cannot load model");
-        //self.models.load_model("building".to_string(), Path::new("assets/models/arena.obj"), self.device.clone()).expect("Cannot load model");
+        self.models.load_model("cube".to_string(), Path::new("assets/test1.obj"), self.queue.device().clone()).expect("Cannot load model");
+        self.models.load_model("floor".to_string(), Path::new("assets/floor.obj"), self.queue.device().clone()).expect("Cannot load model");
+        self.models.load_model("room".to_string(), Path::new("assets/room.obj"), self.queue.device().clone()).expect("Cannot load model");
+        self.models.load_model("tree1".to_string(), Path::new("assets/tree1.obj"), self.queue.device().clone()).expect("Cannot load model");
+        self.models.load_model("terrain".to_string(), Path::new("assets/terrain.obj"), self.queue.device().clone()).expect("cannot load terrain");
 
         println!("Finished reading models");
     }
@@ -89,7 +85,9 @@ impl Resources {
     fn reload_model(&mut self, path: &PathBuf) {
         if let Some(filename) = path.file_stem().and_then(|osstr| osstr.to_str()) {
             println!("Will reload: {}", filename);
-            self.models.load_model(filename.to_string(), &path, self.device.clone());
+            if let Err(err) = self.models.load_model(filename.to_string(), &path, self.queue.device().clone()) {
+                println!("Error while reloading model {:?}: {:?}", path, err);
+            }
         }
     }
 
@@ -97,16 +95,12 @@ impl Resources {
         println!("Reloading texture {:?}", path);
         if let Some(filename) = path.file_stem()
             .and_then(|osstr| osstr.to_str())
-            .map(|s| s.to_string()) {
+                .map(|s| s.to_string()) {
 
-        if let Some(texture) = self.textures.textures.get(&filename) {
-                let w = texture.width;
-                let h = texture.height;
-                if let Err(err) = self.textures.load_texture(filename, &path, w, h, self.device.clone(), self.queue.clone()) {
-                    println!("Error while reloading texture {:?}: {:?}", path, err);
+                    if let Err(err) = self.textures.load_texture(filename, &path, self.queue.device().clone(), self.queue.clone()) {
+                        println!("Error while reloading texture {:?}: {:?}", path, err);
+                    }
                 }
-            }
-        }
     }
 
 
@@ -137,8 +131,8 @@ impl Resources {
                                     || (x == OsStr::new("JPEG"))
                                     || (x == OsStr::new("JPG"))
                                     || (x == OsStr::new("PNG")) => {
-                                    self.reload_texture(&path);
-                                },    
+                                        self.reload_texture(&path);
+                                    },    
                                 _ => ()
                             }
                         }

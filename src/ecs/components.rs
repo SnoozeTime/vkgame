@@ -5,6 +5,20 @@ use crate::editor::Editor;
 use crate::ser::VectorDef;
 use std::default::Default;
 
+
+/// Hum that is just for the editor to have some human readable names.
+/// Should be removed when packing the game.
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct NameComponent {
+    pub name: String,
+}
+
+impl NameComponent {
+    pub fn draw_ui(&mut self, ui: &Ui, editor: &Editor) {
+        // nothing to see here.
+    }
+}
+
 /// This is a component that is going to be rendered
 /// by the render system.
 #[derive(Clone, Debug, Serialize, Deserialize)]

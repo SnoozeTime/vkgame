@@ -25,7 +25,7 @@ impl GenerationalIndex {
 
 
 #[derive(Debug, Serialize, Deserialize)]
-struct AllocatorEntry {
+pub struct AllocatorEntry {
     is_live: bool,
     generation: u64,
 }
@@ -44,6 +44,10 @@ impl GenerationalIndexAllocator {
             entries: Vec::new(),
             free: Vec::new(),
         }
+    }
+
+    pub fn entities(&self) -> &Vec<AllocatorEntry> {
+        &self.entries
     }
 
     pub fn live_entities(&self) -> Vec<GenerationalIndex> {
@@ -89,8 +93,10 @@ impl GenerationalIndexAllocator {
     }
 
     pub fn deallocate(&mut self, index: GenerationalIndex) -> bool {
+
         // make sure the entry exists.
         let idx = index.index();
+        println!("Will deallocate {}", idx);
         match self.entries.get_mut(idx) {
             Some(entry) => {
                 if entry.is_live && entry.generation == index.generation() {

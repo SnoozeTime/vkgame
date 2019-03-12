@@ -43,7 +43,6 @@ fn main() {
 
     let now = Instant::now();
     let mut resources = Resources::new(
-        render_system.get_device().clone(),
         render_system.get_queue().clone());
     let elapsed_resources = Instant::now() - now;
 

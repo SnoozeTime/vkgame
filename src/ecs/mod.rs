@@ -14,6 +14,7 @@ use self::components::{
     ModelComponent,
     DummyComponent,
     LightComponent,
+    NameComponent,
     LightType,
 };
 use self::gen_index::{GenerationalIndexAllocator, GenerationalIndexArray, GenerationalIndex};
@@ -89,6 +90,14 @@ impl ECS {
         let index = self.allocator.allocate();
         self.components.new_entity(&index);
         index
+    }
+
+    pub fn delete_entity(&mut self, entity: &GenerationalIndex) {
+        if !self.allocator.deallocate(*entity) {
+            println!("Didn't deallocate");
+        } else {
+            println!("Correctly DESTROYED the entity");
+        }
     }
 
     pub fn new_entity_from_template(&mut self, template_name: String) -> Option<GenerationalIndex> {
@@ -376,4 +385,5 @@ register_components!(
     [models, ModelComponent, "Model"],
     [dummies, DummyComponent, "Dummy"],
     [lights, LightComponent, "Light"],
+    [names, NameComponent, "Name"],
     );

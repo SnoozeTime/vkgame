@@ -27,21 +27,21 @@ impl Texture {
      * initialized.
      * */
     pub fn load(filename: &std::path::Path,
-                width: u32,
-                height: u32,
                 device: Arc<Device>,
                 queue: Arc<Queue>) -> TwResult<(Texture, Box<GpuFuture>)> {
 
-        let (texture, tex_future) = {
+        let ((texture, tex_future), width, height) = {
             let image = image::open(filename)?.to_rgba();
+            let width =image.width();
+            let height = image.height();
             let image_data = image.into_raw().clone();
 
-            ImmutableImage::from_iter(
+            (ImmutableImage::from_iter(
                 image_data.iter().cloned(),
                 Dimensions::Dim2d { width, height },
                 Format::R8G8B8A8Srgb,
                 queue.clone()
-            )?
+            )?, width, height)
         };
 
         let sampler = Sampler::new(
@@ -78,13 +78,11 @@ impl TextureManager {
         &mut self,
         texture_name: String,
         filename: &std::path::Path,
-        width: u32,
-        height: u32,
         device: Arc<Device>,
         queue: Arc<Queue>) -> TwResult<()> {
 
 
-        let (texture, gpu_future) = Texture::load(filename, width, height, device.clone(),
+        let (texture, gpu_future) = Texture::load(filename, device.clone(),
         queue.clone())?;
 
         gpu_future

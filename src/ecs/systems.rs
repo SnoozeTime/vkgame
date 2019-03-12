@@ -121,23 +121,24 @@ impl<'a> RenderingSystem<'a> {
         if !gui.run_ui(&ui, ecs) {
             panic!("wuuuuut");
         }
+        
 
-        // Get the lights.
-        let lights: Vec<_> =  ecs.components.lights
-            .iter()
-            .zip(ecs.components.transforms.iter())
-            .filter(|(x, y)| x.is_some() && y.is_some())
-            .map(|(x, y)| (x.as_ref().unwrap().value(),
-            y.as_ref().unwrap().value())).collect();
+        // That's a lot of memory allocation here. FIXME
+        let live_entities = ecs.nb_entities();
+        let mut lights = Vec::new();
+        let mut objs = Vec::new();
 
-        // Naive rendering right now. Do not order or anything.
-        let objs: Vec<_> =  ecs.components.models
-            .iter()
-            .zip(ecs.components.transforms.iter())
-            .filter(|(x, y)| x.is_some() && y.is_some())
-            .map(|(x, y)| (x.as_ref().unwrap().value(),
-            y.as_ref().unwrap().value())).collect();
+        for entity in &live_entities {
+            let maybe_l = ecs.components.lights.get(entity);
+            let maybe_t = ecs.components.transforms.get(entity);
+            let maybe_m = ecs.components.models.get(entity);
 
+            match (maybe_l, maybe_m, maybe_t) {
+                (Some(l), _, Some(t)) => lights.push((l,t)),
+                (_, Some(m), Some(t)) => objs.push((m, t)),
+                _ => {}
+            }
+        }
 
         self.renderer.render(resources, ui, &mut ecs.camera, lights, objs);
     } 
