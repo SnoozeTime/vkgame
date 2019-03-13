@@ -30,22 +30,24 @@ pub struct ModelComponent {
 }
 
 impl ModelComponent {
-    pub fn draw_ui(&mut self, ui: &Ui, editor: &Editor) {
+    pub fn draw_ui(&mut self, ui: &Ui, editor: &mut Editor) {
 
         if ui.small_button(im_str!("Select..")) {
             ui.open_popup(im_str!("select"));
         }
         ui.same_line(0.0);
         ui.text(im_str!("{}", self.mesh_name));
+        let mut should_save = false;
         ui.popup(im_str!("select"), || {  
 
-            for model_name in &editor.all_models {
+            for model_name in &mut editor.all_models {
                 let selected = *model_name == self.mesh_name;
 
                 if ui.selectable(im_str!("{}", model_name), selected, 
                                  ImGuiSelectableFlags::empty(),
                                  ImVec2::new(0.0, 0.0)) {
                     self.mesh_name = (*model_name).clone();
+                    should_save = true;
                 }
             }
         });
@@ -57,17 +59,22 @@ impl ModelComponent {
         ui.text(im_str!("{}", self.texture_name));
         ui.popup(im_str!("select_texture"), || {
 
-            for texture_name in &editor.all_textures {
+            for texture_name in &mut editor.all_textures {
                 let selected = *texture_name == self.texture_name;
 
                 if ui.selectable(im_str!("{}", texture_name), selected, 
                                  ImGuiSelectableFlags::empty(),
                                  ImVec2::new(0.0, 0.0)) {
                     self.texture_name = (*texture_name).clone();
+                    should_save = true;
                 }
             }
 
         });
+
+        if should_save {
+            editor.set_unsaved();
+        }
     }
 
 }
@@ -111,9 +118,11 @@ pub struct DummyComponent {
 }
 
 impl DummyComponent {
-    pub fn draw_ui(&mut self, ui: &Ui, _editor: &Editor) {
-        ui.input_float(im_str!("speed"), &mut self.speed)
-            .build();
+    pub fn draw_ui(&mut self, ui: &Ui, editor: &mut Editor) {
+        if ui.input_float(im_str!("speed"), &mut self.speed)
+            .build() {
+            editor.set_unsaved();
+        }
     }
 }
 
@@ -144,50 +153,68 @@ impl Default for LightComponent {
 }
 
 impl TransformComponent {
-    pub fn draw_ui(&mut self, ui: &Ui, _editor: &Editor) {
+    pub fn draw_ui(&mut self, ui: &Ui, editor: &mut Editor) {
         ui.tree_node(im_str!("position:")).opened(true, ImGuiCond::FirstUseEver).build(|| {
-            ui.input_float(im_str!("x"), &mut self.position.x)
+            if ui.input_float(im_str!("x"), &mut self.position.x)
                 .step(0.1)
                 .step_fast(1.0)
-                .build();
-            ui.input_float(im_str!("y"), &mut self.position.y)
+                .build() {
+                    editor.set_unsaved();
+                }
+            if ui.input_float(im_str!("y"), &mut self.position.y)
                 .step(0.1)
                 .step_fast(1.0)
-                .build();
-            ui.input_float(im_str!("z"), &mut self.position.z)
+                .build() {
+                    editor.set_unsaved();
+                }
+            if ui.input_float(im_str!("z"), &mut self.position.z)
                 .step(0.1)
                 .step_fast(1.0)
-                .build();
+                .build() {
+                    editor.set_unsaved();
+                }
         });
 
         ui.tree_node(im_str!("rotation:")).opened(true, ImGuiCond::FirstUseEver).build(||{
-            ui.input_float(im_str!("x"), &mut self.rotation.x)
+            if ui.input_float(im_str!("x"), &mut self.rotation.x)
                 .step(0.1)
                 .step_fast(1.0)
-                .build();
-            ui.input_float(im_str!("y"), &mut self.rotation.y)
+                .build() {
+                    editor.set_unsaved();
+            }
+            if ui.input_float(im_str!("y"), &mut self.rotation.y)
                 .step(0.1)
                 .step_fast(1.0)
-                .build();
-            ui.input_float(im_str!("z"), &mut self.rotation.z)
+                .build() {
+                    editor.set_unsaved();
+            }
+            if ui.input_float(im_str!("z"), &mut self.rotation.z)
                 .step(0.1)
                 .step_fast(1.0)
-                .build();
+                .build() {
+                    editor.set_unsaved();
+            }
         });
 
         ui.tree_node(im_str!("scale:")).opened(true, ImGuiCond::FirstUseEver).build(|| {
-            ui.input_float(im_str!("x"), &mut self.scale.x)
+            if ui.input_float(im_str!("x"), &mut self.scale.x)
                 .step(0.1)
                 .step_fast(1.0)
-                .build();
-            ui.input_float(im_str!("y"), &mut self.scale.y)
+                .build() {
+                    editor.set_unsaved();
+            }
+            if ui.input_float(im_str!("y"), &mut self.scale.y)
                 .step(0.1)
                 .step_fast(1.0)
-                .build();
-            ui.input_float(im_str!("z"), &mut self.scale.z)
+                .build() {
+                    editor.set_unsaved();
+            }
+            if ui.input_float(im_str!("z"), &mut self.scale.z)
                 .step(0.1)
                 .step_fast(1.0)
-                .build();
+                .build() {
+                    editor.set_unsaved();
+            }
         });
     }
 }
@@ -231,6 +258,7 @@ impl LightComponent {
 
                 if let Some(t) = new_type {
                     self.light_type = t;
+                    editor.set_unsaved();
                 }
             }
 
@@ -256,6 +284,7 @@ impl LightComponent {
 
                 if let Some(t) = new_type {
                     self.light_type = t;
+                    editor.set_unsaved();
                 }
 
             }
@@ -284,11 +313,10 @@ impl LightComponent {
 
                 if let Some(t) = new_type {
                     self.light_type = t;
+                    editor.set_unsaved();
                 }
 
             }
-
-
         });
 
     }

@@ -32,6 +32,8 @@ pub struct Editor {
     // For the renaming
     pub rename_entity_buf: ImString, 
 
+    // Prompt before quitting without saving.
+    pub unsaved: bool,
 }
 
 impl Editor {
@@ -62,6 +64,7 @@ impl Editor {
             all_textures,
             all_models,
             rename_entity_buf,
+            unsaved: false,
         }
     }
 }
@@ -88,7 +91,13 @@ impl Editor {
 
     }
 
+    pub fn set_unsaved(&mut self) {
+        self.unsaved = true;
+    }
 
+    pub fn set_saved(&mut self) {
+        self.unsaved = false;
+    }
 }
 
 fn display_menu(ui: &Ui, editor: &mut Editor, ecs: &mut ECS) {
@@ -118,6 +127,7 @@ fn display_menu(ui: &Ui, editor: &mut Editor, ecs: &mut ECS) {
                 .build() {
                     let entity = ecs.new_entity();
                     editor.select_entity(entity, ecs);
+                    editor.set_unsaved();
                 }
 
             if ui.menu_item(im_str!("New entity at position"))
@@ -127,6 +137,7 @@ fn display_menu(ui: &Ui, editor: &mut Editor, ecs: &mut ECS) {
                     editor.select_entity(entity, ecs);
                     let t = (*ecs.camera.transform()).clone();
                     ecs.components.transforms.set(&entity, t);
+                    editor.set_unsaved();
                 }
             if ui.menu_item(im_str!("Delete entity"))
                 .enabled(editor.selected_entity.is_some())
@@ -154,6 +165,7 @@ fn display_menu(ui: &Ui, editor: &mut Editor, ecs: &mut ECS) {
             
             if let Some(entity) = &editor.selected_entity {
                 ecs.delete_entity(entity);
+                editor.set_unsaved();
                 ui.close_current_popup();
             }
         }
@@ -178,6 +190,7 @@ fn display_menu(ui: &Ui, editor: &mut Editor, ecs: &mut ECS) {
                         &editor.selected_entity.unwrap(),
                         NameComponent { name: new_name});
                     editor.rename_entity_buf.clear();
+                    editor.set_unsaved();
                     ui.close_current_popup();
                 }
 
@@ -189,6 +202,7 @@ fn display_menu(ui: &Ui, editor: &mut Editor, ecs: &mut ECS) {
                 &editor.selected_entity.unwrap(),
                 NameComponent { name: new_name });
             editor.rename_entity_buf.clear();
+            editor.set_unsaved();
             ui.close_current_popup();
         }
 
@@ -264,6 +278,7 @@ impl Gui for Editor {
                                                   &self.new_component_name);
                     self.should_add_comp = false;
                     self.new_component_name = None;
+                    self.set_unsaved();
                 }
             });
 

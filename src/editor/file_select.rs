@@ -39,10 +39,18 @@ impl FileSelect {
     }
 }
 
-fn execute(action: FileSelectAction, filename: &str, ecs: &mut ECS) {
+fn execute(editor: &mut Editor,
+           ecs: &mut ECS) {
 
+               let action = editor.file_select.action.unwrap(); // that would be a big coding mistake if crash here :D
+    let filename_buf = {
+        let buf = editor.file_select.buf.clone();
+        buf
+    };
+    let filename = filename_buf.to_str();
     let res = match action {
         FileSelectAction::Save => {
+            editor.set_saved();
             ecs.save(filename)
         },
         FileSelectAction::Load => {
@@ -65,8 +73,7 @@ pub fn file_select(ui: &Ui, ecs: &mut ECS, editor: &mut Editor) {
             if ui.input_text(im_str!(""), &mut editor.file_select.buf)
                 .enter_returns_true(true) // only pressing enter will trigger the action
                 .build() {
-                execute(editor.file_select.action.unwrap(), // that would be a big coding mistake if crash here :D
-                        editor.file_select.buf.to_str(), 
+                execute(editor,
                         ecs);
 
                 editor.file_select.action = None; 
@@ -74,8 +81,7 @@ pub fn file_select(ui: &Ui, ecs: &mut ECS, editor: &mut Editor) {
             }
 
             if ui.button(im_str!("{}", editor.file_select.label), (0.0, 0.0)) {
-                execute(editor.file_select.action.unwrap(), // that would be a big coding mistake if crash here :D
-                        editor.file_select.buf.to_str(), 
+                execute(editor,
                         ecs);
                 editor.file_select.action = None; 
                 editor.show_fileselect = false;

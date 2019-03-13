@@ -306,6 +306,7 @@ macro_rules! register_components {
                         }
 
                         if should_delete {
+                            editor.set_unsaved();
                             self.$name.empty(&entity);
                         }
                     )+
