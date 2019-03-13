@@ -276,4 +276,8 @@ impl Camera {
         let handler = &mut self.input_handler.mouse_handler;
         handler(&mut self.state, dt, mouse_x, mouse_y);
     }
+
+    pub fn transform(&self) -> &TransformComponent {
+        &self.state.transform
+    }
 }

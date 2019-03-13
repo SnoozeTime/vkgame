@@ -2,7 +2,6 @@ use imgui::{Ui, im_str, ImGuiCond, ImGuiSelectableFlags, ImVec2, ImString};
 use crate::ecs::{
     ECS,
     Entity,
-    gen_index::GenerationalIndexArray,
     components::{NameComponent, LightType},
 };
 use crate::ui::Gui;
@@ -32,8 +31,6 @@ pub struct Editor {
 
     // For the renaming
     pub rename_entity_buf: ImString, 
-
-
 
 }
 
@@ -121,6 +118,15 @@ fn display_menu(ui: &Ui, editor: &mut Editor, ecs: &mut ECS) {
                 .build() {
                     let entity = ecs.new_entity();
                     editor.select_entity(entity, ecs);
+                }
+
+            if ui.menu_item(im_str!("New entity at position"))
+                .build() {
+
+                    let entity = ecs.new_entity();
+                    editor.select_entity(entity, ecs);
+                    let t = (*ecs.camera.transform()).clone();
+                    ecs.components.transforms.set(&entity, t);
                 }
             if ui.menu_item(im_str!("Delete entity"))
                 .enabled(editor.selected_entity.is_some())
