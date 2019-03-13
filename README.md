@@ -16,3 +16,10 @@ light green: 81CB71
 
 TODO -> Let's not store resource IDS as strings...Implement CRC32 as compile-time macro.
 http://cowboyprogramming.com/2007/01/04/practical-hash-ids/
+
+# Editor
+
+Todo:
+- [ ] Gizmos: show transform + Axis
+- [ ] Easier load and save
+- [ ] Quick switch between existing levels
