@@ -48,3 +48,9 @@ clap = "2.32"
 
 # Cross-platform filesystem notifier
 notify = "4.0.0"
+
+
+# for network
+tokio = "0.1.17"
+tokio-codec = "0.1"
+futures = "0.1.18"
