@@ -13,18 +13,16 @@ use futures::try_ready;
 pub struct Server {
     clients: Vec<SocketAddr>,
     max_clients: usize,
-    tx: mpsc::Sender<(Bytes, SocketAddr)>,
     stream: SplitStream<UdpFramed<BytesCodec>>,
+    sink: SplitSink<UdpFramed<BytesCodec>>,
 
-    // buffer of messages to send :)
-    
 }
 
 impl Server {
 
     pub fn connect(port: usize,
                    max_clients: usize) -> 
-        Result<Box<Future<Item = (), Error = io::Error> + Send>, Box<std::error::Error>> {
+        Result<Server, Box<std::error::Error>> {
 
 
 
@@ -37,36 +35,14 @@ impl Server {
             let (sink, stream) = UdpFramed::new(socket, BytesCodec::new())
                 .split();
 
-
-            // The sink will be in its own tasks :) And receive the messages
-            // to send via the channel.
-            let (tx, rx) = mpsc::channel(0); // TODO what is the buffer size doing?
-            let rx: Box<Stream<Item = (Bytes, SocketAddr), Error = io::Error> + Send> = Box::new(rx.map_err(|e| panic!("{:?}", e)));
-
-            let forward_msg = rx
-                .forward(Box::new(sink))
-                .then(|result| {
-                    if let Err(e) = result {
-                        println!("Failed to write to socket: {:?}", e);
-                    }
-                    Ok(())
-                });
-
-
             let server = Server {
                 clients,
                 max_clients,
-                tx,
+                sink,
                 stream,
             };
 
-            let fut = Box::new(future::lazy(|| {
-                tokio::spawn(forward_msg);
-                tokio::spawn(server.map_err(|_| println!("Got an error ..")));
-                future::ok(())
-            }));
-
-            Ok(fut)
+            Ok(server)
         }
 
 
@@ -74,7 +50,7 @@ impl Server {
         println!("New client({:?} with message {:?}", addr, msg);
 
         if self.clients.len() < self.max_clients {
-            self.tx.start_send((msg.into(), addr));
+            self.sink.start_send((msg.into(), addr));
             self.clients.push(addr);
             println!("Connection accepted") 
         } else {
@@ -92,7 +68,7 @@ impl Future for Server {
 
     fn poll(&mut self) -> Poll<(), io::Error> {
 
-        // Will check for update from clients.
+        // Will check for update from clients (UDP socket).
         while let Async::Ready(data) = self.stream.poll()? {
 
             match data {
@@ -122,11 +98,8 @@ impl Future for Server {
             }
         }
 
-
         // Send available data to clients.
-        try_ready!(self.tx.poll_complete().map_err(|e| {
-            io::Error::new(io::ErrorKind::Other, e.to_string())   
-        }));
+        try_ready!(self.sink.poll_complete());
         Ok(Async::NotReady)
     }
 }
