@@ -43,11 +43,12 @@ fn execute(editor: &mut Editor,
            ecs: &mut ECS) {
 
                let action = editor.file_select.action.unwrap(); // that would be a big coding mistake if crash here :D
-    let filename_buf = {
-        let buf = editor.file_select.buf.clone();
-        buf
+    dbg!(&editor.file_select.buf);
+    let filename = {
+        String::from(editor.file_select.buf.to_str())
     };
-    let filename = filename_buf.to_str();
+    dbg!(&filename);
+    //let filename = filename_buf.to_str();
     let res = match action {
         FileSelectAction::Save => {
             editor.set_saved();
