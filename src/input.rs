@@ -73,6 +73,9 @@ impl From<winit::MouseButton> for MouseButton {
 ///
 /// Input is not really a system as it is inside the ECS and is passed to systems.
 /// Also, there is no components for it.
+///
+/// TODO use backends. winit is for GUI backend but for server we need a different way to
+/// do that.
 pub struct Input {
     back: EventsLoop,
 

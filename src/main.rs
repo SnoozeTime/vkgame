@@ -1,6 +1,7 @@
 use vulkano::instance::Instance;
 use clap::{App, SubCommand};
 use winit::EventsLoop;
+use log::debug;
 use twgraph::input::{KeyType, Input};
 
 use std::time::Instant;
@@ -11,7 +12,7 @@ use twgraph::ecs::{
 };
 use twgraph::time::dt_as_secs;
 use twgraph::resource::Resources;
-use twgraph::scene::{Scene, EditorScene, GameScene};
+use twgraph::scene::{Scene, EditorScene, GameScene, SceneStack};
 use twgraph::event::{Event, EditorEvent};
 
 fn main() {
@@ -22,12 +23,9 @@ fn main() {
         .subcommand(SubCommand::with_name("game"))
         .subcommand(SubCommand::with_name("editor"))
         .get_matches();
-    // this is an Arc to instance. (non-mut dynamic ref)
-    
-        // NOTE: To simplify the example code we won't verify these layer(s) are actually in the
-        // layers list:
-         let layer = "VK_LAYER_LUNARG_standard_validation";
-         let layers = vec![layer];
+
+    let layer = "VK_LAYER_LUNARG_standard_validation";
+    let layers = vec![layer];
     let instance = {
         let extensions = vulkano_win::required_extensions();
         Instance::new(None, &extensions, layers).expect("Could not create instance")
@@ -53,15 +51,15 @@ fn main() {
     let mut old_instant = Instant::now();
 
 
-    let mut scenes: Vec<Box< dyn Scene>> = Vec::new();
-
+    //let mut scenes: Vec<Box< dyn Scene>> = Vec::new();
+    let mut scenes = SceneStack::new();
 
     if let Some(_matches) = matches.subcommand_matches("game") {
-        scenes.push(Box::new(GameScene::new(&render_system)));
+        scenes.push(GameScene::new(&render_system));
     }
 
     if let Some(_matches) = matches.subcommand_matches("editor") {
-        scenes.push(Box::new(EditorScene::new(&render_system, &resources)));
+        scenes.push(EditorScene::new(&render_system, &resources));
     }
 
     if scenes.len() == 0 {
@@ -75,9 +73,12 @@ fn main() {
         let events = resources.poll_events();
         render_system.handle_events(&events); 
 
-        let nb_scene = scenes.len();
-        let scene = &mut scenes[nb_scene - 1];
-
+        let maybe_scene = scenes.get_current();
+        if let None = maybe_scene {
+            debug!("No more scene in scene stack, exit the game");
+            break 'game_loop;
+        }
+        let scene = maybe_scene.unwrap();
 
         // calculate frame time.
         let now = Instant::now();
@@ -95,24 +96,20 @@ fn main() {
 
         // Now scene specific updates.
         scene.update(frame_duration);
-        let events = scene.process_input(&input, &resources, frame_duration);
+        let events = scene.process_input(Some(&input), Some(&resources), frame_duration);
 
         if let Some(events) = events {
             if let Some(Event::EditorEvent(EditorEvent::PlayGame)) = events.get(0) {
                 // TODO copy the ECS
                 render_system.grab_cursor(true);
                 let ecs = ECS::new_from_existing(scene.get_ecs());
-                scenes.push(Box::new(GameScene::from_ecs(ecs, &render_system)));
+                scenes.push(GameScene::from_ecs(ecs, &render_system));
             }
         }
 
         if input.get_key_down(KeyType::Escape) {
             let _ = scenes.pop();
             render_system.grab_cursor(false);
-
-            if scenes.len() == 0 {
-                break 'game_loop;
-            }
         }
 
         // To quit

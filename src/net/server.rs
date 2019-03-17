@@ -7,6 +7,7 @@ use futures::sync::mpsc;
 use tokio::prelude::stream::{SplitSink, SplitStream};
 use bytes::{Bytes, BytesMut};
 
+use log::debug;
 use super::NetworkError;
 use futures::try_ready;
 

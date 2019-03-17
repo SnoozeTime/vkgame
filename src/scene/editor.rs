@@ -68,9 +68,12 @@ impl Scene for EditorScene {
     fn update(&mut self, _dt: Duration) -> Option<Vec<Event>> { None }
 
     fn process_input(&mut self,
-                     input: &Input,
-                     resources: &Resources,
+                     input: Option<&Input>,
+                     resources: Option<&Resources>,
                      dt: Duration) -> Option<Vec<Event>> {
+
+        let input = input.unwrap();
+        let resources = resources.unwrap();
 
         let mut events = None;
         // HANDLE CAMERA.

@@ -24,6 +24,10 @@ Todo:
 - [ ] Easier load and save
 - [ ] Quick switch between existing levels
 
+# Input
+
+- [ ] Create different backend for GUI and headless mode. (headless for server, should
+      read input from the console)
 
 # BUGS:
 

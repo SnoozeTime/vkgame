@@ -20,7 +20,6 @@ impl Gui for GameUi {
 
     fn run_ui(&mut self, _ui: &Ui, _ecs: &mut ECS) -> bool {
         // maybe add debug console :D 
-
         true
     }
 }
@@ -78,10 +77,11 @@ impl Scene for GameScene {
     }
 
     fn process_input(&mut self,
-                     input: &Input,
-                     _resources: &Resources,
+                     input: Option<&Input>,
+                     _resources: Option<&Resources>,
                      dt: Duration) -> Option<Vec<Event>> {
 
+        let input = input.unwrap();
         if input.get_key(KeyType::Up) {
             self.ecs.camera.process_keyboard(dt,
                                              CameraDirection::Forward);
@@ -113,7 +113,6 @@ impl Scene for GameScene {
 
         None
     }
-
 
     fn get_parts_mut(&mut self) -> (&mut ECS, &mut Gui) {
         (&mut self.ecs, &mut self.game_ui)
