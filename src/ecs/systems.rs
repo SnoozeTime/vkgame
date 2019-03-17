@@ -1,4 +1,4 @@
-use winit::{WindowBuilder, Window};
+use winit::{WindowBuilder, Window, Event, WindowEvent};
 use imgui::{FontGlyphRange, ImFontConfig, ImGui};
 use vulkano::instance::Instance;
 use vulkano::swapchain::Surface;
@@ -9,6 +9,7 @@ use cgmath::{Angle,Rad};
 
 use std::sync::Arc;
 use std::time::Duration;
+use log::{trace, error};
 
 use crate::renderer::Renderer;
 use crate::time::dt_as_secs;
@@ -16,6 +17,7 @@ use crate::resource::Resources;
 use crate::ui::Gui;
 
 use super::{Entity, ECS};
+
 
 pub struct RenderingSystem<'a> {
     renderer: Renderer<'a>,    
@@ -30,13 +32,12 @@ impl<'a> RenderingSystem<'a> {
     pub fn new(instance: &'a Arc<Instance>, events_loop: &winit::EventsLoop) -> Self {
         // Get the surface and window. Window is from winit library
         let surface = WindowBuilder::new()
-//            .with_dimensions((600, 600).into())
+//           .with_dimensions((600, 600).into())
 //           .with_resizable(false)
             .build_vk_surface(&events_loop, instance.clone())
             .expect("Cannot create vk_surface");
 
         let window = surface.window();
-        window.grab_cursor(true).unwrap();
         window.hide_cursor(true);
 
 
@@ -78,6 +79,13 @@ impl<'a> RenderingSystem<'a> {
             imgui,
             surface,
             hidpi_factor,
+        }
+    }
+
+    /// FIXME should be called by scene at creation
+    pub fn grab_cursor(&mut self, should_grab: bool) {
+        if let Err(err) = self.surface.window().grab_cursor(should_grab) {
+            error!("{:?}", err);
         }
     }
 
@@ -152,6 +160,12 @@ impl<'a> RenderingSystem<'a> {
                 window.get_hidpi_factor(),
                 self.hidpi_factor,
                 );
+
+        if let Event::WindowEvent { 
+            event: WindowEvent::Resized(x),
+            ..} = ev {
+            trace!("Got resize ev: {:?}", x);
+        }
     }
 
     pub fn handle_events(&mut self, events: &Vec<crate::event::Event>) {

@@ -100,6 +100,7 @@ fn main() {
         if let Some(events) = events {
             if let Some(Event::EditorEvent(EditorEvent::PlayGame)) = events.get(0) {
                 // TODO copy the ECS
+                render_system.grab_cursor(true);
                 let ecs = ECS::new_from_existing(scene.get_ecs());
                 scenes.push(Box::new(GameScene::from_ecs(ecs, &render_system)));
             }
@@ -107,6 +108,7 @@ fn main() {
 
         if input.get_key_down(KeyType::Escape) {
             let _ = scenes.pop();
+            render_system.grab_cursor(false);
 
             if scenes.len() == 0 {
                 break 'game_loop;

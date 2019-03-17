@@ -23,3 +23,8 @@ Todo:
 - [ ] Gizmos: show transform + Axis
 - [ ] Easier load and save
 - [ ] Quick switch between existing levels
+
+
+# BUGS:
+
+- [ ] GUI does not resize (imgui renderer problem)
