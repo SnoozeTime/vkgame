@@ -16,6 +16,7 @@ use self::components::{
     LightComponent,
     NameComponent,
     LightType,
+    GravityComponent,
 };
 use self::gen_index::{GenerationalIndexAllocator, GenerationalIndexArray, GenerationalIndex};
 use crate::camera::Camera;
@@ -387,4 +388,5 @@ register_components!(
     [dummies, DummyComponent, "Dummy"],
     [lights, LightComponent, "Light"],
     [names, NameComponent, "Name"],
+    [gravities, GravityComponent, "Gravity"],
     );

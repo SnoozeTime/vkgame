@@ -19,6 +19,18 @@ impl NameComponent {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct GravityComponent {
+
+}
+
+impl GravityComponent {
+    pub fn draw_ui(&mut self, _ui: &Ui, _editor: &Editor) {
+        // nothing to see here.
+    }
+
+}
+
 /// This is a component that is going to be rendered
 /// by the render system.
 #[derive(Clone, Debug, Serialize, Deserialize)]

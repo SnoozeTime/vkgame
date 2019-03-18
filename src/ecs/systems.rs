@@ -39,6 +39,7 @@ impl<'a> RenderingSystem<'a> {
 
         let window = surface.window();
         window.hide_cursor(true);
+        //window.set_maximized(true);
 
 
         // Set up ImGUI
@@ -217,3 +218,30 @@ impl DummySystem {
 
 }
 
+pub struct GravitySystem {
+}
+
+impl GravitySystem {
+    pub fn new() -> Self {
+        GravitySystem {}
+    }
+
+    pub fn do_gravity(&mut self, dt: Duration, ecs: &mut ECS) {
+        let dt = dt_as_secs(dt) as f32;
+
+        let live_entities = ecs.nb_entities();
+        let mut physics_objects = Vec::new();
+
+        // Get all transform + gravity entities
+        for entity in &live_entities {
+            let maybe_g = ecs.components.gravities.get(entity);
+            let maybe_t = ecs.components.transforms.get(entity);
+
+            match (maybe_g, maybe_t) {
+                (Some(g),Some(t)) => physics_objects.push((g,t)),
+                _ => {}
+            }
+        }
+
+    }
+}
