@@ -17,15 +17,17 @@ pub trait Scene {
                      resources: Option<&Resources>,
                      dt: Duration) -> Option<Vec<Event>>;
 
-    fn get_parts_mut(&mut self) -> (&mut ECS, &mut Gui);
+    fn get_parts_mut(&mut self) -> (&mut ECS, Option<&mut Gui>);
     fn get_ecs(&self) -> &ECS;
 }
 
 pub use editor::EditorScene;
 pub use game::GameScene;
+pub use netscene::NetworkScene;
 
 mod editor;
 mod game;
+mod netscene;
 
 pub struct SceneStack(Vec<Box<dyn Scene>>);
 
