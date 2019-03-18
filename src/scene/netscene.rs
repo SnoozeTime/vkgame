@@ -7,10 +7,28 @@ use crate::ui::Gui;
 use std::time::Duration;
 use crate::input::Input;
 use crate::resource::Resources;
+use crate::net::NetworkSystem;
 
 pub struct NetworkScene {
 
-    ecs: ECS
+    // All the objects.
+    ecs: ECS,
+
+    // My nice systems
+    network: NetworkSystem,
+}
+
+impl NetworkScene {
+    pub fn new(port: usize, max_clients: usize) -> Self {
+
+        // can crash if problem with network. Don't worry, that is life.
+        let network = NetworkSystem::new(port, max_clients);
+
+        NetworkScene {
+            network,
+            ecs: ECS::new()
+        }
+    }
 }
 
 impl Scene for NetworkScene {

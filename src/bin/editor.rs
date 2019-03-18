@@ -24,15 +24,9 @@ fn main() {
     // Get the surface and window. Window is from winit library
     let events_loop = EventsLoop::new();
 
-    let now = Instant::now();
     let mut render_system = RenderingSystem::new(&instance, &events_loop);
-    let elapsed_render = Instant::now() - now;
-
-
-    let now = Instant::now();
     let mut resources = Resources::new(
         render_system.get_queue().clone());
-    let elapsed_resources = Instant::now() - now;
 
     let mut input = Input::new(events_loop);
     let mut old_instant = Instant::now();
