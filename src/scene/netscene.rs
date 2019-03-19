@@ -36,6 +36,15 @@ impl Scene for NetworkScene {
     
     fn update(&mut self, dt: Duration) -> Option<Vec<Event>> {
 
+        // Get the latest event from the clients.
+        self.network.poll_events();
+        
+        // All the systems.
+        
+        
+        // Finish by sending latest state.
+        self.network.send_state(&mut self.ecs);
+        
         None
     }
 

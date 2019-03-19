@@ -1,9 +1,12 @@
 use log::error;
-use futures::sync::mpsc;
+use std::thread;
 use bytes::Bytes;
 use crate::ecs::ECS;
+use tokio::prelude::*;
 mod server;
-mod protocol;
+pub mod protocol;
+
+use crate::sync::SharedDeque;
 
 pub enum NetworkError {
     
@@ -15,10 +18,10 @@ pub use server::Server;
 /// it should provide events and allow to send messages.
 pub struct NetworkSystem {
 
-    server: Server,
+    //server: Server,
 
-    from_clients: mpsc::UnboundedReceiver<Bytes>,
-    to_clients: mpsc::UnboundedSender<Bytes>,
+    from_clients: SharedDeque<Bytes>,
+    to_clients: SharedDeque<Bytes>,
 }
 
 
@@ -36,8 +39,14 @@ impl NetworkSystem {
 
         let (server, to_clients, from_clients) = server.unwrap();
 
+        // run the server.
+        // TODO what to do with this xD
+        thread::spawn(|| {
+            tokio::run(server.map_err(|e| error!("{:?}", e)));
+        });
+
         Self {
-            server,
+            //server,
             to_clients,
             from_clients,
         }
@@ -48,11 +57,18 @@ impl NetworkSystem {
     /// For example, player commands and so on.
     pub fn poll_events(&mut self) {
 
+        let events = self.from_clients.drain();
+
+        for ev in events {
+            println!("Network system received {:?}", ev);
+        }   
     }
 
 
     /// This will send the current state to all clients.
     pub fn send_state(&mut self, ecs: &mut ECS) {
 
+        let state = Bytes::from("hello");
+        self.to_clients.push(state);
     }
 }

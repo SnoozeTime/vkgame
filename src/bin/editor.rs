@@ -7,7 +7,6 @@ use twgraph::ecs::{
     ECS,
     systems::{RenderingSystem},
 };
-use twgraph::time::dt_as_secs;
 use twgraph::resource::Resources;
 use twgraph::scene::{Scene, EditorScene, GameScene};
 use twgraph::event::{Event, EditorEvent};

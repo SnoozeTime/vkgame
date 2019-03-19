@@ -13,5 +13,6 @@ pub mod ui;
 pub mod event;
 
 pub mod net;
+pub mod sync;
 /// This is the module for all the editor stuff. To put in its own crate?
 pub mod editor;

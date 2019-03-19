@@ -41,6 +41,7 @@ tobj = "0.1.6"
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
+rmp-serde = "0.13.7"
 
 # Gui.
 imgui = "0.0.22"

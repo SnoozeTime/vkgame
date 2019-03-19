@@ -1,15 +1,22 @@
 use std::net::SocketAddr;
-use log::error;
+use log::{warn, trace, error, info, debug};
 use std::io;
 use tokio::prelude::*;
 use tokio::net::{UdpFramed, UdpSocket};
 use tokio_codec::BytesCodec;
-use futures::sync::mpsc;
+use futures::sync::mpsc as futmpsc;
 use tokio::prelude::stream::{SplitSink, SplitStream};
 use bytes::{Bytes, BytesMut};
 
 use super::NetworkError;
 use futures::try_ready;
+
+
+use std::sync::mpsc as stdmpsc;
+
+use crate::sync::SharedDeque;
+use super::protocol;
+use std::thread;
 
 pub struct Server {
     clients: Vec<SocketAddr>,
@@ -18,15 +25,57 @@ pub struct Server {
     sink: SplitSink<UdpFramed<BytesCodec>>,
 
     // Communication with rest of gameengine.
-    to_clients: mpsc::UnboundedReceiver<Bytes>,
-    to_server: mpsc::UnboundedSender<Bytes>,
+    to_clients: SharedDeque<Bytes>,
+    to_server: SharedDeque<Bytes>,
+}
+
+pub fn start_serving() {
+
+}
+
+/// Will create the futures that will run in tokio runtime.
+fn connect(port: usize,
+           game_to_net: Box<Stream<Item = (Bytes, SocketAddr), Error = io::Error> + Send>,
+           mut net_to_game: SharedDeque<(BytesMut, SocketAddr)>)
+    -> Result<Box<Stream<Item = (), Error = io::Error> + Send>, Box<std::error::Error>> {
+
+        let addr = format!("127.0.0.1:{}", port).parse()?;
+        let socket = UdpSocket::bind(&addr)?;
+
+        let (sink, stream) = UdpFramed::new(socket, BytesCodec::new()).split();
+
+        // All bytes from `game_to_net` will go to the `addr` specified in our
+        // argument list. Like with TCP this is spawned concurrently
+        let forward = game_to_net
+            .forward(sink)
+            .then(|result| {
+                if let Err(e) = result {
+                    println!("failed to write to socket: {}", e)
+                }
+                Ok(())
+            });
+
+        let receive = stream.map(move |received| {
+            net_to_game.push(received);
+        });
+
+
+
+        let stream = Box::new(
+            future::lazy(|| {
+                tokio::spawn(forward);
+                future::ok(receive)
+            })
+            .flatten_stream(),
+            );
+        Ok(stream)
 }
 
 impl Server {
 
     pub fn connect(port: usize,
                    max_clients: usize) -> 
-        Result<(Server, mpsc::UnboundedSender<Bytes>, mpsc::UnboundedReceiver<Bytes>), Box<std::error::Error>> {
+        Result<(Server, SharedDeque<Bytes>, SharedDeque<Bytes>), Box<std::error::Error>> {
 
 
             let mut clients = Vec:: new();
@@ -38,38 +87,48 @@ impl Server {
             let (sink, stream) = UdpFramed::new(socket, BytesCodec::new())
                 .split();
 
-
-            // Confusing. 
-            // The *_to_clients channel represent a flow of messages from the server
-            // to the clients, so the server will send them over UDP
-            //
-            // The *_to_server will represent a flow of messages from the clients to 
-            // the server so the server will receive them over UDP.
-            let (tx_to_clients, rx_to_clients) = mpsc::unbounded();
-            let (tx_to_server, rx_to_server) = mpsc::unbounded();
+            let to_server = SharedDeque::new(1024);
+            let to_clients = SharedDeque::new(1024);
 
             let server = Server {
                 clients,
                 max_clients,
                 sink,
                 stream,
-                to_server: tx_to_server,
-                to_clients: rx_to_clients,
+                to_server: to_server.clone(),
+                to_clients: to_clients.clone(),
             };
 
-            Ok((server, tx_to_clients, rx_to_server))
+            Ok((server, to_clients, to_server))
         }
 
 
     fn handle_new_client(&mut self, addr: SocketAddr, msg: BytesMut) {
         println!("New client({:?} with message {:?}", addr, msg);
 
-        if self.clients.len() < self.max_clients {
-            self.sink.start_send((msg.into(), addr));
-            self.clients.push(addr);
-            println!("Connection accepted") 
+        let incoming_msg = protocol::deserialize(msg.into());
+        if let Err(e) = incoming_msg {
+            error!("Incoming message from {} is erroneous = {:?}", addr, e);
+            return;
+        }
+        let incoming_msg = incoming_msg.unwrap();
+        if let protocol::NetMessage::ConnectionRequest = incoming_msg {
+
+            if self.clients.len() < self.max_clients {
+                // Welcome my man.
+                let packed = protocol::serialize(protocol::NetMessage::ConnectionAccepted)
+                    .expect("Cannot serialize ConnectionAccepted message");
+                self.sink.start_send((packed, addr));
+                info!("Connection accepted for {:?}", addr); 
+                self.clients.push(addr);
+            } else {
+                let packed = protocol::serialize(protocol::NetMessage::ConnectionRefused)
+                    .expect("Cannot serialize ConnectionRefused message");
+                self.sink.start_send((packed, addr));
+                info!("Connection refused for {:?}", addr); 
+            }
         } else {
-            println!("Connection refused");
+            trace!("Client {} is not connected but sent {:?}", addr, incoming_msg);
         }
     }
 }
@@ -96,7 +155,7 @@ impl Future for Server {
                     let mut found = false;
                     for client in &self.clients {
                         if *client == addr {
-                            println!("Got a message from {:?}", client);
+                            trace!("Got a message from {:?}", client);
                             found = true;
                             break;
                         }
@@ -105,22 +164,47 @@ impl Future for Server {
                     if !found {
                         self.handle_new_client(addr, message);
                     } else {
-                        if let Err(err) = self.to_server.unbounded_send(message.into()) {
-                            error!("Error sending over unbounded channel = {:?}", err);
-                        }
+                        // TODO maybe handle all the messages at the same time so that
+                        // mutex is only locked once.
+                        self.to_server.push(message.into());
                     }
                 },
                 None => {
-                    println!("Received None in Server::poll");
+                    warn!("Received None in Server::poll");
                     return Ok(Async::Ready(()));
                 },
             }
         }
 
+        println!(" I A M H E R E");
+
         // process state from server-side.
+        // TODO that can't be good
+        let state = self.to_clients.drain();
+        debug!("will send {} messages", state.len());
+        for el in state {
+            for client in self.clients.iter() {
+                self.sink.start_send((el.clone(), *client));
+            }
+        }
 
         // Send available data to clients.
         try_ready!(self.sink.poll_complete());
         Ok(Async::NotReady)
     }
+}
+
+fn read_channel(mut tx: futmpsc::Sender<Bytes>, mut rx: stdmpsc::Receiver<Bytes>) {
+
+    loop {
+        let d = rx.recv().unwrap();
+        tx = match tx.send(d).wait() {
+            Ok(tx) => tx,
+            Err(e) => {
+                error!("Error in read_channel = {:?}", e);
+                break;
+            }
+        }
+    }
+
 }
