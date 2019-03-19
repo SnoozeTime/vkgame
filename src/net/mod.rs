@@ -1,6 +1,7 @@
 use log::error;
+use std::net::SocketAddr;
 use std::thread;
-use bytes::Bytes;
+use bytes::{BytesMut, Bytes};
 use crate::ecs::ECS;
 use tokio::prelude::*;
 mod server;
@@ -12,16 +13,15 @@ pub enum NetworkError {
     
 }
 
-pub use server::Server;
+pub use server::start_serving;
 
 /// The network system is the ECS system that will be called in the main loop.
 /// it should provide events and allow to send messages.
 pub struct NetworkSystem {
+    from_clients: SharedDeque<(BytesMut, SocketAddr)>,
+    to_clients: std::sync::mpsc::Sender<(Bytes, SocketAddr)>,
 
-    //server: Server,
-
-    from_clients: SharedDeque<Bytes>,
-    to_clients: SharedDeque<Bytes>,
+    my_clients: Vec<SocketAddr>,
 }
 
 
@@ -29,26 +29,15 @@ impl NetworkSystem {
 
     pub fn new(port: usize,
                max_clients: usize) -> Self {
-    
-        // If error here, just crash the server and display log.
-        let server = Server::connect(port, max_clients);
-        if let Err(err) = server {
-            error!("Cannot create server = {:?}", err);
-            panic!("Cannot create server, that should not happen. Please check the command line arguments");
-        }
+        let (from_clients, to_clients) = start_serving(port).unwrap();
 
-        let (server, to_clients, from_clients) = server.unwrap();
-
-        // run the server.
-        // TODO what to do with this xD
-        thread::spawn(|| {
-            tokio::run(server.map_err(|e| error!("{:?}", e)));
-        });
+        let my_clients = vec![];
 
         Self {
             //server,
             to_clients,
             from_clients,
+            my_clients,
         }
     }
 
@@ -59,7 +48,19 @@ impl NetworkSystem {
 
         let events = self.from_clients.drain();
 
-        for ev in events {
+        for (ev, client) in events {
+
+            let mut found = false;
+            for c in self.my_clients.iter() {
+                if *c == client {
+                    found = true;
+                    break;
+                }
+            }
+
+            if !found {
+                self.my_clients.push(client);
+            }
             println!("Network system received {:?}", ev);
         }   
     }
@@ -69,6 +70,8 @@ impl NetworkSystem {
     pub fn send_state(&mut self, ecs: &mut ECS) {
 
         let state = Bytes::from("hello");
-        self.to_clients.push(state);
+        for c in self.my_clients.iter() {
+            self.to_clients.send((state.clone(), *c));
+        }
     }
 }

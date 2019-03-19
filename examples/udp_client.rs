@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
 
     let mut stdout = io::stdout();
     tokio::run(stream
-        .for_each(move |chunk| stdout.write_all(&chunk))
+        .for_each(move |chunk| { println!("{:?}",&chunk); Ok(()) })
         .map_err(|e| println!("Err = {:?}", e)));
 
     //   tokio::run(stream.for_each(move |chunk | println!("{:?}", chunk))
