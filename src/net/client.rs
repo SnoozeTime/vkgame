@@ -1,88 +1,126 @@
 use std::net::SocketAddr;
-use log::{warn, trace, error, info};
+use log::{warn, trace, error, info, debug};
 use std::io;
 use tokio::prelude::*;
 use tokio::net::{UdpFramed, UdpSocket};
 use tokio_codec::BytesCodec;
-use futures::sync::mpsc;
+use futures::sync::mpsc as futmpsc;
 use tokio::prelude::stream::{SplitSink, SplitStream};
 use bytes::{Bytes, BytesMut};
-use std::error::Error;
 
-use super::NetworkError;
-use futures::try_ready;
+use std::thread;
+use super::protocol;
+
+use std::sync::mpsc as stdmpsc;
 
 use crate::sync::SharedDeque;
-use super::protocol;
-use super::protocol::NetMessage;
+use super::NetworkError;
 
-pub struct Client {
+/// Connect to the remote server and returns interfaces to send and receive 
+/// messages
+///
+/// As opposed to the server, we don't need to attach the SocketAddr that
+/// sent the message and we don't need to specify the SocketAddr when sending
+/// because this is known at start time.
+pub fn start_connecting(server_addr: SocketAddr)
+    -> Result<(SharedDeque<protocol::NetMessageContent>,
+               stdmpsc::Sender<protocol::NetMessageContent>),
+              Box<std::error::Error>> {
+    info!("Start connecting to {}", server_addr);
+    // interfaces
+    let net_to_game = SharedDeque::new(1024);
+    let mut net_to_game_clone = net_to_game.clone();
+    let (int_tx, int_rx) = futmpsc::channel(1024);
+    let (tx, rx) = stdmpsc::channel();
+    let int_rx = int_rx.map_err(|_| panic!("Error not possible on rx"));
 
-    server_addr: SocketAddr,
-    stream: SplitStream<UdpFramed<BytesCodec>>,
-    sink: SplitSink<UdpFramed<BytesCodec>>,
+    thread::spawn(move || read_channel(int_tx, rx));
+    
+    let async_stuff = connect(server_addr, Box::new(int_rx))?;
+    thread::spawn(move || {
+        tokio::run(
+            async_stuff
+            .for_each(move |buf| {
 
-    to_remote: SharedDeque<NetMessage>,
-    to_game: SharedDeque<NetMessage>,
+                match protocol::deserialize(buf.into()) {
+                    Ok(unpacked) => net_to_game_clone.push(unpacked),
+                    Err(e) => {
+                        error!("Received malformed message from {}, error = {:?}",
+                               server_addr,
+                               e);
+                    },
+                }
+                                                                          
+                Ok(())
+            }
+            )       
+            .map_err(|e| error!("{:?}", e)));
+    });
+
+    Ok((net_to_game, tx))
 }
 
-impl Client {
+/// Will create the futures that will run in tokio runtime.
+fn connect(server_addr: SocketAddr,
+           game_to_net: Box<Stream<Item = Bytes, Error = io::Error> + Send>,)
+    ->  Result<Box<Stream<Item = BytesMut, Error = io::Error> + Send>,
+               Box<std::error::Error>> {
 
-    pub fn connect(server_addr: SocketAddr)
-        -> Result<(Client, SharedDeque<Bytes>, SharedDeque<Bytes>), Box<Error>> {
+        let addr = "127.0.0.1:8081".parse()?;
+        let socket = UdpSocket::bind(&addr)?;
 
-            let addr = "127.0.0.1:8081".parse()?;
-            let socket = UdpSocket::bind(&addr)?;
-            info!("Socket is bound");
+        let (sink, stream) = UdpFramed::new(socket, BytesCodec::new()).split();
 
-            let (sink, stream) = UdpFramed::new(socket, BytesCodec::new()).split();
+        // All bytes from `game_to_net` will go to the `addr` specified in our
+        // argument list. Like with TCP this is spawned concurrently
+        let forward = game_to_net
+            .map(move |chunk| (chunk, server_addr))
+            .forward(sink)
+            .then(|result| {
+                if let Err(e) = result {
+                    error!("failed to write to socket: {}", e)
+                }
+                Ok(())
+            });
 
-            let to_remote = SharedDeque::new(1024);
-            let to_game = SharedDeque::new(1024);
+        let receive = stream.filter_map(move |(chunk, src)| {
+            if src == server_addr {
+                Some(chunk)
+            } else {
+                None
+            }
+        });
 
-            Ok(Client {
-                server_addr,
-                sink,
-                stream,
-                to_remote,
-                to_game,
+        let stream = Box::new(
+            future::lazy(|| {
+                tokio::spawn(forward);
+                future::ok(receive)
             })
-        }
+            .flatten_stream(),
+            );
+
+        Ok(stream)
 }
 
-impl Future for Client {
+fn read_channel(mut tx: futmpsc::Sender<Bytes>,
+                rx: stdmpsc::Receiver<protocol::NetMessageContent>) {
 
-    type Item = ();
-    type Error = io::Error;
+    loop {
+        let d = rx.recv().unwrap();
+        
+        // if cannot serialize here, we have a problem...
+        let packed = protocol::serialize(d).map_err(|e| {
+            error!("Error when unpacking in `read_channel` = {:?}", e);
+            e
+        }).unwrap();
 
-    fn poll(&mut self) -> Poll<(), io::Error> {
+        tx = match tx.send(packed).wait() {
+            Ok(tx) => tx,
+            Err(e) => {
+                error!("Error in read_channel = {:?}", e);
+                break;
+            }
+        }
+    }
 
-        // Receive all messages from server and send them to game.
-        while let Async::Ready(data) = self.stream.poll()? {
-
-            match data {
-                Some((message, addr)) if addr == self.server_addr => {
-                    match protocol::deserialize(message) {
-                        Ok(msg) => to_game.push(msg),
-                        Err(e) => error!("Error when deserializing client message = {:?}", e),
-                        }
-                    }
-                },
-                Some((_, addr) => {
-                    // Not the server is sending. Wtf.
-                    warn!("Received message from unknown host = {:?}", addr);
-                },
-                None => {
-                    warn!("Received None is Client::poll");
-                    return Ok(Async::Ready());
-                }
-
-                }
-                }
-
-
-                }
-
-
-
-                }
+}

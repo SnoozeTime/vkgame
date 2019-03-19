@@ -1,10 +1,11 @@
-use log::error;
+use log::{debug, error};
 use std::net::SocketAddr;
 use std::thread;
 use bytes::{BytesMut, Bytes};
 use crate::ecs::ECS;
 use tokio::prelude::*;
 mod server;
+mod client;
 pub mod protocol;
 
 use crate::sync::SharedDeque;
@@ -14,12 +15,13 @@ pub enum NetworkError {
 }
 
 pub use server::start_serving;
+pub use client::start_connecting;
 
 /// The network system is the ECS system that will be called in the main loop.
 /// it should provide events and allow to send messages.
 pub struct NetworkSystem {
-    from_clients: SharedDeque<(BytesMut, SocketAddr)>,
-    to_clients: std::sync::mpsc::Sender<(Bytes, SocketAddr)>,
+    from_clients: SharedDeque<protocol::NetMessage>,
+    to_clients: std::sync::mpsc::Sender<protocol::NetMessage>,
 
     my_clients: Vec<SocketAddr>,
 }
@@ -48,20 +50,20 @@ impl NetworkSystem {
 
         let events = self.from_clients.drain();
 
-        for (ev, client) in events {
+        for ev in events {
 
             let mut found = false;
             for c in self.my_clients.iter() {
-                if *c == client {
+                if *c == ev.target {
                     found = true;
                     break;
                 }
             }
 
             if !found {
-                self.my_clients.push(client);
+                self.my_clients.push(ev.target);
             }
-            println!("Network system received {:?}", ev);
+            debug!("Network system received {:?}", ev);
         }   
     }
 
@@ -69,9 +71,12 @@ impl NetworkSystem {
     /// This will send the current state to all clients.
     pub fn send_state(&mut self, ecs: &mut ECS) {
 
-        let state = Bytes::from("hello");
-        for c in self.my_clients.iter() {
-            self.to_clients.send((state.clone(), *c));
-        }
+       for c in self.my_clients.iter() {
+           let msg = protocol::NetMessage { 
+               content: protocol::NetMessageContent::ConnectionRefused,
+               target: *c
+           };
+            self.to_clients.send(msg);
+       }
     }
 }

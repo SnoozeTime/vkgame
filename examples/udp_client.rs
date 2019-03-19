@@ -6,7 +6,7 @@ use futures::sync::mpsc;
 use bytes::Bytes;
 use std::thread;
 
-use twgraph::net::protocol::{NetMessage, self};
+use twgraph::net::protocol::{NetMessageContent, self};
 
 fn main() -> Result<(), Box<std::error::Error>> {
     println!("hello, world!");
@@ -106,7 +106,7 @@ fn read_stdin(mut tx: mpsc::Sender<Bytes>) {
             Ok(n) => n,
         };
         buf.truncate(n);
-        let b = protocol::serialize(NetMessage::ConnectionRequest).unwrap();
+        let b = protocol::serialize(NetMessageContent::ConnectionRequest).unwrap();
         tx = match tx.send(b).wait() {
             Ok(tx) => tx,
             Err(_) => break,

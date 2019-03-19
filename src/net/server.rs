@@ -8,31 +8,18 @@ use futures::sync::mpsc as futmpsc;
 use tokio::prelude::stream::{SplitSink, SplitStream};
 use bytes::{Bytes, BytesMut};
 
-use super::NetworkError;
-use futures::try_ready;
-
+use std::thread;
+use super::protocol;
 
 use std::sync::mpsc as stdmpsc;
 
 use crate::sync::SharedDeque;
-use super::protocol;
-use std::thread;
-
-pub struct Server {
-    clients: Vec<SocketAddr>,
-    max_clients: usize,
-    stream: SplitStream<UdpFramed<BytesCodec>>,
-    sink: SplitSink<UdpFramed<BytesCodec>>,
-
-    // Communication with rest of gameengine.
-    to_clients: SharedDeque<Bytes>,
-    to_server: SharedDeque<Bytes>,
-}
+use super::NetworkError;
 
 pub fn start_serving(port: usize)
-    -> Result<(SharedDeque<(BytesMut, SocketAddr)>, stdmpsc::Sender<(Bytes, SocketAddr)>),
+    -> Result<(SharedDeque<protocol::NetMessage>, stdmpsc::Sender<protocol::NetMessage>),
               Box<std::error::Error>> {
-
+    info!("Start serving on {}", port);
     // interfaces
     let net_to_game = SharedDeque::new(1024);
     let mut net_to_game_clone = net_to_game.clone();
@@ -46,8 +33,17 @@ pub fn start_serving(port: usize)
     thread::spawn(move || {
         tokio::run(
             async_stuff
-            .for_each(move |data| {
-                net_to_game_clone.push(data); 
+            .for_each(move |(buf, client)| {
+
+                match protocol::NetMessage::unpack(buf.into(), client) {
+                    Ok(unpacked) => net_to_game_clone.push(unpacked),
+                    Err(e) => {
+                        error!("Received malformed message from {}, error = {:?}",
+                               client,
+                               e);
+                    },
+                }
+                                                                          
                 Ok(())
             }
             )       
@@ -74,7 +70,7 @@ fn connect(port: usize,
             .forward(sink)
             .then(|result| {
                 if let Err(e) = result {
-                    println!("failed to write to socket: {}", e)
+                    error!("failed to write to socket: {}", e)
                 }
                 Ok(())
             });
@@ -90,11 +86,19 @@ fn connect(port: usize,
         Ok(all_futs)
 }
 
-fn read_channel(mut tx: futmpsc::Sender<(Bytes, SocketAddr)>, mut rx: stdmpsc::Receiver<(Bytes, SocketAddr)>) {
+fn read_channel(mut tx: futmpsc::Sender<(Bytes, SocketAddr)>,
+                rx: stdmpsc::Receiver<protocol::NetMessage>) {
 
     loop {
         let d = rx.recv().unwrap();
-        tx = match tx.send(d).wait() {
+        
+        // if cannot serialize here, we have a problem...
+        let packed = d.pack().map_err(|e| {
+            error!("Error when unpacking in `read_channel` = {:?}", e);
+            e
+        }).unwrap();
+
+        tx = match tx.send(packed).wait() {
             Ok(tx) => tx,
             Err(e) => {
                 error!("Error in read_channel = {:?}", e);
