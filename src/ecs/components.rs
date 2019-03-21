@@ -20,16 +20,25 @@ impl NameComponent {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct GravityComponent {
+pub struct RigidBodyComponent {
+//    pub mass: f32,
 
 }
 
-impl GravityComponent {
+impl RigidBodyComponent {
     pub fn draw_ui(&mut self, _ui: &Ui, _editor: &Editor) {
         // nothing to see here.
     }
 
 }
+
+//impl Default for RigidBodyComponent {
+//    fn default() -> Self {
+//        RigidBodyComponent {
+//           mass: 5f32,
+//        }
+//    }
+//}
 
 /// This is a component that is going to be rendered
 /// by the render system.

@@ -6,7 +6,7 @@ use cgmath::Vector3;
 use crate::ecs::{
     ECS,
     components::TransformComponent,
-    systems::{RenderingSystem, DummySystem},
+    systems::{RenderingSystem, DummySystem, GravitySystem},
 };
 use crate::camera::{CameraDirection, Camera, CameraInputHandler};
 use crate::input::{KeyType, Input, Axis};
@@ -30,6 +30,7 @@ pub struct GameScene {
 
     // All systems for this Scene.
     dummy_system: DummySystem,
+    gravity_system: GravitySystem,
 }
 
 impl GameScene {
@@ -61,6 +62,7 @@ impl GameScene {
             ecs,
             game_ui: GameUi{},
             dummy_system: DummySystem::new(),
+            gravity_system: GravitySystem::new(),
         }
 
     }
@@ -73,6 +75,7 @@ impl Scene for GameScene {
 
     fn update(&mut self, _dt: Duration) -> Option<Vec<Event>> {
         //self.dummy_system.do_dumb_thing(dt, &mut self.ecs);
+        self.gravity_system.do_gravity(_dt, &mut self.ecs);
         None
     }
 

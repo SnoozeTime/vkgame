@@ -230,18 +230,22 @@ impl GravitySystem {
         let dt = dt_as_secs(dt) as f32;
 
         let live_entities = ecs.nb_entities();
-        let mut physics_objects = Vec::new();
+//        let mut physics_objects = Vec::new();
 
         // Get all transform + gravity entities
         for entity in &live_entities {
-            let maybe_g = ecs.components.gravities.get(entity);
-            let maybe_t = ecs.components.transforms.get(entity);
+            let maybe_g = ecs.components.rigid_bodies.get_mut(entity);
+            let maybe_t = ecs.components.transforms.get_mut(entity);
 
             match (maybe_g, maybe_t) {
-                (Some(g),Some(t)) => physics_objects.push((g,t)),
+                (Some(g),Some(t)) =>
+                    if t.position.y >= 0f32 {
+                        t.position.y = t.position.y - dt * 0.5f32;
+                    } else {
+                        t.position.y = 0f32;
+                    },
                 _ => {}
             }
         }
-
     }
 }
