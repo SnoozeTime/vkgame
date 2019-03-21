@@ -321,15 +321,3 @@ impl LightComponent {
     }
 }
 
-/// Network component -> All the entities that have a network component will be sent to clients.
-/// See it as a tag.
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct NetworkComponent {}
-
-impl NetworkComponent {
-    pub fn draw_ui(&mut self, _ui: &Ui, _editor: &Editor) {
-        // nothing to see here.
-    }
-}
-
-
