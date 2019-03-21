@@ -7,14 +7,17 @@ use tokio_codec::BytesCodec;
 use futures::sync::mpsc as futmpsc;
 use tokio::prelude::stream::{SplitSink, SplitStream};
 use bytes::{Bytes, BytesMut};
-
 use std::thread;
+
 use super::protocol;
 
 use std::sync::mpsc as stdmpsc;
+use std::time::Duration;
 
 use crate::sync::SharedDeque;
 use super::NetworkError;
+
+const NB_TRY: u32 = 10;
 
 /// Connect to the remote server and returns interfaces to send and receive 
 /// messages
@@ -129,5 +132,92 @@ fn read_channel(mut tx: futmpsc::Sender<Bytes>,
             }
         }
     }
+
+}
+
+/// The actual game system that will be running in the main loop
+pub struct ClientSystem {
+
+    /// Messages incoming from the server.
+    from_server: SharedDeque<protocol::NetMessageContent>,
+
+    /// Queue to send to server
+    to_server: stdmpsc::Sender<protocol::NetMessageContent>,
+}
+
+impl ClientSystem {
+
+    pub fn connect(addr: SocketAddr) -> Result<Self, NetworkError> {
+
+        let (mut from_server, to_server) = start_connecting(addr).map_err(|e| {
+            // meh, need to find a better way to extract tokio errors
+            error!("{:?}", e); 
+            NetworkError::CannotConnectToServer
+        })?;
+
+        // Connection to server. Try to send message every seconds until it receives
+        // a connection accepted or a connection refused.
+        info!("Will connect to the game server");
+        let is_connected: bool = {
+            let mut try_nb = 0u32;
+            let mut res = false;
+            'connection: loop {
+                if try_nb >= NB_TRY {
+                    info!("Timed out during connection to server");
+                    break 'connection;
+                }
+
+                if let Err(e) = to_server.send(protocol::NetMessageContent::ConnectionRequest) {
+                    error!("{:?}", e);
+                }
+
+                thread::sleep(Duration::from_secs(1));
+                let evs = from_server.drain();
+                // ok we might lose some events here. It's alright, the server
+                // is sending state every loop and if message needs to be reliably sent,
+                // the server will resend it.
+                for ev in evs {
+                    match ev {
+                        protocol::NetMessageContent::ConnectionAccepted => {
+                            res = true;
+                            break 'connection;
+                        },
+                        protocol::NetMessageContent::ConnectionRefused => {
+                            info!("Received connection refused");
+                            break 'connection;
+                        },
+                        _ => debug!("Received {:?} when connecting. That is strange", ev),
+                    }
+                }
+
+                try_nb += 1;
+            }
+
+            res
+        };
+
+        if is_connected {
+            Ok(Self {
+                to_server,
+                from_server,
+            })
+        } else {
+            Err(NetworkError::CannotConnectToServer)
+        }
+
+
+    }
+
+    /// Will get the latest events that were sent from the server
+    pub fn poll_events(&mut self) {
+
+        let events = self.from_server.drain();
+
+        for ev in events {
+
+            debug!("Client system received {:?}", ev);
+        }   
+    }
+
 
 }

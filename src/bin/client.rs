@@ -1,7 +1,10 @@
+use twgraph::net::ClientSystem;
 use clap::{App, Arg};
 use log::info;
+use std::thread;
+use std::time::Duration;
 
-fn main() {
+fn main() -> Result<(), Box<std::error::Error>> {
     env_logger::init();
 
     // Extract the server address from the command-line.
@@ -19,5 +22,13 @@ fn main() {
     let addr = matches.value_of("connect").unwrap_or("localhost:8080");
 
     info!("Will connect to server at {}", addr);
+    let mut client = ClientSystem::connect("127.0.0.1:8080".parse()?)?;
+    info!("Connected to server");
+    loop {
 
+        client.poll_events();
+        thread::sleep(Duration::from_millis(16));
+    }
+
+    Ok(())
 }

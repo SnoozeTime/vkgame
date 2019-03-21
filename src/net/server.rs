@@ -106,5 +106,5 @@ fn read_channel(mut tx: futmpsc::Sender<(Bytes, SocketAddr)>,
             }
         }
     }
-
 }
+

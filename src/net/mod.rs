@@ -4,18 +4,44 @@ use std::thread;
 use bytes::{BytesMut, Bytes};
 use crate::ecs::ECS;
 use tokio::prelude::*;
+use std::fmt;
+use std::error::Error;
+
+mod delta;
 mod server;
 mod client;
 pub mod protocol;
 
+
 use crate::sync::SharedDeque;
 
+#[derive(Debug)]
 pub enum NetworkError {
+    CannotConnectToServer,
+}
+
+impl fmt::Display for NetworkError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            NetworkError::CannotConnectToServer => write!(f, "Cannot connect to game server")
+        }
+
+    }
+}
+
+impl Error for NetworkError {
+
+    fn description(&self) -> &str {
+        match *self {
+            NetworkError::CannotConnectToServer => "Cannot connect to game server", 
+        }
+    }
 
 }
 
+
 pub use server::start_serving;
-pub use client::start_connecting;
+pub use client::ClientSystem;
 
 /// The network system is the ECS system that will be called in the main loop.
 /// it should provide events and allow to send messages.
