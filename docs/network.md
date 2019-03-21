@@ -2,6 +2,11 @@
 
 # TODO
 
+- Client Struct on server side that hold the seq number/IP address/port and the state we supposed the client knows
+- Create Delta struct that hold the difference between two ECS
+- Finish compute and apply delta functions
+- Create message to hold the delta and previous state ID
+
 ## first version
 - Simple protocol
 - Connection client/server (naive? Ip/port only is ok)
