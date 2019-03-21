@@ -4,7 +4,7 @@ use rmp_serde::Serializer;
 use serde::{Serialize, Deserialize};
 use bytes::{BytesMut, Bytes};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct NetMessage {
     pub target: SocketAddr,
     pub content: NetMessageContent,
@@ -28,14 +28,27 @@ impl NetMessage {
 
 // Here we define all the messages that travel around client and servers.
 //
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum NetMessageContent {
+    // -----------------------------------
+    // NETWORK LOGIC LEVEL 
+    // -----------------------------------
     // Client sends that to the server.
     ConnectionRequest,
 
     // Server answers by accept or refuse
     ConnectionAccepted,
     ConnectionRefused,
+
+    // ----------------------------------
+    // GAME LOGIC LEVEL
+    // ----------------------------------
+    
+    
+    // ----------------------------------
+    // FOR DEBUGGING
+    // ----------------------------------
+    Text(String),
 }
 
 

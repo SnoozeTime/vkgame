@@ -6,11 +6,13 @@
 - Simple protocol
 - Connection client/server (naive? Ip/port only is ok)
 - Send all network state at every loop
+- Out of order packet are discarded
 
 ## Later
 Do we need to send delta instead?
 What is the packet size?
 Try to answer those questions.
+- Rate limiter on server side?
 
 # Design?
 

@@ -1,4 +1,4 @@
-use log::{debug, error};
+use log::{debug, error, info};
 use std::net::SocketAddr;
 use std::thread;
 use bytes::{BytesMut, Bytes};
@@ -11,7 +11,7 @@ pub mod protocol;
 use crate::sync::SharedDeque;
 
 pub enum NetworkError {
-    
+
 }
 
 pub use server::start_serving;
@@ -24,6 +24,7 @@ pub struct NetworkSystem {
     to_clients: std::sync::mpsc::Sender<protocol::NetMessage>,
 
     my_clients: Vec<SocketAddr>,
+    max_clients: usize,
 }
 
 
@@ -40,6 +41,7 @@ impl NetworkSystem {
             to_clients,
             from_clients,
             my_clients,
+            max_clients,
         }
     }
 
@@ -52,17 +54,10 @@ impl NetworkSystem {
 
         for ev in events {
 
-            let mut found = false;
-            for c in self.my_clients.iter() {
-                if *c == ev.target {
-                    found = true;
-                    break;
-                }
+            if let protocol::NetMessageContent::ConnectionRequest = ev.content {
+                self.handle_connection_request(ev.target);
             }
 
-            if !found {
-                self.my_clients.push(ev.target);
-            }
             debug!("Network system received {:?}", ev);
         }   
     }
@@ -71,12 +66,54 @@ impl NetworkSystem {
     /// This will send the current state to all clients.
     pub fn send_state(&mut self, ecs: &mut ECS) {
 
-       for c in self.my_clients.iter() {
-           let msg = protocol::NetMessage { 
-               content: protocol::NetMessageContent::ConnectionRefused,
-               target: *c
-           };
+        for c in self.my_clients.iter() {
+            let msg = protocol::NetMessage { 
+                content: protocol::NetMessageContent::Text(String::from("Bonjour")),
+                target: *c
+            };
             self.to_clients.send(msg);
-       }
+        }
+    }
+
+    /// This is called when a ConnectionRequest message is received
+    /// It will reply with either connection accepted or connection refused
+    /// and add the client to our map of clients.
+    ///
+    /// If a client is already in the map, it should reply connection
+    /// accepted. The reason is that the connection acception message
+    /// might have been lost so the client thinks it is still trying to connect
+    fn handle_connection_request(&mut self, addr: SocketAddr) {
+
+        info!("Handle new connection request from {}", addr);
+
+        let to_send = {
+            if self.has_client(addr) {
+                info!("Client was already connected, resend ConnectionAccepted");
+                protocol::NetMessageContent::ConnectionAccepted
+            } else { 
+                // in that case we need to find an empty slot. If available,
+                // return connection accepted.
+                if self.my_clients.len() < self.max_clients {
+                    info!("Client connected");
+                    self.my_clients.push(addr);
+                    protocol::NetMessageContent::ConnectionAccepted
+                } else {
+                    info!("Too many clients connected, send ConnectionRefused");
+                    protocol::NetMessageContent::ConnectionRefused
+                }
+            }
+        };
+
+        self.to_clients.send(protocol::NetMessage {
+            target: addr,
+            content: to_send,
+        });
+    }
+
+
+    fn has_client(&self, addr: SocketAddr) -> bool {
+        self.my_clients.iter().any(|&client| {
+            client == addr
+        })
     }
 }
