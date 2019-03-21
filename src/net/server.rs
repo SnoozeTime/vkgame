@@ -10,6 +10,7 @@ use bytes::{Bytes, BytesMut};
 
 use std::thread;
 use super::protocol;
+use super::protocol::Packet;
 
 use std::sync::mpsc as stdmpsc;
 
@@ -109,13 +110,27 @@ fn read_channel(mut tx: futmpsc::Sender<(Bytes, SocketAddr)>,
     }
 }
 
+// State of each clients
+#[derive(Debug, Clone)]
+struct Client {
+    // IP/Port
+    addr: SocketAddr,
+
+    // Index in the snapshot circular buffer
+    // None is hasn't received information yet
+    last_state: Option<usize>,
+
+    // Incremented nb that is sent in the packet
+    last_seq_number: u32,
+}
+
 /// The network system is the ECS system that will be called in the main loop.
 /// it should provide events and allow to send messages.
 pub struct NetworkSystem {
     from_clients: SharedDeque<protocol::NetMessage>,
     to_clients: std::sync::mpsc::Sender<protocol::NetMessage>,
 
-    my_clients: Vec<SocketAddr>,
+    my_clients: Vec<Client>,
     max_clients: usize,
 }
 
@@ -146,7 +161,7 @@ impl NetworkSystem {
 
         for ev in events {
 
-            if let protocol::NetMessageContent::ConnectionRequest = ev.content {
+            if let protocol::NetMessageContent::ConnectionRequest = ev.content.content {
                 self.handle_connection_request(ev.target);
             }
 
@@ -158,12 +173,9 @@ impl NetworkSystem {
     /// This will send the current state to all clients.
     pub fn send_state(&mut self, ecs: &mut ECS) {
 
-        for c in self.my_clients.iter() {
-            let msg = protocol::NetMessage { 
-                content: protocol::NetMessageContent::Text(String::from("Bonjour")),
-                target: *c
-            };
-            self.to_clients.send(msg);
+        for i in 0..self.my_clients.len() {
+            let msg = protocol::NetMessageContent::Text(String::from("Bonjour"));
+            self.send_to_client(i, msg);
         }
     }
 
@@ -178,34 +190,63 @@ impl NetworkSystem {
 
         info!("Handle new connection request from {}", addr);
 
-        let to_send = {
-            if self.has_client(addr) {
+        let (to_send, client_id) = {
+            if let Some(id) = self.get_client_id(addr) {
                 info!("Client was already connected, resend ConnectionAccepted");
-                protocol::NetMessageContent::ConnectionAccepted
+                (protocol::NetMessageContent::ConnectionAccepted, Some(id))
             } else { 
                 // in that case we need to find an empty slot. If available,
                 // return connection accepted.
                 if self.my_clients.len() < self.max_clients {
                     info!("Client connected");
-                    self.my_clients.push(addr);
-                    protocol::NetMessageContent::ConnectionAccepted
+                    self.my_clients.push(Client { addr, last_seq_number: 0, last_state: None });
+                    (protocol::NetMessageContent::ConnectionAccepted, Some(self.my_clients.len() - 1))
                 } else {
                     info!("Too many clients connected, send ConnectionRefused");
-                    protocol::NetMessageContent::ConnectionRefused
+                    (protocol::NetMessageContent::ConnectionRefused, None)
                 }
             }
         };
 
-        self.to_clients.send(protocol::NetMessage {
-            target: addr,
-            content: to_send,
-        });
+        if let Some(id) = client_id {
+            self.send_to_client(id, to_send);
+        } else {
+            // ConnectionRefused is sent to parties that are not client yet.
+            self.to_clients.send(protocol::NetMessage {
+                target: addr,
+                content: Packet { content: to_send, seq_number: 0},
+            });
+        }
     }
 
+    /// Should be used to send a message to a client. Will increase a sequence number.
+    fn send_to_client(&mut self, client_id: usize, msg: protocol::NetMessageContent) {
+        
+        
+        let to_send = protocol::NetMessage {
+            target: self.my_clients[client_id].addr,
+            content: Packet {
+                content: msg,
+                seq_number: self.my_clients[client_id].last_seq_number,
+            }
+        };
+
+        if let Err(e) = self.to_clients.send(to_send) {
+            error!("Error in send_to_client = {:?}", e);
+        } else {
+            self.my_clients[client_id].last_seq_number += 1;
+        }
+    }
 
     fn has_client(&self, addr: SocketAddr) -> bool {
-        self.my_clients.iter().any(|&client| {
-            client == addr
+        self.my_clients.iter().any(|client| {
+            client.addr == addr
         })
+    }
+
+    fn get_client_id(&self, addr: SocketAddr) -> Option<usize> {
+        self.my_clients.iter().enumerate().find(|(_, client)| {
+            client.addr == addr
+        }).map(|t| t.0)
     }
 }

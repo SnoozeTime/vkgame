@@ -60,9 +60,10 @@ loop {
 How often do we send the state?
 
 ## What to send?
-Server will hold the ECS. Only the entities with NetworkComponent will be sent over
-the network.
-
+Try the quake way. The server is sending snapshots of state. To avoid sending
+too much, it takes a snapshot each frame, then send the difference (delta)
+between that state and the last known state of the client. The client needs to
+include its current state when sending command so that the server can know it.
 
 ## How client connect to server
 

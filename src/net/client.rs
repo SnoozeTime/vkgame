@@ -10,6 +10,7 @@ use bytes::{Bytes, BytesMut};
 use std::thread;
 
 use super::protocol;
+use super::protocol::Packet;
 
 use std::sync::mpsc as stdmpsc;
 use std::time::Duration;
@@ -26,7 +27,7 @@ const NB_TRY: u32 = 10;
 /// sent the message and we don't need to specify the SocketAddr when sending
 /// because this is known at start time.
 pub fn start_connecting(server_addr: SocketAddr)
-    -> Result<(SharedDeque<protocol::NetMessageContent>, stdmpsc::Sender<protocol::NetMessageContent>), Box<std::error::Error>> {
+    -> Result<(SharedDeque<Packet>, stdmpsc::Sender<Packet>), Box<std::error::Error>> {
         info!("Start connecting to {}", server_addr);
         // interfaces
         let net_to_game = SharedDeque::new(1024);
@@ -44,7 +45,9 @@ pub fn start_connecting(server_addr: SocketAddr)
                 .for_each(move |buf| {
 
                     match protocol::deserialize(buf.into()) {
-                        Ok(unpacked) => net_to_game_clone.push(unpacked),
+                        Ok(unpacked) => {
+                                net_to_game_clone.push(unpacked);
+                        },
                         Err(e) => {
                             error!("Received malformed message from {}, error = {:?}",
                                    server_addr,
@@ -105,7 +108,7 @@ fn connect(server_addr: SocketAddr,
     }
 
 fn read_channel(mut tx: futmpsc::Sender<Bytes>,
-                rx: stdmpsc::Receiver<protocol::NetMessageContent>) {
+                rx: stdmpsc::Receiver<Packet>) {
 
     loop {
 
@@ -139,10 +142,12 @@ fn read_channel(mut tx: futmpsc::Sender<Bytes>,
 pub struct ClientSystem {
 
     /// Messages incoming from the server.
-    from_server: SharedDeque<protocol::NetMessageContent>,
+    from_server: SharedDeque<Packet>,
 
     /// Queue to send to server
-    to_server: stdmpsc::Sender<protocol::NetMessageContent>,
+    to_server: stdmpsc::Sender<Packet>,
+
+    last_rec_seq_number: u32,
 }
 
 impl ClientSystem {
@@ -167,7 +172,7 @@ impl ClientSystem {
                     break 'connection;
                 }
 
-                if let Err(e) = to_server.send(protocol::NetMessageContent::ConnectionRequest) {
+                if let Err(e) = to_server.send(Packet{ content: protocol::NetMessageContent::ConnectionRequest, seq_number: 0 }) {
                     error!("{:?}", e);
                 }
 
@@ -177,7 +182,7 @@ impl ClientSystem {
                 // is sending state every loop and if message needs to be reliably sent,
                 // the server will resend it.
                 for ev in evs {
-                    match ev {
+                    match ev.content {
                         protocol::NetMessageContent::ConnectionAccepted => {
                             res = true;
                             break 'connection;
@@ -200,6 +205,7 @@ impl ClientSystem {
             Ok(Self {
                 to_server,
                 from_server,
+                last_rec_seq_number: 0,
             })
         } else {
             Err(NetworkError::CannotConnectToServer)
@@ -215,7 +221,13 @@ impl ClientSystem {
 
         for ev in events {
 
-            debug!("Client system received {:?}", ev);
+            if self.last_rec_seq_number >= ev.seq_number {
+                error!("Received packet out of order: last_rec_seq_number {} > packet.seq_number {}",
+                       self.last_rec_seq_number, ev.seq_number);
+            } else {
+                self.last_rec_seq_number = ev.seq_number;
+                debug!("Client system received {:?}", ev);
+            }
         }   
     }
 

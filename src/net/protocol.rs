@@ -7,7 +7,7 @@ use bytes::{BytesMut, Bytes};
 #[derive(Debug, Clone)]
 pub struct NetMessage {
     pub target: SocketAddr,
-    pub content: NetMessageContent,
+    pub content: Packet,
 }
 
 impl NetMessage {
@@ -24,6 +24,12 @@ impl NetMessage {
             target,
         })
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Packet {
+    pub seq_number: u32,
+    pub content: NetMessageContent,
 }
 
 // Here we define all the messages that travel around client and servers.
@@ -52,11 +58,11 @@ pub enum NetMessageContent {
 }
 
 
-pub fn deserialize(bytes: Bytes) -> Result<NetMessageContent, rmp_serde::decode::Error> {
-    rmp_serde::from_slice::<NetMessageContent>(&bytes.to_vec())
+pub fn deserialize(bytes: Bytes) -> Result<Packet, rmp_serde::decode::Error> {
+    rmp_serde::from_slice::<Packet>(&bytes.to_vec())
 }
 
-pub fn serialize(msg: NetMessageContent) -> Result<Bytes, rmp_serde::encode::Error> {
+pub fn serialize(msg: Packet) -> Result<Bytes, rmp_serde::encode::Error> {
     let mut b = Vec::new();
     msg.serialize(&mut Serializer::new(&mut b))?;
     Ok(b.into())
