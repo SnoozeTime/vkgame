@@ -61,13 +61,13 @@ fn main() {
             render_system.render(&resources,
                                  ecs,
                                  frame_duration,
-                                 gui);
+                                 gui.unwrap());
         }
         input.update(&mut render_system);
 
         // Now scene specific updates.
         scene.update(frame_duration);
-        let events = scene.process_input(&input, &resources, frame_duration);
+        let events = scene.process_input(Some(&input), Some(&resources), frame_duration);
 
         if let Some(events) = events {
             if let Some(Event::EditorEvent(EditorEvent::PlayGame)) = events.get(0) {

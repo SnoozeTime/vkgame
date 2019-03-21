@@ -114,8 +114,8 @@ impl Scene for GameScene {
         None
     }
 
-    fn get_parts_mut(&mut self) -> (&mut ECS, &mut Gui) {
-        (&mut self.ecs, &mut self.game_ui)
+    fn get_parts_mut(&mut self) -> (&mut ECS, Option<&mut Gui>) {
+        (&mut self.ecs, Some(&mut self.game_ui))
     }
 
     fn get_ecs(&self) -> &ECS {

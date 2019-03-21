@@ -122,8 +122,8 @@ impl Scene for EditorScene {
         events
     }
 
-    fn get_parts_mut(&mut self) -> (&mut ECS, &mut Gui) {
-        (&mut self.ecs, &mut self.editor)
+    fn get_parts_mut(&mut self) -> (&mut ECS, Option<&mut Gui>) {
+        (&mut self.ecs, Some(&mut self.editor))
     }
 
     fn get_ecs(&self) -> &ECS {
