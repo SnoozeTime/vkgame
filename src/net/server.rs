@@ -15,7 +15,9 @@ use std::thread;
 use std::sync::mpsc as stdmpsc;
 
 use super::NetworkError;
+use crate::collections::OptionArray;
 use crate::ecs::ECS;
+use crate::net::snapshot::{DeltaSnapshot, SnapshotError, Snapshotter};
 use crate::sync::SharedDeque;
 
 pub fn start_serving(
@@ -140,22 +142,23 @@ pub struct NetworkSystem {
     from_clients: SharedDeque<protocol::NetMessage>,
     to_clients: std::sync::mpsc::Sender<protocol::NetMessage>,
 
-    my_clients: Vec<Client>,
-    max_clients: usize,
+    my_clients: OptionArray<Client>,
+
+    snapshotter: Snapshotter,
 }
 
 impl NetworkSystem {
     pub fn new(port: usize, max_clients: usize) -> Self {
         let (from_clients, to_clients) = start_serving(port).unwrap();
 
-        let my_clients = vec![];
+        let my_clients = OptionArray::new(max_clients);
 
         Self {
             //server,
             to_clients,
             from_clients,
             my_clients,
-            max_clients,
+            snapshotter: Snapshotter::new(60),
         }
     }
 
@@ -175,9 +178,31 @@ impl NetworkSystem {
 
     /// This will send the current state to all clients.
     pub fn send_state(&mut self, ecs: &mut ECS) {
+        // First take a snapshot.
+        self.snapshotter.set_current(ecs);
+
+        let mut to_disconnect = Vec::new();
         for i in 0..self.my_clients.len() {
-            let msg = protocol::NetMessageContent::Text(String::from("Bonjour"));
-            self.send_to_client(i, msg);
+            if let Some(client) = self.my_clients.get_mut(i) {
+                let delta_res = if let Some(idx) = client.last_state {
+                    self.snapshotter.get_delta(idx as usize)
+                } else {
+                    self.snapshotter.get_full_snapshot()
+                };
+
+                match delta_res {
+                    Ok(delta) => {
+                        // TODO Send delta message here.
+                    }
+                    Err(SnapshotError::ClientCaughtUp) => {
+                        to_disconnect.push(i);
+                    }
+                    Err(e) => error!("{}", e),
+                }
+
+                let msg = protocol::NetMessageContent::Text(String::from("Bonjour"));
+                self.send_to_client(i, msg);
+            }
         }
     }
 
@@ -198,20 +223,20 @@ impl NetworkSystem {
             } else {
                 // in that case we need to find an empty slot. If available,
                 // return connection accepted.
-                if self.my_clients.len() < self.max_clients {
-                    info!("Client connected");
-                    self.my_clients.push(Client {
-                        addr,
-                        last_seq_number: 0,
-                        last_state: None,
-                    });
-                    (
-                        protocol::NetMessageContent::ConnectionAccepted,
-                        Some(self.my_clients.len() - 1),
-                    )
-                } else {
-                    info!("Too many clients connected, send ConnectionRefused");
-                    (protocol::NetMessageContent::ConnectionRefused, None)
+                match self.my_clients.add(Client {
+                    addr,
+                    last_seq_number: 0,
+                    last_state: None,
+                }) {
+                    Some(i) => {
+                        info!("New player connected: Player {}!", i);
+                        (protocol::NetMessageContent::ConnectionAccepted, Some(i))
+                    }
+
+                    None => {
+                        info!("Too many clients connected, send ConnectionRefused");
+                        (protocol::NetMessageContent::ConnectionRefused, None)
+                    }
                 }
             }
         };
@@ -233,11 +258,15 @@ impl NetworkSystem {
 
     /// Should be used to send a message to a client. Will increase a sequence number.
     fn send_to_client(&mut self, client_id: usize, msg: protocol::NetMessageContent) {
+        let client = self
+            .my_clients
+            .get_mut(client_id)
+            .expect("Something wrong happend here");
         let to_send = protocol::NetMessage {
-            target: self.my_clients[client_id].addr,
+            target: client.addr,
             content: Packet {
                 content: msg,
-                seq_number: self.my_clients[client_id].last_seq_number,
+                seq_number: client.last_seq_number,
                 last_known_state: None, // doesn't matter on server->client
             },
         };
@@ -245,19 +274,21 @@ impl NetworkSystem {
         if let Err(e) = self.to_clients.send(to_send) {
             error!("Error in send_to_client = {:?}", e);
         } else {
-            self.my_clients[client_id].last_seq_number += 1;
+            client.last_seq_number += 1;
         }
     }
 
     fn has_client(&self, addr: SocketAddr) -> bool {
-        self.my_clients.iter().any(|client| client.addr == addr)
+        self.my_clients
+            .iter()
+            .any(|client| client.is_some() && client.as_ref().unwrap().addr == addr)
     }
 
     fn get_client_id(&self, addr: SocketAddr) -> Option<usize> {
         self.my_clients
             .iter()
             .enumerate()
-            .find(|(_, client)| client.addr == addr)
+            .find(|(_, client)| client.is_some() && client.as_ref().unwrap().addr == addr)
             .map(|t| t.0)
     }
 }

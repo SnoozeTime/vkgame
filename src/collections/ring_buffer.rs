@@ -36,7 +36,7 @@ impl<T> RingBuffer<T> {
 
     pub fn head_index(&self) -> usize {
         if self.next == 0 {
-            self.size
+            self.size - 1
         } else {
             self.next - 1
         }

@@ -6,7 +6,6 @@ use std::time::Duration;
 use twgraph::ecs::components::*;
 use twgraph::ecs::*;
 use twgraph::net::snapshot::*;
-const NB_TRY: u32 = 10;
 
 fn main() -> Result<(), Box<Error>> {
     env_logger::init();

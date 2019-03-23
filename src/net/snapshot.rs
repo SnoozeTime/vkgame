@@ -7,14 +7,14 @@
 //
 // For example, if the object has moved a bit, send the delta. If the mesh has morphed, send it as
 // well.
+use crate::collections::RingBuffer;
 use crate::ecs::{
     components::{LightComponent, LightType, ModelComponent, TransformComponent},
     Entity, ECS,
 };
 use cgmath::InnerSpace;
+use log::debug;
 use serde_derive::{Deserialize, Serialize};
-
-use crate::collections::RingBuffer;
 const EPSILON: f32 = 0.00001;
 
 #[derive(Debug)]
@@ -99,6 +99,7 @@ impl Snapshotter {
         if let Some(new_ecs) = self.state_buf.head() {
             Ok(compute_delta(&self.empty_ecs, new_ecs))
         } else {
+            debug!("RingBuffer is empty? {}", self.state_buf.head_index());
             Err(SnapshotError::RingBufferEmpty)
         }
     }
