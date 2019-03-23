@@ -152,12 +152,12 @@ impl GenerationalIndexAllocator {
 // -------------------
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ArrayEntry<T> {
+pub struct ArrayEntry<T: Clone> {
     pub value: T,
     generation: u64,
 }
 
-impl<T> ArrayEntry<T> {
+impl<T: Clone> ArrayEntry<T> {
     pub fn value(&self) -> &T {
         &self.value
     }
@@ -172,13 +172,19 @@ impl<T> ArrayEntry<T> {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct GenerationalIndexArray<T>(pub Vec<Option<ArrayEntry<T>>>);
-impl<T> GenerationalIndexArray<T> {
+pub struct GenerationalIndexArray<T: Clone>(pub Vec<Option<ArrayEntry<T>>>);
+impl<T: Clone> GenerationalIndexArray<T> {
     pub fn new() -> Self {
         GenerationalIndexArray(Vec::new())
     }
 
     pub fn set(&mut self, index: &GenerationalIndex, value: T) {
+        // fill up to this index if Out of bound.
+        if index.index() >= self.0.len() {
+            self.0
+                .extend(iter::repeat(None).take(1 + index.index() - self.0.len()))
+        }
+
         self.0[index.index()] = Some(ArrayEntry {
             value,
             generation: index.generation(),
@@ -202,14 +208,14 @@ impl<T> GenerationalIndexArray<T> {
     }
 }
 
-impl<T> std::ops::Deref for GenerationalIndexArray<T> {
+impl<T: Clone> std::ops::Deref for GenerationalIndexArray<T> {
     type Target = Vec<Option<ArrayEntry<T>>>;
     fn deref(&self) -> &Vec<Option<ArrayEntry<T>>> {
         &self.0
     }
 }
 
-impl<T> std::ops::DerefMut for GenerationalIndexArray<T> {
+impl<T: Clone> std::ops::DerefMut for GenerationalIndexArray<T> {
     fn deref_mut(&mut self) -> &mut Vec<Option<ArrayEntry<T>>> {
         &mut self.0
     }
