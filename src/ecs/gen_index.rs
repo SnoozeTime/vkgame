@@ -1,3 +1,4 @@
+use log::error;
 use serde_derive::{Deserialize, Serialize};
 
 /// Used to index entities in a generationIndexArray
@@ -85,6 +86,26 @@ impl GenerationalIndexAllocator {
                     generation: 0,
                 }
             }
+        }
+    }
+
+    pub fn overwrite(&mut self, index: &GenerationalIndex) {
+        let idx = index.index();
+        if let Some(entry) = self.entries.get_mut(idx) {
+            entry.is_live = true;
+            entry.generation = index.generation();
+
+            // TODO must have better way. Maybe use hashset
+            let free_index = self.free.iter().position(|x| *x == idx);
+            if let Some(free_index) = free_index {
+                self.free.remove(free_index);
+            }
+        } else {
+            // yea should not happen.
+            error!(
+                "Try to overwrite an entry that does not exist yet: {:?}",
+                index
+            );
         }
     }
 

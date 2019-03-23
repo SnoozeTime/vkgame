@@ -9,7 +9,7 @@ use tokio::prelude::*;
 use tokio_codec::BytesCodec;
 
 use super::protocol;
-use super::protocol::Packet;
+use super::protocol::{DeltaSnapshotInfo, Packet};
 use std::thread;
 
 use std::sync::mpsc as stdmpsc;
@@ -130,10 +130,11 @@ struct Client {
 
     // Index in the snapshot circular buffer
     // None is hasn't received information yet
-    last_state: Option<usize>,
+    last_state: Option<u8>,
 
     // Incremented nb that is sent in the packet
-    last_seq_number: u32,
+    last_rec_seq_number: u32,
+    last_sent_seq_number: u32,
 }
 
 /// The network system is the ECS system that will be called in the main loop.
@@ -170,9 +171,25 @@ impl NetworkSystem {
         for ev in events {
             if let protocol::NetMessageContent::ConnectionRequest = ev.content.content {
                 self.handle_connection_request(ev.target);
+            } else {
+                // if the client is known, send OK, else send connection refused. Update
+                // the last known state so that we send the correct thing in snapshots.
+                if let Some(index) = self.get_client_id(ev.target) {
+                    let client = self.my_clients.get_mut(index).unwrap();
+
+                    // Discard out of order.
+                    if client.last_rec_seq_number >= ev.content.seq_number {
+                        error!("Receive packet out of order for {}: last_rec_seq_number {} >= packet.seq_number {}", ev.target, client.last_rec_seq_number, ev.content.seq_number);
+                    } else {
+                        client.last_state = ev.content.last_known_state;
+                        client.last_rec_seq_number = ev.content.seq_number;
+                    }
+                } else {
+
+                }
             }
 
-            debug!("Network system received {:?}", ev);
+            trace!("Network system received {:?}", ev);
         }
     }
 
@@ -193,15 +210,27 @@ impl NetworkSystem {
                 match delta_res {
                     Ok(delta) => {
                         // TODO Send delta message here.
+                        let msg = protocol::NetMessageContent::Delta(DeltaSnapshotInfo {
+                            delta,
+                            old_state: client.last_state,
+                            // Don't worry it is ok for now :D
+                            new_state: self.snapshotter.get_current_index() as u8,
+                        });
+                        self.send_to_client(i, msg);
                     }
                     Err(SnapshotError::ClientCaughtUp) => {
+                        info!("To disconnect!");
                         to_disconnect.push(i);
                     }
                     Err(e) => error!("{}", e),
                 }
+            }
+        }
 
-                let msg = protocol::NetMessageContent::Text(String::from("Bonjour"));
-                self.send_to_client(i, msg);
+        for i in to_disconnect {
+            info!("Will disconnect player {}", i);
+            if !self.my_clients.remove(i) {
+                error!("Could not remove player {}", i);
             }
         }
     }
@@ -225,7 +254,8 @@ impl NetworkSystem {
                 // return connection accepted.
                 match self.my_clients.add(Client {
                     addr,
-                    last_seq_number: 0,
+                    last_rec_seq_number: 0,
+                    last_sent_seq_number: 0,
                     last_state: None,
                 }) {
                     Some(i) => {
@@ -266,7 +296,7 @@ impl NetworkSystem {
             target: client.addr,
             content: Packet {
                 content: msg,
-                seq_number: client.last_seq_number,
+                seq_number: client.last_sent_seq_number,
                 last_known_state: None, // doesn't matter on server->client
             },
         };
@@ -274,7 +304,7 @@ impl NetworkSystem {
         if let Err(e) = self.to_clients.send(to_send) {
             error!("Error in send_to_client = {:?}", e);
         } else {
-            client.last_seq_number += 1;
+            client.last_sent_seq_number += 1;
         }
     }
 

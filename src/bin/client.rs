@@ -29,5 +29,6 @@ fn main() -> Result<(), Box<std::error::Error>> {
     loop {
         client.poll_events();
         thread::sleep(Duration::from_millis(16));
+        client.send_commands();
     }
 }

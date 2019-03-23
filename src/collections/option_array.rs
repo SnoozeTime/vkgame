@@ -26,6 +26,15 @@ impl<T> OptionArray<T> {
         }
     }
 
+    pub fn remove(&mut self, index: usize) -> bool {
+        if index < self.inner.len() {
+            self.inner[index] = None;
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn get(&self, index: usize) -> Option<&T> {
         self.inner.get(index).and_then(|opt| opt.as_ref())
     }

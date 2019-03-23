@@ -1,3 +1,4 @@
+use super::snapshot::DeltaSnapshot;
 use bytes::{Bytes, BytesMut};
 use rmp_serde::Serializer;
 use serde::{Deserialize, Serialize};
@@ -47,14 +48,25 @@ pub enum NetMessageContent {
     ConnectionAccepted,
     ConnectionRefused,
 
+    Ping,
+
     // ----------------------------------
     // GAME LOGIC LEVEL
     // ----------------------------------
+    // contain the server state.
+    Delta(DeltaSnapshotInfo),
 
     // ----------------------------------
     // FOR DEBUGGING
     // ----------------------------------
     Text(String),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeltaSnapshotInfo {
+    pub old_state: Option<u8>,
+    pub new_state: u8,
+    pub delta: DeltaSnapshot,
 }
 
 pub fn deserialize(bytes: Bytes) -> Result<Packet, rmp_serde::decode::Error> {

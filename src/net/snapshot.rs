@@ -13,7 +13,7 @@ use crate::ecs::{
     Entity, ECS,
 };
 use cgmath::InnerSpace;
-use log::debug;
+use log::{debug, error};
 use serde_derive::{Deserialize, Serialize};
 const EPSILON: f32 = 0.00001;
 
@@ -73,6 +73,10 @@ impl Snapshotter {
     pub fn set_current(&mut self, ecs: &ECS) {
         // it's making a copy.
         self.state_buf.push(ECS::new_from_existing(ecs));
+    }
+
+    pub fn get_current_index(&self) -> usize {
+        self.state_buf.head_index()
     }
 
     /// Compute snapshot between current and last known state.
@@ -217,7 +221,33 @@ pub fn compute_delta(old: &ECS, current: &ECS) -> DeltaSnapshot {
     }
 }
 
-fn apply_delta(ecs: &mut ECS) {}
+fn apply_delta(ecs: &mut ECS, delta_snapshot: DeltaSnapshot) {
+    // First delete the entities that have to be deleted.
+    for entity in &delta_snapshot.entities_to_delete {
+        ecs.delete_entity(entity);
+    }
+
+    // Then apply the deltas.
+    for delta in &delta_snapshot.deltas {
+        // hum I wonder. Allocator should be only relevant on server side so let's just
+        // override here and see if any bug :D
+        if !ecs.is_entity_alive(&delta.entity) {
+            ecs.overwrite(&delta.entity);
+        }
+
+        if let Some(transform) = ecs.components.transforms.get_mut(&delta.entity) {
+            apply_transform_delta(transform, &delta.delta_transform);
+        }
+
+        if let Some(model) = ecs.components.models.get_mut(&delta.entity) {
+            apply_model_delta(model, &delta.delta_model);
+        }
+
+        if let Some(light) = ecs.components.lights.get_mut(&delta.entity) {
+            apply_light_delta(light, &delta.delta_light);
+        }
+    }
+}
 
 /* ----------------------------------------------------------------------------------
  * Components delta. Maybe should implement that as macro or in the component.rs file...
@@ -264,6 +294,29 @@ fn compute_transform_delta_empty(
     )
 }
 
+fn apply_transform_delta(
+    transform: &mut TransformComponent,
+    delta: &(Option<[f32; 3]>, Option<[f32; 3]>, Option<[f32; 3]>),
+) {
+    if let Some(ref dpos) = delta.0.as_ref() {
+        transform.position.x += dpos[0];
+        transform.position.y += dpos[1];
+        transform.position.z += dpos[2];
+    }
+
+    if let Some(ref drot) = delta.1.as_ref() {
+        transform.rotation.x += drot[0];
+        transform.rotation.y += drot[1];
+        transform.rotation.z += drot[2];
+    }
+
+    if let Some(ref dscale) = delta.2.as_ref() {
+        transform.scale.x += dscale[0];
+        transform.scale.y += dscale[1];
+        transform.scale.z += dscale[2];
+    }
+}
+
 /// Delta between two model components is easy as the two elements are strings.
 fn compute_model_delta(
     old_model: &ModelComponent,
@@ -288,6 +341,15 @@ fn compute_model_delta_empty(new_model: &ModelComponent) -> (Option<String>, Opt
         Some(new_model.mesh_name.clone()),
         Some(new_model.texture_name.clone()),
     )
+}
+
+fn apply_model_delta(model: &mut ModelComponent, delta: &(Option<String>, Option<String>)) {
+    if let Some(ref model_name) = delta.0.as_ref() {
+        model.mesh_name = (*model_name).clone();
+    }
+    if let Some(ref texture_name) = delta.1.as_ref() {
+        model.texture_name = (*texture_name).clone();
+    }
 }
 
 fn compute_light_delta(
@@ -317,6 +379,16 @@ fn compute_light_delta(
     };
 
     (lt, color)
+}
+
+fn apply_light_delta(light: &mut LightComponent, delta: &(Option<LightType>, Option<[f32; 3]>)) {
+    if let Some(light_type) = delta.0.as_ref() {
+        light.light_type = *light_type;
+    }
+
+    if let Some(color) = delta.1.as_ref() {
+        light.color = *color;
+    }
 }
 
 fn compute_light_delta_empty(new_light: &LightComponent) -> (Option<LightType>, Option<[f32; 3]>) {

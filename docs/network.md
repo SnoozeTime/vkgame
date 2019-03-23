@@ -6,6 +6,7 @@
 - Create Delta struct that hold the difference between two ECS
 - Finish compute and apply delta functions
 - Create message to hold the delta and previous state ID
+- Find better way for client timeout (Let's say client crash before sending last state ID and the server is stuck sending the entire state).
 
 ## first version
 - Simple protocol

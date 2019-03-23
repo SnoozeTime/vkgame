@@ -86,6 +86,11 @@ impl ECS {
         index
     }
 
+    // Hum :D
+    pub fn overwrite(&mut self, entity: &Entity) {
+        self.allocator.overwrite(entity);
+    }
+
     pub fn is_entity_alive(&self, entity: &GenerationalIndex) -> bool {
         self.allocator.is_live(entity)
     }

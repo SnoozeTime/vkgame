@@ -144,6 +144,7 @@ pub struct ClientSystem {
     /// Queue to send to server
     to_server: stdmpsc::Sender<Packet>,
 
+    last_sent_seq_number: u32,
     last_rec_seq_number: u32,
     last_known_state: Option<u8>,
 }
@@ -156,6 +157,7 @@ impl ClientSystem {
             NetworkError::CannotConnectToServer
         })?;
 
+        let mut sent_seq_number = 0;
         // Connection to server. Try to send message every seconds until it receives
         // a connection accepted or a connection refused.
         info!("Will connect to the game server");
@@ -170,11 +172,12 @@ impl ClientSystem {
 
                 if let Err(e) = to_server.send(Packet {
                     content: protocol::NetMessageContent::ConnectionRequest,
-                    seq_number: 0,
+                    seq_number: sent_seq_number,
                     last_known_state: None,
                 }) {
                     error!("{:?}", e);
                 }
+                sent_seq_number += 1;
 
                 thread::sleep(Duration::from_secs(1));
                 let evs = from_server.drain();
@@ -205,6 +208,7 @@ impl ClientSystem {
             Ok(Self {
                 to_server,
                 from_server,
+                last_sent_seq_number: sent_seq_number,
                 last_rec_seq_number: 0,
                 last_known_state: None,
             })
@@ -225,8 +229,27 @@ impl ClientSystem {
                 );
             } else {
                 self.last_rec_seq_number = ev.seq_number;
-                debug!("Client system received {:?}", ev);
+                if let protocol::NetMessageContent::Delta(snapshot) = ev.content {
+                    if self.last_known_state == snapshot.old_state {
+                        self.last_known_state = Some(snapshot.new_state);
+                    }
+                }
             }
         }
+    }
+
+    pub fn send_commands(&mut self) {
+        self.send_to_server(protocol::NetMessageContent::Ping);
+    }
+
+    fn send_to_server(&mut self, content: protocol::NetMessageContent) {
+        if let Err(e) = self.to_server.send(Packet {
+            content,
+            seq_number: self.last_sent_seq_number,
+            last_known_state: self.last_known_state,
+        }) {
+            error!("{:?}", e);
+        }
+        self.last_sent_seq_number += 1;
     }
 }
