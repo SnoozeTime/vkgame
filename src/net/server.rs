@@ -216,7 +216,6 @@ impl NetworkSystem {
                             // Don't worry it is ok for now :D
                             new_state: self.snapshotter.get_current_index() as u8,
                         });
-                        debug!("send state");
                         self.send_to_client(i, msg);
                     }
                     Err(SnapshotError::ClientCaughtUp) => {

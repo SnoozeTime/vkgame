@@ -233,6 +233,34 @@ pub fn apply_delta(ecs: &mut ECS, delta_snapshot: DeltaSnapshot) {
         // override here and see if any bug :D
         if !ecs.is_entity_alive(&delta.entity) {
             ecs.overwrite(&delta.entity);
+
+            // Maybe need to create some components.
+            match &delta.delta_transform {
+                (None, None, None) => (),
+                _ => {
+                    ecs.components
+                        .transforms
+                        .set(&delta.entity, TransformComponent::default());
+                }
+            }
+
+            match &delta.delta_model {
+                (None, None) => (),
+                _ => {
+                    ecs.components
+                        .models
+                        .set(&delta.entity, ModelComponent::default());
+                }
+            }
+
+            match &delta.delta_light {
+                (None, None) => (),
+                _ => {
+                    ecs.components
+                        .lights
+                        .set(&delta.entity, LightComponent::default());
+                }
+            }
         }
 
         if let Some(transform) = ecs.components.transforms.get_mut(&delta.entity) {

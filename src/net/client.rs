@@ -231,11 +231,10 @@ impl ClientSystem {
                 );
             } else {
                 self.last_rec_seq_number = ev.seq_number;
+
                 if let protocol::NetMessageContent::Delta(snapshot) = ev.content {
                     if self.last_known_state == snapshot.old_state {
                         self.last_known_state = Some(snapshot.new_state);
-                        debug!("Received delta: {:?}", snapshot.delta);
-
                         apply_delta(ecs, snapshot.delta);
                     }
                 }
