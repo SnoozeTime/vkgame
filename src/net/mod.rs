@@ -1,16 +1,16 @@
+use crate::ecs::ECS;
+use bytes::{Bytes, BytesMut};
 use log::{debug, error, info};
+use std::error::Error;
+use std::fmt;
 use std::net::SocketAddr;
 use std::thread;
-use bytes::{BytesMut, Bytes};
-use crate::ecs::ECS;
 use tokio::prelude::*;
-use std::fmt;
-use std::error::Error;
 
-mod delta;
-mod server;
 mod client;
 pub mod protocol;
+mod server;
+pub mod snapshot;
 
 use crate::sync::SharedDeque;
 
@@ -22,22 +22,18 @@ pub enum NetworkError {
 impl fmt::Display for NetworkError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            NetworkError::CannotConnectToServer => write!(f, "Cannot connect to game server")
+            NetworkError::CannotConnectToServer => write!(f, "Cannot connect to game server"),
         }
     }
 }
 
 impl Error for NetworkError {
-
     fn description(&self) -> &str {
         match *self {
-            NetworkError::CannotConnectToServer => "Cannot connect to game server", 
+            NetworkError::CannotConnectToServer => "Cannot connect to game server",
         }
     }
-
 }
 
-
-pub use server::NetworkSystem;
 pub use client::ClientSystem;
-
+pub use server::NetworkSystem;

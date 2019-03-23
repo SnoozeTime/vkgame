@@ -1,23 +1,18 @@
-use serde_derive::{Serialize, Deserialize};
 use cgmath::Vector3;
-use std::fs;
-use std::fs::{OpenOptions, File};
-use std::io::{Write, Read};
+use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs;
+use std::fs::{File, OpenOptions};
+use std::io::{Read, Write};
 
-pub mod gen_index;
 pub mod components;
+pub mod gen_index;
 pub mod systems;
 
 use self::components::{
-    TransformComponent,
-    ModelComponent,
-    DummyComponent,
-    LightComponent,
-    NameComponent,
-    LightType,
+    DummyComponent, LightComponent, LightType, ModelComponent, NameComponent, TransformComponent,
 };
-use self::gen_index::{GenerationalIndexAllocator, GenerationalIndexArray, GenerationalIndex};
+use self::gen_index::{GenerationalIndex, GenerationalIndexAllocator, GenerationalIndexArray};
 use crate::camera::Camera;
 use crate::error::TwResult;
 
@@ -26,7 +21,6 @@ type EntityArray<T> = GenerationalIndexArray<T>;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ECS {
-
     allocator: GenerationalIndexAllocator,
     // For now, static camera. TODO add it as a component.
     //
@@ -41,7 +35,6 @@ pub struct ECS {
 }
 
 impl ECS {
-
     pub fn new() -> Self {
         // ----------
         let camera = Camera::default();
@@ -61,12 +54,13 @@ impl ECS {
 
     /// return the index of live entities.
     pub fn nb_entities(&self) -> Vec<Entity> {
-        self.allocator.live_entities() 
+        self.allocator.live_entities()
     }
 
     pub fn load_templates() -> HashMap<String, ComponentTemplate> {
         let mut templates = HashMap::new();
-        let paths = fs::read_dir("./templates/").unwrap()
+        let paths = fs::read_dir("./templates/")
+            .unwrap()
             .map(|p| p.unwrap().path());
 
         for path in paths {
@@ -92,6 +86,10 @@ impl ECS {
         index
     }
 
+    pub fn is_entity_alive(&self, entity: &GenerationalIndex) -> bool {
+        self.allocator.is_live(entity)
+    }
+
     pub fn delete_entity(&mut self, entity: &GenerationalIndex) {
         if !self.allocator.deallocate(*entity) {
             println!("Didn't deallocate");
@@ -101,7 +99,6 @@ impl ECS {
     }
 
     pub fn new_entity_from_template(&mut self, template_name: String) -> Option<GenerationalIndex> {
-
         let template = self.templates.get(&template_name);
         if let Some(template) = template {
             let index = self.allocator.allocate();
@@ -109,13 +106,11 @@ impl ECS {
             self.components.new_from_template(&index, cloned);
             Some(index)
         } else {
-
             None
         }
     }
 
     pub fn dummy_ecs() -> ECS {
-
         let mut ecs = ECS::new();
 
         // First entity
@@ -127,53 +122,77 @@ impl ECS {
         let id4 = ecs.new_entity();
 
         let components = &mut ecs.components;
-        components.transforms.set(&id1, TransformComponent {
-            position: Vector3::new(0.0, 0.0, 1.0),
-            rotation: Vector3::new(0.0, 0.0, 0.0),
-            scale: Vector3::new(1.0, 1.0, 1.0),
-        });
-        components.models.set(&id1, ModelComponent {
-            mesh_name: "room".to_owned(),
-            texture_name: "red".to_owned(),
-        });
+        components.transforms.set(
+            &id1,
+            TransformComponent {
+                position: Vector3::new(0.0, 0.0, 1.0),
+                rotation: Vector3::new(0.0, 0.0, 0.0),
+                scale: Vector3::new(1.0, 1.0, 1.0),
+            },
+        );
+        components.models.set(
+            &id1,
+            ModelComponent {
+                mesh_name: "room".to_owned(),
+                texture_name: "red".to_owned(),
+            },
+        );
 
         // Second entity
-        components.transforms.set(&id2, TransformComponent {
-            position: Vector3::new(0.0, 0.0, 0.0),
-            rotation: Vector3::new(0.0, 0.0, 0.0),
-            scale: Vector3::new(1.0, 1.0, 1.0),
-        });
-        components.models.set(&id2, ModelComponent {
-            mesh_name: "floor".to_owned(),
-            texture_name: "green".to_owned(),
-        });
+        components.transforms.set(
+            &id2,
+            TransformComponent {
+                position: Vector3::new(0.0, 0.0, 0.0),
+                rotation: Vector3::new(0.0, 0.0, 0.0),
+                scale: Vector3::new(1.0, 1.0, 1.0),
+            },
+        );
+        components.models.set(
+            &id2,
+            ModelComponent {
+                mesh_name: "floor".to_owned(),
+                texture_name: "green".to_owned(),
+            },
+        );
 
-        components.transforms.set(&id3, TransformComponent {
-            position: Vector3::new(1.0, 5.0, 1.0),
-            rotation: Vector3::new(0.0, 0.0, 0.0),
-            scale: Vector3::new(1.0, 1.0, 1.0),
-        });
-        components.lights.set(&id3, LightComponent {
-            color: [1.0, 1.0, 1.0],
-            light_type: LightType::Directional,
-        });
+        components.transforms.set(
+            &id3,
+            TransformComponent {
+                position: Vector3::new(1.0, 5.0, 1.0),
+                rotation: Vector3::new(0.0, 0.0, 0.0),
+                scale: Vector3::new(1.0, 1.0, 1.0),
+            },
+        );
+        components.lights.set(
+            &id3,
+            LightComponent {
+                color: [1.0, 1.0, 1.0],
+                light_type: LightType::Directional,
+            },
+        );
 
         // My tree
-        components.transforms.set(&id4, TransformComponent {
-            position: Vector3::new(0.0, 0.0, 1.0),
-            rotation: Vector3::new(0.0, 0.0, 0.0),
-            scale: Vector3::new(1.0, 1.0, 1.0),
-        });
-        components.models.set(&id4, ModelComponent {
-            mesh_name: "tree1".to_owned(),
-            texture_name: "tree1".to_owned(),
-        });
+        components.transforms.set(
+            &id4,
+            TransformComponent {
+                position: Vector3::new(0.0, 0.0, 1.0),
+                rotation: Vector3::new(0.0, 0.0, 0.0),
+                scale: Vector3::new(1.0, 1.0, 1.0),
+            },
+        );
+        components.models.set(
+            &id4,
+            ModelComponent {
+                mesh_name: "tree1".to_owned(),
+                texture_name: "tree1".to_owned(),
+            },
+        );
 
         ecs
     }
 
     pub fn save<P: AsRef<std::path::Path>>(&self, path: P) -> TwResult<()> {
-        let mut file =  OpenOptions::new()
+        let mut file = OpenOptions::new()
             .write(true)
             .truncate(true)
             .create(true)
@@ -193,8 +212,7 @@ impl ECS {
         Ok(ecs)
     }
 
-    pub fn load_and_replace<P: AsRef<std::path::Path>>(&mut self,
-                                                       path: P) -> TwResult<()> {
+    pub fn load_and_replace<P: AsRef<std::path::Path>>(&mut self, path: P) -> TwResult<()> {
         let new_ecs = ECS::load(path)?;
 
         self.components = new_ecs.components;
@@ -217,7 +235,7 @@ macro_rules! register_components {
             /// Arrays can be accessed with the get methods.
             $(
                 #[serde(default="GenerationalIndexArray::new")]
-                pub $name: EntityArray<$component>,   
+                pub $name: EntityArray<$component>,
             )+
         }
 
@@ -342,7 +360,7 @@ macro_rules! register_components {
 
 
                     if ui.button(im_str!("Add"), (0.0, 0.0)) {
-                        editor.should_add_comp = true;                                                                           
+                        editor.should_add_comp = true;
                         ui.close_current_popup();
                     }
 
@@ -359,7 +377,7 @@ macro_rules! register_components {
 
         impl ECS {
 
-            pub fn add_new_component_by_name(&mut self, entity: &Option<Entity>, comp_name: &Option<String>) 
+            pub fn add_new_component_by_name(&mut self, entity: &Option<Entity>, comp_name: &Option<String>)
             {
                 entity.as_ref().map(|e| {
                     $(
@@ -387,4 +405,4 @@ register_components!(
     [dummies, DummyComponent, "Dummy"],
     [lights, LightComponent, "Light"],
     [names, NameComponent, "Name"],
-    );
+);

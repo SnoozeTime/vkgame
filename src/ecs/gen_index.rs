@@ -109,7 +109,7 @@ impl GenerationalIndexAllocator {
 
     pub fn is_live(&self, index: &GenerationalIndex) -> bool {
         match self.entries.get(index.index()) {
-            Some(x) => x.is_live,
+            Some(x) => index.generation()== x.generation && x.is_live,
             None => false,
         }
     }
