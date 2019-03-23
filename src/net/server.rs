@@ -216,6 +216,7 @@ impl NetworkSystem {
                             // Don't worry it is ok for now :D
                             new_state: self.snapshotter.get_current_index() as u8,
                         });
+                        debug!("send state");
                         self.send_to_client(i, msg);
                     }
                     Err(SnapshotError::ClientCaughtUp) => {
@@ -272,6 +273,7 @@ impl NetworkSystem {
         };
 
         if let Some(id) = client_id {
+            debug!("Send connection accepted");
             self.send_to_client(id, to_send);
         } else {
             // ConnectionRefused is sent to parties that are not client yet.

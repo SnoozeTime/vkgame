@@ -1,7 +1,8 @@
 use clap::{App, Arg};
-use log::info;
+use log::{debug, info};
 use std::thread;
 use std::time::Duration;
+use twgraph::ecs::ECS;
 use twgraph::net::ClientSystem;
 
 fn main() -> Result<(), Box<std::error::Error>> {
@@ -26,9 +27,11 @@ fn main() -> Result<(), Box<std::error::Error>> {
     info!("Will connect to server at {}", addr);
     let mut client = ClientSystem::connect("127.0.0.1:8080".parse()?)?;
     info!("Connected to server");
+    let mut ecs = ECS::new();
     loop {
-        client.poll_events();
+        client.poll_events(&mut ecs);
         thread::sleep(Duration::from_millis(16));
         client.send_commands();
+        //debug!("ECS -> {:?}", ecs);
     }
 }

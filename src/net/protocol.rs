@@ -13,11 +13,11 @@ pub struct NetMessage {
 
 impl NetMessage {
     /// return the message ready to be sent. Consume the object.
-    pub fn pack(self) -> Result<(Bytes, SocketAddr), rmp_serde::encode::Error> {
+    pub fn pack(self) -> Result<(Bytes, SocketAddr), serde_json::error::Error> {
         Ok((serialize(self.content)?, self.target))
     }
 
-    pub fn unpack(buf: Bytes, target: SocketAddr) -> Result<NetMessage, rmp_serde::decode::Error> {
+    pub fn unpack(buf: Bytes, target: SocketAddr) -> Result<NetMessage, serde_json::error::Error> {
         Ok(NetMessage {
             content: deserialize(buf)?,
             target,
@@ -69,12 +69,13 @@ pub struct DeltaSnapshotInfo {
     pub delta: DeltaSnapshot,
 }
 
-pub fn deserialize(bytes: Bytes) -> Result<Packet, rmp_serde::decode::Error> {
-    rmp_serde::from_slice::<Packet>(&bytes.to_vec())
+pub fn deserialize(bytes: Bytes) -> Result<Packet, serde_json::error::Error> {
+    serde_json::from_slice::<Packet>(&bytes.to_vec())
 }
 
-pub fn serialize(msg: Packet) -> Result<Bytes, rmp_serde::encode::Error> {
-    let mut b = Vec::new();
-    msg.serialize(&mut Serializer::new(&mut b))?;
+pub fn serialize(msg: Packet) -> Result<Bytes, serde_json::error::Error> {
+    //let mut b = Vec::new();
+    let b = serde_json::to_vec(&msg)?;
+    //msg.serialize(&mut Serializer::new(&mut b))?;
     Ok(b.into())
 }

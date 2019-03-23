@@ -1,5 +1,6 @@
 use log::error;
 use serde_derive::{Deserialize, Serialize};
+use std::iter;
 
 /// Used to index entities in a generationIndexArray
 #[derive(Debug, Eq, PartialEq, Deserialize, Serialize, Copy, Clone)]
@@ -22,7 +23,7 @@ impl GenerationalIndex {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct AllocatorEntry {
     is_live: bool,
     generation: u64,
@@ -101,11 +102,24 @@ impl GenerationalIndexAllocator {
                 self.free.remove(free_index);
             }
         } else {
+            // that is not so nice. At first the ECS is empty but the server
+            // tells us index 0 is an entity. Then we arrive here. We need
+            // to fill the ECS until then...
             // yea should not happen.
-            error!(
-                "Try to overwrite an entry that does not exist yet: {:?}",
-                index
-            );
+            if index.index() >= self.entries.len() {
+                self.entries.extend(
+                    iter::repeat(AllocatorEntry {
+                        is_live: false,
+                        generation: 0,
+                    })
+                    .take(1 + index.index() - self.entries.len()),
+                )
+            }
+
+            self.entries[idx] = AllocatorEntry {
+                is_live: true,
+                generation: index.generation(),
+            };
         }
     }
 

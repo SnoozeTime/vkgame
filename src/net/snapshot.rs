@@ -221,7 +221,7 @@ pub fn compute_delta(old: &ECS, current: &ECS) -> DeltaSnapshot {
     }
 }
 
-fn apply_delta(ecs: &mut ECS, delta_snapshot: DeltaSnapshot) {
+pub fn apply_delta(ecs: &mut ECS, delta_snapshot: DeltaSnapshot) {
     // First delete the entities that have to be deleted.
     for entity in &delta_snapshot.entities_to_delete {
         ecs.delete_entity(entity);

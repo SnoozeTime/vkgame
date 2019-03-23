@@ -1,17 +1,16 @@
 use clap::{App, Arg};
 use log::{error, info, trace};
 use std::time::{Duration, Instant};
-use twgraph::scene::{Scene, NetworkScene};
+use twgraph::scene::{NetworkScene, Scene};
 
 /// Validator for clap
 fn is_usize(v: String) -> Result<(), String> {
     if let Err(_) = v.parse::<usize>() {
-        return Err("The value should represent an usize".to_string())
+        return Err("The value should represent an usize".to_string());
     }
 
     Ok(())
 }
-
 
 fn main() -> Result<(), Box<std::error::Error>> {
     env_logger::init();
@@ -20,22 +19,26 @@ fn main() -> Result<(), Box<std::error::Error>> {
     let matches = App::new("Serer")
         .version("0.1")
         .author("Benoit Eudier")
-        .arg(Arg::with_name("port")
-             .short("p")
-             .long("port")
-             .required(false)
-             .takes_value(true)
-             .default_value("8080")
-             .validator(is_usize)
-             .help("Port of the server"))
-        .arg(Arg::with_name("number")
+        .arg(
+            Arg::with_name("port")
+                .short("p")
+                .long("port")
+                .required(false)
+                .takes_value(true)
+                .default_value("8080")
+                .validator(is_usize)
+                .help("Port of the server"),
+        )
+        .arg(
+            Arg::with_name("number")
                 .short("n")
                 .long("number")
                 .required(false)
                 .takes_value(true)
                 .default_value("8")
                 .validator(is_usize)
-                .help("Number of players"))
+                .help("Number of players"),
+        )
         .get_matches();
 
     // clap has already done the validation and default value.
@@ -50,10 +53,10 @@ fn main() -> Result<(), Box<std::error::Error>> {
 
     // The scene will contains all the systems, including the network stack.
     // Here, no need for Scene stack or anything fancy.
-    let mut scene = NetworkScene::new(port, nb);
-    
-    'game_loop: loop {
+    let mut scene = NetworkScene::from_file(port, nb, "arena.json".to_string());
+    //let mut scene = NetworkScene::new(port, nb);
 
+    'game_loop: loop {
         while accumulator > fixed_time_stamp {
             accumulator -= fixed_time_stamp;
 

@@ -16,6 +16,8 @@ use std::sync::mpsc as stdmpsc;
 use std::time::Duration;
 
 use super::NetworkError;
+use crate::ecs::ECS;
+use crate::net::snapshot::apply_delta;
 use crate::sync::SharedDeque;
 
 const NB_TRY: u32 = 10;
@@ -218,7 +220,7 @@ impl ClientSystem {
     }
 
     /// Will get the latest events that were sent from the server
-    pub fn poll_events(&mut self) {
+    pub fn poll_events(&mut self, ecs: &mut ECS) {
         let events = self.from_server.drain();
 
         for ev in events {
@@ -232,6 +234,9 @@ impl ClientSystem {
                 if let protocol::NetMessageContent::Delta(snapshot) = ev.content {
                     if self.last_known_state == snapshot.old_state {
                         self.last_known_state = Some(snapshot.new_state);
+                        debug!("Received delta: {:?}", snapshot.delta);
+
+                        apply_delta(ecs, snapshot.delta);
                     }
                 }
             }
