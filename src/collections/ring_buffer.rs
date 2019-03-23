@@ -6,7 +6,7 @@ pub struct RingBuffer<T> {
     inner: Vec<Option<T>>,
 
     size: usize,
-    head: usize,
+    next: usize,
 }
 
 impl<T> RingBuffer<T> {
@@ -15,14 +15,14 @@ impl<T> RingBuffer<T> {
         for _ in 0..size {
             inner.push(None);
         }
-        let head = 0;
-        Self { inner, size, head }
+        let next = 0;
+        Self { inner, size, next }
     }
 
     /// Push an element at the current head position.
     pub fn push(&mut self, data: T) {
-        self.inner[self.head] = Some(data);
-        self.head = (self.head + 1) % self.size;
+        self.inner[self.next] = Some(data);
+        self.next = (self.next + 1) % self.size;
     }
 
     /// Just get the element at the give index.
@@ -30,8 +30,16 @@ impl<T> RingBuffer<T> {
         self.inner.get(idx).and_then(|opt| opt.as_ref())
     }
 
-    pub fn head(&self) -> usize {
-        self.head
+    pub fn head(&self) -> Option<&T> {
+        self.get(self.head_index())
+    }
+
+    pub fn head_index(&self) -> usize {
+        if self.next == 0 {
+            self.size
+        } else {
+            self.next - 1
+        }
     }
 }
 
@@ -60,6 +68,8 @@ mod tests {
         circular.push(0);
         assert_eq!(Some(&0), circular.get(0));
         assert_eq!(Some(&22), circular.get(1));
+
+        assert_eq!(Some(&0), circular.head());
     }
 
 }

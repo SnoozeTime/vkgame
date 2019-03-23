@@ -1,8 +1,8 @@
-use std::net::SocketAddr;
-use serde_derive::{Serialize, Deserialize};
+use bytes::{Bytes, BytesMut};
 use rmp_serde::Serializer;
-use serde::{Serialize, Deserialize};
-use bytes::{BytesMut, Bytes};
+use serde::{Deserialize, Serialize};
+use serde_derive::{Deserialize, Serialize};
+use std::net::SocketAddr;
 
 #[derive(Debug, Clone)]
 pub struct NetMessage {
@@ -11,14 +11,12 @@ pub struct NetMessage {
 }
 
 impl NetMessage {
-
     /// return the message ready to be sent. Consume the object.
     pub fn pack(self) -> Result<(Bytes, SocketAddr), rmp_serde::encode::Error> {
         Ok((serialize(self.content)?, self.target))
     }
 
     pub fn unpack(buf: Bytes, target: SocketAddr) -> Result<NetMessage, rmp_serde::decode::Error> {
-
         Ok(NetMessage {
             content: deserialize(buf)?,
             target,
@@ -29,6 +27,9 @@ impl NetMessage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Packet {
     pub seq_number: u32,
+    // Only matter on client>erver side. Should we remove from here and put in NetMessageContent
+    // instead?
+    pub last_known_state: Option<u8>,
     pub content: NetMessageContent,
 }
 
@@ -37,7 +38,7 @@ pub struct Packet {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum NetMessageContent {
     // -----------------------------------
-    // NETWORK LOGIC LEVEL 
+    // NETWORK LOGIC LEVEL
     // -----------------------------------
     // Client sends that to the server.
     ConnectionRequest,
@@ -49,14 +50,12 @@ pub enum NetMessageContent {
     // ----------------------------------
     // GAME LOGIC LEVEL
     // ----------------------------------
-    
-    
+
     // ----------------------------------
     // FOR DEBUGGING
     // ----------------------------------
     Text(String),
 }
-
 
 pub fn deserialize(bytes: Bytes) -> Result<Packet, rmp_serde::decode::Error> {
     rmp_serde::from_slice::<Packet>(&bytes.to_vec())

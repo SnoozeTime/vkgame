@@ -14,7 +14,95 @@ use crate::ecs::{
 use cgmath::InnerSpace;
 use serde_derive::{Deserialize, Serialize};
 
+use crate::collections::RingBuffer;
 const EPSILON: f32 = 0.00001;
+
+#[derive(Debug)]
+pub enum SnapshotError {
+    RingBufferEmpty,
+    ClientCaughtUp,
+    InvalidStateIndex,
+}
+
+use std::error::Error;
+use std::fmt;
+
+impl fmt::Display for SnapshotError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.description())
+    }
+}
+
+impl Error for SnapshotError {
+    fn description(&self) -> &str {
+        match *self {
+            SnapshotError::RingBufferEmpty => "The ringbuffer is currently empty",
+            SnapshotError::ClientCaughtUp => "The client's known state is too old",
+            SnapshotError::InvalidStateIndex => "Provided state index is out of bound",
+        }
+    }
+}
+
+/// Give a delta between current snapshot and the previous state of the game.
+///
+/// Internally, it keeps a circular buffer with a bunch of ECS. Each clients
+/// will have a last known state. The delta is computed between current and last
+/// known, then sent to the client.
+///
+/// When a client hasn't updated its state fast enough and the circular buffer makes
+/// a full round, the client will be considered disconnected. Timeout to disconnection
+/// can be calculated from buffer size and frame duration. (60 fps -> 1 sec timeout =
+/// buffer of size 60).
+pub struct Snapshotter {
+    state_buf: RingBuffer<ECS>,
+    empty_ecs: ECS,
+}
+
+impl Snapshotter {
+    pub fn new(ring_size: usize) -> Self {
+        let state_buf = RingBuffer::new(ring_size);
+        let empty_ecs = ECS::new();
+
+        Snapshotter {
+            state_buf,
+            empty_ecs,
+        }
+    }
+
+    /// Update ring buffer with current state.
+    pub fn set_current(&mut self, ecs: &ECS) {
+        // it's making a copy.
+        self.state_buf.push(ECS::new_from_existing(ecs));
+    }
+
+    /// Compute snapshot between current and last known state.
+    /// If return value is None. it means, we cannot compute because the
+    /// last known state has been replaced by now. -> disconnect client.
+    pub fn get_delta(&self, known_state: usize) -> Result<DeltaSnapshot, SnapshotError> {
+        if known_state == self.state_buf.head_index() {
+            return Err(SnapshotError::ClientCaughtUp);
+        }
+
+        if let Some(old_ecs) = self.state_buf.get(known_state) {
+            if let Some(new_ecs) = self.state_buf.head() {
+                Ok(compute_delta(old_ecs, new_ecs))
+            } else {
+                Err(SnapshotError::RingBufferEmpty)
+            }
+        } else {
+            Err(SnapshotError::InvalidStateIndex)
+        }
+    }
+
+    /// From client that havn't received anything yet.
+    pub fn get_full_snapshot(&self) -> Result<DeltaSnapshot, SnapshotError> {
+        if let Some(new_ecs) = self.state_buf.head() {
+            Ok(compute_delta(&self.empty_ecs, new_ecs))
+        } else {
+            Err(SnapshotError::RingBufferEmpty)
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeltaSnapshot {
