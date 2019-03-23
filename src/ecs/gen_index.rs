@@ -1,17 +1,15 @@
-use serde_derive::{Serialize, Deserialize};
+use serde_derive::{Deserialize, Serialize};
 
 /// Used to index entities in a generationIndexArray
 #[derive(Debug, Eq, PartialEq, Deserialize, Serialize, Copy, Clone)]
 pub struct GenerationalIndex {
     index: usize,
     generation: u64,
-} 
+}
 
 impl GenerationalIndex {
     pub fn new(index: usize, generation: u64) -> Self {
-        GenerationalIndex {
-            index, generation
-        }
+        GenerationalIndex { index, generation }
     }
 
     pub fn index(&self) -> usize {
@@ -22,7 +20,6 @@ impl GenerationalIndex {
         self.generation
     }
 }
-
 
 #[derive(Debug, Serialize, Deserialize)]
 struct AllocatorEntry {
@@ -47,12 +44,14 @@ impl GenerationalIndexAllocator {
     }
 
     pub fn live_entities(&self) -> Vec<GenerationalIndex> {
-        self.entries.iter()
+        self.entries
+            .iter()
             .enumerate()
-            .filter(|(_, entry)| {
-                entry.is_live
+            .filter(|(_, entry)| entry.is_live)
+            .map(|(index, entry)| GenerationalIndex {
+                index,
+                generation: entry.generation,
             })
-            .map(|(index, entry)| GenerationalIndex {index, generation: entry.generation})
             .collect()
     }
 
@@ -62,7 +61,9 @@ impl GenerationalIndexAllocator {
             Some(idx) => {
                 // Increment generation for the entry.
                 // Unwrap here. This should never fail.
-                let entry = self.entries.get_mut(idx)
+                let entry = self
+                    .entries
+                    .get_mut(idx)
                     .expect("Entry and free vector do not match");
 
                 entry.is_live = true;
@@ -72,10 +73,9 @@ impl GenerationalIndexAllocator {
                     index: idx,
                     generation: entry.generation,
                 }
-            },
+            }
             None => {
-
-                self.entries.push(AllocatorEntry { 
+                self.entries.push(AllocatorEntry {
                     is_live: true,
                     generation: 0,
                 });
@@ -84,12 +84,11 @@ impl GenerationalIndexAllocator {
                     index: self.entries.len() - 1,
                     generation: 0,
                 }
-            },
+            }
         }
     }
 
     pub fn deallocate(&mut self, index: GenerationalIndex) -> bool {
-
         // make sure the entry exists.
         let idx = index.index();
         println!("Will deallocate {}", idx);
@@ -102,14 +101,14 @@ impl GenerationalIndexAllocator {
                 } else {
                     false
                 }
-            },
+            }
             None => false,
         }
     }
 
     pub fn is_live(&self, index: &GenerationalIndex) -> bool {
         match self.entries.get(index.index()) {
-            Some(x) => index.generation()== x.generation && x.is_live,
+            Some(x) => index.generation() == x.generation && x.is_live,
             None => false,
         }
     }
@@ -124,11 +123,10 @@ pub struct ArrayEntry<T> {
 }
 
 impl<T> ArrayEntry<T> {
-
     pub fn value(&self) -> &T {
         &self.value
     }
-    
+
     pub fn generation(&self) -> u64 {
         self.generation
     }
@@ -141,7 +139,6 @@ impl<T> ArrayEntry<T> {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GenerationalIndexArray<T>(pub Vec<Option<ArrayEntry<T>>>);
 impl<T> GenerationalIndexArray<T> {
-
     pub fn new() -> Self {
         GenerationalIndexArray(Vec::new())
     }
@@ -158,12 +155,14 @@ impl<T> GenerationalIndexArray<T> {
     }
 
     pub fn get(&self, index: &GenerationalIndex) -> Option<&T> {
-        self.0.get(index.index()) // option<option<arrayentry<T>>>
+        self.0
+            .get(index.index())
             .and_then(|option| option.as_ref().map(|entry| &entry.value))
     }
 
     pub fn get_mut(&mut self, index: &GenerationalIndex) -> Option<&mut T> {
-        self.0.get_mut(index.index()) // option<option<arrayentry<T>>>
+        self.0
+            .get_mut(index.index()) // option<option<arrayentry<T>>>
             .and_then(|option| option.as_mut().map(|entry| &mut entry.value))
     }
 }
@@ -198,8 +197,20 @@ mod tests {
         assert_eq!(0, idx2.generation());
 
         assert_eq!(true, alloc.deallocate(idx1));
-        assert_eq!(false, alloc.deallocate(GenerationalIndex{generation: 0, index: 0}));
-        assert_eq!(false, alloc.deallocate(GenerationalIndex{generation: 2, index: 1}));
+        assert_eq!(
+            false,
+            alloc.deallocate(GenerationalIndex {
+                generation: 0,
+                index: 0
+            })
+        );
+        assert_eq!(
+            false,
+            alloc.deallocate(GenerationalIndex {
+                generation: 2,
+                index: 1
+            })
+        );
 
         let idx3 = alloc.allocate();
         assert_eq!(0, idx3.index());

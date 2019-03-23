@@ -78,10 +78,10 @@ pub fn compute_delta(old: &ECS, current: &ECS) -> DeltaSnapshot {
                 current.components.transforms.get(&entity),
                 old.components.transforms.get(&entity),
             ) {
-                (Some(new_transform), Some(old_transform)) => {
+                (Some(new_transform), Some(old_transform)) if old.is_entity_alive(&entity) => {
                     compute_transform_delta(old_transform, new_transform)
                 }
-                (Some(new_transform), None) => compute_transform_delta_empty(new_transform),
+                (Some(new_transform), _) => compute_transform_delta_empty(new_transform),
                 (None, _) => (None, None, None),
             }
         };
@@ -91,8 +91,10 @@ pub fn compute_delta(old: &ECS, current: &ECS) -> DeltaSnapshot {
                 current.components.models.get(&entity),
                 old.components.models.get(&entity),
             ) {
-                (Some(new_model), Some(old_model)) => compute_model_delta(old_model, new_model),
-                (Some(new_model), None) => compute_model_delta_empty(new_model),
+                (Some(new_model), Some(old_model)) if old.is_entity_alive(&entity) => {
+                    compute_model_delta(old_model, new_model)
+                }
+                (Some(new_model), _) => compute_model_delta_empty(new_model),
                 (None, _) => (None, None),
             }
         };
