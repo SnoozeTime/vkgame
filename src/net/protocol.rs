@@ -59,6 +59,9 @@ pub enum NetMessageContent {
 
     // Command from the client.
     MoveCommand(CameraDirection),
+    // Orientation of the player.
+    LookAtCommand([f32; 3]),
+
     // ----------------------------------
     // FOR DEBUGGING
     // ----------------------------------

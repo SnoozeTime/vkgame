@@ -25,4 +25,5 @@ pub enum ResourceEvent {
 pub enum GameEvent {
     // TODO Should refactor. Direction is ok, but it doesn't have to be camera
     Move(CameraDirection),
+    LookAt([f32; 3]),
 }

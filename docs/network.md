@@ -2,10 +2,7 @@
 
 # TODO
 
-- Client Struct on server side that hold the seq number/IP address/port and the state we supposed the client knows
-- Create Delta struct that hold the difference between two ECS
-- Finish compute and apply delta functions
-- Create message to hold the delta and previous state ID
+- Create PlayerSystem that will update the position based on the orientation + commands. Orientation is sent by the client everytime she moves the mouse. Commands are move forward/backward/left/right. Player system just reacts to events from the server/front-end?
 - Find better way for client timeout (Let's say client crash before sending last state ID and the server is stuck sending the entire state).
 - Round transforms when creating delta
 

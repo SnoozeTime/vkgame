@@ -19,6 +19,7 @@ use crate::net::ClientSystem;
 
 pub enum ClientCommand {
     Move(CameraDirection),
+    LookAt([f32; 3]),
 }
 
 pub struct GameUi {}
@@ -128,6 +129,8 @@ impl Scene for ClientScene {
         );
         if h_axis != 0.0 || v_axis != 0.0 {
             self.ecs.camera.process_mouse(dt, h_axis, v_axis);
+            self.commands
+                .push(ClientCommand::LookAt(self.ecs.camera.state.front.into()));
         }
 
         self.backend.send_commands(&self.commands);

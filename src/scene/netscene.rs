@@ -6,6 +6,7 @@ use crate::input::Input;
 use crate::net::NetworkSystem;
 use crate::resource::Resources;
 use crate::ui::Gui;
+use log::debug;
 use std::time::Duration;
 
 pub struct NetworkScene {
@@ -38,7 +39,10 @@ impl NetworkScene {
 impl Scene for NetworkScene {
     fn update(&mut self, dt: Duration) -> Option<Vec<Event>> {
         // Get the latest event from the clients.
-        self.network.poll_events(&mut self.ecs);
+        let events = self.network.poll_events(&mut self.ecs);
+        for ev in events {
+            debug!("Received {:?} from {:?}", ev.0, ev.1);
+        }
 
         // All the systems.
 

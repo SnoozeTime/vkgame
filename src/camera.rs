@@ -125,7 +125,7 @@ impl CameraInputHandler {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Camera {
-    state: CameraState,
+    pub state: CameraState,
 
     #[serde(skip)]
     #[serde(default = "CameraInputHandler::fps_handler")]
@@ -140,7 +140,7 @@ pub struct CameraState {
     transform: TransformComponent,
 
     #[serde(with = "crate::ser::VectorDef")]
-    front: Vector3<f32>,
+    pub front: Vector3<f32>,
     #[serde(with = "crate::ser::VectorDef")]
     right: Vector3<f32>,
     #[serde(with = "crate::ser::VectorDef")]

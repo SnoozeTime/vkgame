@@ -249,6 +249,9 @@ impl ClientSystem {
                 ClientCommand::Move(direction) => {
                     self.send_to_server(protocol::NetMessageContent::MoveCommand(direction));
                 }
+                ClientCommand::LookAt(direction) => {
+                    self.send_to_server(protocol::NetMessageContent::LookAtCommand(direction));
+                }
             }
         }
 
