@@ -3,7 +3,7 @@ use serde_derive::{Deserialize, Serialize};
 use std::iter;
 
 /// Used to index entities in a generationIndexArray
-#[derive(Debug, Eq, PartialEq, Deserialize, Serialize, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, Deserialize, Serialize, Copy, Clone, Hash)]
 pub struct GenerationalIndex {
     index: usize,
     generation: u64,

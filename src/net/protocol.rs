@@ -1,5 +1,6 @@
 use super::snapshot::DeltaSnapshot;
 use crate::camera::CameraDirection;
+use crate::scene::ClientCommand;
 use bytes::{Bytes, BytesMut};
 use rmp_serde::Serializer;
 use serde::{Deserialize, Serialize};
@@ -58,9 +59,7 @@ pub enum NetMessageContent {
     Delta(DeltaSnapshotInfo),
 
     // Command from the client.
-    MoveCommand(CameraDirection),
-    // Orientation of the player.
-    LookAtCommand([f32; 3]),
+    Command(ClientCommand),
 
     // ----------------------------------
     // FOR DEBUGGING

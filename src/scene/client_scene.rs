@@ -1,6 +1,7 @@
 use cgmath::Vector3;
 use imgui::Ui;
 use log::debug;
+use serde_derive::{Deserialize, Serialize};
 use std::time::Duration;
 
 use super::Scene;
@@ -17,6 +18,7 @@ use crate::ui::Gui;
 
 use crate::net::ClientSystem;
 
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub enum ClientCommand {
     Move(CameraDirection),
     LookAt([f32; 3]),

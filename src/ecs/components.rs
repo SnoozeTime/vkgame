@@ -327,3 +327,24 @@ impl LightComponent {
         });
     }
 }
+
+/// One of these by player in the game.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PlayerComponent {
+    #[serde(with = "VectorDef")]
+    pub look_at: Vector3<f32>,
+}
+
+impl PlayerComponent {
+    pub fn draw_ui(&mut self, _ui: &Ui, _editor: &Editor) {
+        // nothing to see here.
+    }
+}
+
+impl Default for PlayerComponent {
+    fn default() -> Self {
+        Self {
+            look_at: Vector3::new(0.0, 0.0, -1.0),
+        }
+    }
+}

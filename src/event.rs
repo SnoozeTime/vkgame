@@ -1,4 +1,5 @@
 use crate::camera::CameraDirection;
+use crate::scene::ClientCommand;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
@@ -6,6 +7,7 @@ pub enum Event {
     EditorEvent(EditorEvent),
     ResourceEvent(ResourceEvent),
     GameEvent(GameEvent),
+    ClientEvent(ClientCommand),
 }
 
 /// Stuff that happens only in Editor.
@@ -22,8 +24,4 @@ pub enum ResourceEvent {
 }
 
 #[derive(Debug, Clone)]
-pub enum GameEvent {
-    // TODO Should refactor. Direction is ok, but it doesn't have to be camera
-    Move(CameraDirection),
-    LookAt([f32; 3]),
-}
+pub enum GameEvent {}

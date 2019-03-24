@@ -18,7 +18,7 @@ use super::NetworkError;
 use crate::camera::CameraDirection;
 use crate::collections::OptionArray;
 use crate::ecs::{
-    components::{ModelComponent, TransformComponent},
+    components::{ModelComponent, PlayerComponent, TransformComponent},
     Entity, ECS,
 };
 use crate::event::{Event, GameEvent};
@@ -258,12 +258,7 @@ impl NetworkSystem {
 
     fn handle_client_message(client: &Client, packet: Packet) -> Option<Event> {
         match packet.content {
-            protocol::NetMessageContent::MoveCommand(direction) => {
-                Some(Event::GameEvent(GameEvent::Move(direction)))
-            }
-            protocol::NetMessageContent::LookAtCommand(direction) => {
-                Some(Event::GameEvent(GameEvent::LookAt(direction)))
-            }
+            protocol::NetMessageContent::Command(cmd) => Some(Event::ClientEvent(cmd)),
             _ => None,
         }
     }
@@ -299,21 +294,15 @@ impl NetworkSystem {
                         // Now we have a new client, let's create a new player entity
                         // from the player template.
                         let entity = ecs.new_entity();
-                        ecs.components.transforms.set(
-                            &entity,
-                            TransformComponent {
-                                position: Vector3::new(0.0, 0.0, 0.0),
-                                rotation: Vector3::new(0.0, 0.0, 0.0),
-                                scale: Vector3::new(1.0, 1.0, 1.0),
-                            },
-                        );
-                        ecs.components.models.set(
-                            &entity,
-                            ModelComponent {
-                                mesh_name: "cube".to_string(),
-                                texture_name: "white".to_string(),
-                            },
-                        );
+                        ecs.components
+                            .transforms
+                            .set(&entity, TransformComponent::default());
+                        ecs.components
+                            .models
+                            .set(&entity, ModelComponent::default());
+                        ecs.components
+                            .players
+                            .set(&entity, PlayerComponent::default());
 
                         self.my_clients.get_mut(i).unwrap().entity = Some(entity);
                         (protocol::NetMessageContent::ConnectionAccepted, Some(i))

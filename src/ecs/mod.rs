@@ -10,7 +10,8 @@ pub mod gen_index;
 pub mod systems;
 
 use self::components::{
-    DummyComponent, LightComponent, LightType, ModelComponent, NameComponent, TransformComponent,
+    DummyComponent, LightComponent, LightType, ModelComponent, NameComponent, PlayerComponent,
+    TransformComponent,
 };
 use self::gen_index::{GenerationalIndex, GenerationalIndexAllocator, GenerationalIndexArray};
 use crate::camera::Camera;
@@ -410,4 +411,5 @@ register_components!(
     [dummies, DummyComponent, "Dummy"],
     [lights, LightComponent, "Light"],
     [names, NameComponent, "Name"],
+    [players, PlayerComponent, "Player"],
 );

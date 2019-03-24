@@ -167,7 +167,7 @@ impl CameraState {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Copy)]
+#[derive(Debug, Clone, Serialize, Deserialize, Copy, Hash, PartialEq, Eq)]
 pub enum CameraDirection {
     Forward,
     Backward,

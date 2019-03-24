@@ -245,14 +245,7 @@ impl ClientSystem {
 
     pub fn send_commands(&mut self, commands: &Vec<ClientCommand>) {
         for cmd in commands.iter() {
-            match *cmd {
-                ClientCommand::Move(direction) => {
-                    self.send_to_server(protocol::NetMessageContent::MoveCommand(direction));
-                }
-                ClientCommand::LookAt(direction) => {
-                    self.send_to_server(protocol::NetMessageContent::LookAtCommand(direction));
-                }
-            }
+            self.send_to_server(protocol::NetMessageContent::Command(*cmd));
         }
 
         if commands.is_empty() {
