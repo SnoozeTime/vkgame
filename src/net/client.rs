@@ -18,6 +18,7 @@ use std::time::Duration;
 use super::NetworkError;
 use crate::ecs::ECS;
 use crate::net::snapshot::apply_delta;
+use crate::scene::ClientCommand;
 use crate::sync::SharedDeque;
 
 const NB_TRY: u32 = 10;
@@ -242,8 +243,18 @@ impl ClientSystem {
         }
     }
 
-    pub fn send_commands(&mut self) {
-        self.send_to_server(protocol::NetMessageContent::Ping);
+    pub fn send_commands(&mut self, commands: &Vec<ClientCommand>) {
+        for cmd in commands.iter() {
+            match *cmd {
+                ClientCommand::Move(direction) => {
+                    self.send_to_server(protocol::NetMessageContent::MoveCommand(direction));
+                }
+            }
+        }
+
+        if commands.is_empty() {
+            self.send_to_server(protocol::NetMessageContent::Ping);
+        }
     }
 
     fn send_to_server(&mut self, content: protocol::NetMessageContent) {

@@ -1,4 +1,5 @@
 use super::snapshot::DeltaSnapshot;
+use crate::camera::CameraDirection;
 use bytes::{Bytes, BytesMut};
 use rmp_serde::Serializer;
 use serde::{Deserialize, Serialize};
@@ -56,6 +57,8 @@ pub enum NetMessageContent {
     // contain the server state.
     Delta(DeltaSnapshotInfo),
 
+    // Command from the client.
+    MoveCommand(CameraDirection),
     // ----------------------------------
     // FOR DEBUGGING
     // ----------------------------------

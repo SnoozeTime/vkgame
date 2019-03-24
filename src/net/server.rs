@@ -15,10 +15,16 @@ use std::thread;
 use std::sync::mpsc as stdmpsc;
 
 use super::NetworkError;
+use crate::camera::CameraDirection;
 use crate::collections::OptionArray;
-use crate::ecs::ECS;
+use crate::ecs::{
+    components::{ModelComponent, TransformComponent},
+    Entity, ECS,
+};
+use crate::event::{Event, GameEvent};
 use crate::net::snapshot::{DeltaSnapshot, SnapshotError, Snapshotter};
 use crate::sync::SharedDeque;
+use cgmath::Vector3;
 
 pub fn start_serving(
     port: usize,
@@ -135,6 +141,9 @@ struct Client {
     // Incremented nb that is sent in the packet
     last_rec_seq_number: u32,
     last_sent_seq_number: u32,
+
+    // The entity in the server ECS associated to this client
+    entity: Option<Entity>,
 }
 
 /// The network system is the ECS system that will be called in the main loop.
@@ -165,12 +174,12 @@ impl NetworkSystem {
 
     /// Will get the latest events that were sent to the server
     /// For example, player commands and so on.
-    pub fn poll_events(&mut self) {
+    pub fn poll_events(&mut self, ecs: &mut ECS) {
         let events = self.from_clients.drain();
 
         for ev in events {
             if let protocol::NetMessageContent::ConnectionRequest = ev.content.content {
-                self.handle_connection_request(ev.target);
+                self.handle_connection_request(ev.target, ecs);
             } else {
                 // if the client is known, send OK, else send connection refused. Update
                 // the last known state so that we send the correct thing in snapshots.
@@ -183,6 +192,9 @@ impl NetworkSystem {
                     } else {
                         client.last_state = ev.content.last_known_state;
                         client.last_rec_seq_number = ev.content.seq_number;
+
+                        // Now convert the message as an event that will be processed by the
+                        // engine (physics,... and so on).
                     }
                 } else {
 
@@ -201,15 +213,15 @@ impl NetworkSystem {
         let mut to_disconnect = Vec::new();
         for i in 0..self.my_clients.len() {
             if let Some(client) = self.my_clients.get_mut(i) {
-                let delta_res = if let Some(idx) = client.last_state {
-                    self.snapshotter.get_delta(idx as usize)
+                let player_entity = client.entity.as_ref().unwrap();
+                let mut delta_res = if let Some(idx) = client.last_state {
+                    self.snapshotter.get_delta(idx as usize, player_entity)
                 } else {
-                    self.snapshotter.get_full_snapshot()
+                    self.snapshotter.get_full_snapshot(player_entity)
                 };
 
                 match delta_res {
-                    Ok(delta) => {
-                        // TODO Send delta message here.
+                    Ok(mut delta) => {
                         let msg = protocol::NetMessageContent::Delta(DeltaSnapshotInfo {
                             delta,
                             old_state: client.last_state,
@@ -242,7 +254,7 @@ impl NetworkSystem {
     /// If a client is already in the map, it should reply connection
     /// accepted. The reason is that the connection acception message
     /// might have been lost so the client thinks it is still trying to connect
-    fn handle_connection_request(&mut self, addr: SocketAddr) {
+    fn handle_connection_request(&mut self, addr: SocketAddr, ecs: &mut ECS) {
         info!("Handle new connection request from {}", addr);
 
         let (to_send, client_id) = {
@@ -252,14 +264,37 @@ impl NetworkSystem {
             } else {
                 // in that case we need to find an empty slot. If available,
                 // return connection accepted.
+
                 match self.my_clients.add(Client {
                     addr,
                     last_rec_seq_number: 0,
                     last_sent_seq_number: 0,
                     last_state: None,
+                    entity: None,
                 }) {
                     Some(i) => {
                         info!("New player connected: Player {}!", i);
+
+                        // Now we have a new client, let's create a new player entity
+                        // from the player template.
+                        let entity = ecs.new_entity();
+                        ecs.components.transforms.set(
+                            &entity,
+                            TransformComponent {
+                                position: Vector3::new(0.0, 0.0, 0.0),
+                                rotation: Vector3::new(0.0, 0.0, 0.0),
+                                scale: Vector3::new(1.0, 1.0, 1.0),
+                            },
+                        );
+                        ecs.components.models.set(
+                            &entity,
+                            ModelComponent {
+                                mesh_name: "cube".to_string(),
+                                texture_name: "white".to_string(),
+                            },
+                        );
+
+                        self.my_clients.get_mut(i).unwrap().entity = Some(entity);
                         (protocol::NetMessageContent::ConnectionAccepted, Some(i))
                     }
 

@@ -17,6 +17,10 @@ use crate::ui::Gui;
 
 use crate::net::ClientSystem;
 
+pub enum ClientCommand {
+    Move(CameraDirection),
+}
+
 pub struct GameUi {}
 impl Gui for GameUi {
     fn run_ui(&mut self, _ui: &Ui, _ecs: &mut ECS) -> bool {
@@ -31,7 +35,8 @@ pub struct ClientScene {
 
     // All systems for this Scene.
     // dummy_system: DummySystem,
-    network: ClientSystem,
+    backend: ClientSystem,
+    commands: Vec<ClientCommand>,
 }
 
 impl ClientScene {
@@ -57,12 +62,14 @@ impl ClientScene {
         let aspect = (dimensions[0] as f32) / (dimensions[1] as f32);
         ecs.camera = Camera::new(transform, aspect, CameraInputHandler::fps_handler());
 
-        let network = ClientSystem::connect("127.0.0.1:8080".parse().unwrap()).unwrap();
+        let backend = ClientSystem::connect("127.0.0.1:8080".parse().unwrap()).unwrap();
+        let commands = Vec::with_capacity(10);
 
         ClientScene {
             ecs,
             game_ui: GameUi {},
-            network,
+            backend,
+            commands,
         }
     }
 }
@@ -70,7 +77,7 @@ impl ClientScene {
 impl Scene for ClientScene {
     fn update(&mut self, _dt: Duration) -> Option<Vec<Event>> {
         //self.dummy_system.do_dumb_thing(dt, &mut self.ecs);
-        self.network.poll_events(&mut self.ecs);
+        self.backend.poll_events(&mut self.ecs);
         None
     }
 
@@ -81,24 +88,33 @@ impl Scene for ClientScene {
         dt: Duration,
     ) -> Option<Vec<Event>> {
         let input = input.unwrap();
-        self.network.send_commands();
+
+        self.commands.clear();
         if input.get_key(KeyType::Up) {
+            self.commands
+                .push(ClientCommand::Move(CameraDirection::Forward));
             self.ecs
                 .camera
                 .process_keyboard(dt, CameraDirection::Forward);
         }
 
         if input.get_key(KeyType::Down) {
+            self.commands
+                .push(ClientCommand::Move(CameraDirection::Backward));
             self.ecs
                 .camera
                 .process_keyboard(dt, CameraDirection::Backward);
         }
 
         if input.get_key(KeyType::Left) {
+            self.commands
+                .push(ClientCommand::Move(CameraDirection::Left));
             self.ecs.camera.process_keyboard(dt, CameraDirection::Left);
         }
 
         if input.get_key(KeyType::Right) {
+            self.commands
+                .push(ClientCommand::Move(CameraDirection::Right));
             self.ecs.camera.process_keyboard(dt, CameraDirection::Right);
         }
 
@@ -114,6 +130,7 @@ impl Scene for ClientScene {
             self.ecs.camera.process_mouse(dt, h_axis, v_axis);
         }
 
+        self.backend.send_commands(&self.commands);
         None
     }
 

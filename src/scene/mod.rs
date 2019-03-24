@@ -23,7 +23,7 @@ pub trait Scene {
     fn get_ecs(&self) -> &ECS;
 }
 
-pub use client_scene::ClientScene;
+pub use client_scene::{ClientCommand, ClientScene};
 pub use editor::EditorScene;
 pub use game::GameScene;
 pub use netscene::NetworkScene;

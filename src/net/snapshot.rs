@@ -82,14 +82,18 @@ impl Snapshotter {
     /// Compute snapshot between current and last known state.
     /// If return value is None. it means, we cannot compute because the
     /// last known state has been replaced by now. -> disconnect client.
-    pub fn get_delta(&self, known_state: usize) -> Result<DeltaSnapshot, SnapshotError> {
+    pub fn get_delta(
+        &self,
+        known_state: usize,
+        player_entity: &Entity,
+    ) -> Result<DeltaSnapshot, SnapshotError> {
         if known_state == self.state_buf.head_index() {
             return Err(SnapshotError::ClientCaughtUp);
         }
 
         if let Some(old_ecs) = self.state_buf.get(known_state) {
             if let Some(new_ecs) = self.state_buf.head() {
-                Ok(compute_delta(old_ecs, new_ecs))
+                Ok(compute_delta(old_ecs, new_ecs, player_entity))
             } else {
                 Err(SnapshotError::RingBufferEmpty)
             }
@@ -99,9 +103,12 @@ impl Snapshotter {
     }
 
     /// From client that havn't received anything yet.
-    pub fn get_full_snapshot(&self) -> Result<DeltaSnapshot, SnapshotError> {
+    pub fn get_full_snapshot(
+        &self,
+        player_entity: &Entity,
+    ) -> Result<DeltaSnapshot, SnapshotError> {
         if let Some(new_ecs) = self.state_buf.head() {
-            Ok(compute_delta(&self.empty_ecs, new_ecs))
+            Ok(compute_delta(&self.empty_ecs, new_ecs, player_entity))
         } else {
             debug!("RingBuffer is empty? {}", self.state_buf.head_index());
             Err(SnapshotError::RingBufferEmpty)
@@ -111,6 +118,7 @@ impl Snapshotter {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeltaSnapshot {
+    pub player_delta: DeltaEntity,
     pub deltas: Vec<DeltaEntity>,
     pub entities_to_delete: Vec<Entity>,
 }
@@ -144,6 +152,15 @@ impl DeltaEntity {
 
         true
     }
+
+    fn empty(entity: Entity) -> DeltaEntity {
+        Self {
+            entity,
+            delta_transform: (None, None, None),
+            delta_model: (None, None),
+            delta_light: (None, None),
+        }
+    }
 }
 
 // Compute change between two ECS
@@ -151,7 +168,60 @@ impl DeltaEntity {
 // What kind of action:
 // - UPDATE entity (if update non-existing, should create it)
 // - DEALLOCATE entity
-pub fn compute_delta(old: &ECS, current: &ECS) -> DeltaSnapshot {
+pub fn compute_delta(old: &ECS, current: &ECS, player_entity: &Entity) -> DeltaSnapshot {
+    // Did the player move? change orientation or whatever?
+    let player_delta = {
+        if current.is_entity_alive(player_entity) {
+            let delta_transform = {
+                match (
+                    current.components.transforms.get(&player_entity),
+                    old.components.transforms.get(&player_entity),
+                ) {
+                    (Some(new_transform), Some(old_transform))
+                        if old.is_entity_alive(&player_entity) =>
+                    {
+                        compute_transform_delta(old_transform, new_transform)
+                    }
+                    (Some(new_transform), _) => compute_transform_delta_empty(new_transform),
+                    (None, _) => (None, None, None),
+                }
+            };
+
+            let delta_model = {
+                match (
+                    current.components.models.get(&player_entity),
+                    old.components.models.get(&player_entity),
+                ) {
+                    (Some(new_model), Some(old_model)) if old.is_entity_alive(&player_entity) => {
+                        compute_model_delta(old_model, new_model)
+                    }
+                    (Some(new_model), _) => compute_model_delta_empty(new_model),
+                    (None, _) => (None, None),
+                }
+            };
+
+            let delta_light = {
+                match (
+                    current.components.lights.get(&player_entity),
+                    old.components.lights.get(&player_entity),
+                ) {
+                    (Some(new_light), Some(old_light)) => compute_light_delta(old_light, new_light),
+                    (Some(new_light), None) => compute_light_delta_empty(new_light),
+                    (None, _) => (None, None),
+                }
+            };
+
+            DeltaEntity {
+                entity: (*player_entity).clone(),
+                delta_transform,
+                delta_model,
+                delta_light,
+            }
+        } else {
+            DeltaEntity::empty(player_entity.clone())
+        }
+    };
+
     // Deallocating should be done first on client side to remove
     // outdated entities.
     // Find entities to delete, i.e. alive before but dead now.
@@ -165,6 +235,11 @@ pub fn compute_delta(old: &ECS, current: &ECS) -> DeltaSnapshot {
     // Get all live entities in current
     let mut deltas = Vec::new();
     for entity in current.nb_entities() {
+        // Skip myself.
+        if entity == *player_entity {
+            continue;
+        }
+
         // If can find same entity in old, compute the difference.
         let delta_transform = {
             match (
@@ -216,6 +291,7 @@ pub fn compute_delta(old: &ECS, current: &ECS) -> DeltaSnapshot {
     }
 
     DeltaSnapshot {
+        player_delta,
         deltas,
         entities_to_delete,
     }

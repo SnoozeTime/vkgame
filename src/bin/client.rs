@@ -49,42 +49,52 @@ fn main() {
     //    scenes.push(Box::new(EditorScene::new(&render_system, &resources)));
     scenes.push(Box::new(ClientScene::new(&render_system)));
 
+    let fixed_time_stamp = Duration::new(0, 16666667);
+    let mut previous_clock = Instant::now();
+    let mut accumulator = Duration::new(0, 0);
+
     'game_loop: loop {
-        // CHECK FOR RESOURCE UPDATE - I Guess this is just for dev purposes :D So
-        // should find a flag to deactivate on release build.
-        // See here https://doc.rust-lang.org/cargo/reference/manifest.html#the-profile-sections
-        let events = resources.poll_events();
-        render_system.handle_events(&events);
+        while accumulator > fixed_time_stamp {
+            accumulator -= fixed_time_stamp;
+            // CHECK FOR RESOURCE UPDATE - I Guess this is just for dev purposes :D So
+            // should find a flag to deactivate on release build.
+            // See here https://doc.rust-lang.org/cargo/reference/manifest.html#the-profile-sections
+            let events = resources.poll_events();
+            render_system.handle_events(&events);
 
-        let nb_scene = scenes.len();
-        let scene = &mut scenes[nb_scene - 1];
+            let nb_scene = scenes.len();
+            let scene = &mut scenes[nb_scene - 1];
 
-        // calculate frame time.
-        let now = Instant::now();
-        let frame_duration = now - old_instant;
-        old_instant = now;
+            // calculate frame time.
+            let now = Instant::now();
+            let frame_duration = now - old_instant;
+            old_instant = now;
 
-        {
-            let (ecs, gui) = scene.get_parts_mut();
-            render_system.render(&resources, ecs, frame_duration, gui.unwrap());
-        }
-        input.update(&mut render_system);
+            {
+                let (ecs, gui) = scene.get_parts_mut();
+                render_system.render(&resources, ecs, frame_duration, gui.unwrap());
+            }
+            input.update(&mut render_system);
 
-        // Now scene specific updates.
-        scene.update(frame_duration);
-        let events = scene.process_input(Some(&input), Some(&resources), frame_duration);
+            // Now scene specific updates.
+            scene.update(frame_duration);
+            let events = scene.process_input(Some(&input), Some(&resources), frame_duration);
 
-        if input.get_key_down(KeyType::Escape) {
-            let _ = scenes.pop();
+            if input.get_key_down(KeyType::Escape) {
+                let _ = scenes.pop();
 
-            if scenes.len() == 0 {
+                if scenes.len() == 0 {
+                    break 'game_loop;
+                }
+            }
+
+            // To quit
+            if input.close_request {
                 break 'game_loop;
             }
         }
 
-        // To quit
-        if input.close_request {
-            break 'game_loop;
-        }
+        accumulator += Instant::now() - previous_clock;
+        previous_clock = Instant::now();
     }
 }
