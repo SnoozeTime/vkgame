@@ -1,4 +1,4 @@
-use cgmath::{Angle, Rad};
+use cgmath::{Angle, InnerSpace, Rad, Vector3};
 use imgui::{FontGlyphRange, ImFontConfig, ImGui};
 use log::debug;
 use vulkano::device::{Device, Queue};
@@ -221,12 +221,15 @@ pub struct PlayerSystem {
     /// This also play a bit the role of a frame limiter. For example if a player sends
     /// too many move packets during one frame, we are going to use only one here.
     commands_per_players: HashMap<Entity, HashSet<CameraDirection>>,
+
+    world_up: Vector3<f32>,
 }
 
 impl PlayerSystem {
     pub fn new() -> Self {
         PlayerSystem {
             commands_per_players: HashMap::new(),
+            world_up: Vector3::new(0.0, 1.0, 0.0),
         }
     }
 
@@ -249,10 +252,11 @@ impl PlayerSystem {
                 // Look at update will just update the direction where the player
                 // is looking at.
                 Event::ClientEvent(ClientCommand::LookAt(direction)) => {
-                    let mut look_at = ecs.components.players.get_mut(&entity).unwrap().look_at;
-                    look_at.x = direction[0];
-                    look_at.y = direction[1];
-                    look_at.z = direction[2];
+                    let mut comp = ecs.components.players.get_mut(&entity).unwrap();
+                    comp.look_at =
+                        Vector3::new(direction[0], direction[1], direction[2]).normalize();
+                    comp.right = comp.look_at.cross(self.world_up).normalize();
+                    comp.up = comp.right.cross(comp.look_at).normalize();
                 }
 
                 // Move update will add an element to the commands_per_player
@@ -275,9 +279,36 @@ impl PlayerSystem {
         }
     }
 
-    pub fn update(&self, _dt: Duration, _ecs: &mut ECS) {
+    pub fn update(&self, dt: Duration, ecs: &mut ECS) {
         for (entity, events) in self.commands_per_players.iter() {
-            debug!("Will apply {:?} to {:?}", events, entity);
+            let mut transform = ecs
+                .components
+                .transforms
+                .get_mut(&entity)
+                .expect("Player does not have a transform, but it should...");
+            let player = ecs.components.players.get(&entity).unwrap();
+
+            let dt_as_secs = dt_as_secs(dt);
+            let proj_front = player.look_at - (player.look_at.dot(self.world_up)) * self.world_up;
+            let proj_right = player.right - (player.right.dot(self.world_up)) * self.world_up;
+            for event in events {
+                match *event {
+                    CameraDirection::Forward => {
+                        // TODO replace 10.0 by player speed
+                        transform.position += 10.0 * dt_as_secs as f32 * proj_front;
+                    }
+                    CameraDirection::Backward => {
+                        transform.position -= 10.0 * dt_as_secs as f32 * proj_front;
+                    }
+                    CameraDirection::Left => {
+                        transform.position -= 10.0 * dt_as_secs as f32 * proj_right;
+                    }
+                    CameraDirection::Right => {
+                        transform.position += 10.0 * dt_as_secs as f32 * proj_right;
+                    }
+                    _ => {}
+                }
+            }
         }
     }
 }

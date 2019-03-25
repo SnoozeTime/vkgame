@@ -332,7 +332,13 @@ impl LightComponent {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PlayerComponent {
     #[serde(with = "VectorDef")]
-    pub look_at: Vector3<f32>,
+    pub look_at: Vector3<f32>, // i.e. front
+    // The following 2 vectors don't have to be sent to players as they can be derived
+    // from the first one.
+    #[serde(with = "VectorDef")]
+    pub right: Vector3<f32>,
+    #[serde(with = "VectorDef")]
+    pub up: Vector3<f32>,
 }
 
 impl PlayerComponent {
@@ -345,6 +351,8 @@ impl Default for PlayerComponent {
     fn default() -> Self {
         Self {
             look_at: Vector3::new(0.0, 0.0, -1.0),
+            right: Vector3::new(-1.0, 0.0, 0.0),
+            up: Vector3::new(0.0, 1.0, 0.0),
         }
     }
 }

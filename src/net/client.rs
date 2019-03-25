@@ -1,4 +1,5 @@
 use bytes::{Bytes, BytesMut};
+use cgmath::Vector3;
 use futures::sync::mpsc as futmpsc;
 use log::{debug, error, info, trace, warn};
 use std::io;
@@ -17,7 +18,7 @@ use std::time::Duration;
 
 use super::NetworkError;
 use crate::ecs::ECS;
-use crate::net::snapshot::apply_delta;
+use crate::net::snapshot::{apply_delta, DeltaSnapshot};
 use crate::scene::ClientCommand;
 use crate::sync::SharedDeque;
 
@@ -235,7 +236,9 @@ impl ClientSystem {
 
                 if let protocol::NetMessageContent::Delta(snapshot) = ev.content {
                     if self.last_known_state == snapshot.old_state {
+                        debug!("Client received delta: {:?}", snapshot);
                         self.last_known_state = Some(snapshot.new_state);
+                        move_camera(ecs, &snapshot.delta);
                         apply_delta(ecs, snapshot.delta);
                     }
                 }
@@ -262,5 +265,14 @@ impl ClientSystem {
             error!("{:?}", e);
         }
         self.last_sent_seq_number += 1;
+    }
+}
+
+/// Camera is basically the player position :)
+fn move_camera(ecs: &mut ECS, delta: &DeltaSnapshot) {
+    // We have some state to apply yay!
+    if let Some(position_delta) = delta.player_delta.delta_transform.0 {
+        ecs.camera.state.transform.position +=
+            Vector3::new(position_delta[0], position_delta[1], position_delta[2]);
     }
 }

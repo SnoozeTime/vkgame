@@ -1,0 +1,19 @@
+   Compiling benoit v0.1.0 (/home/benoit/PROJECT/GAMEENGINE/rust-graphic)
+error[E0433]: failed to resolve: use of undeclared type or module `Vector3`
+   --> src/net/snapshot.rs:406:31
+    |
+406 |         transform.position += Vector3::new(dpos[0], dpos[1], dpos[2]);
+    |                               ^^^^^^^ use of undeclared type or module `Vector3`
+
+error[E0433]: failed to resolve: use of undeclared type or module `Vector3`
+   --> src/net/snapshot.rs:414:30
+    |
+414 |         transform.scale.x += Vector3::new(dscale[0], dscale[1], dscale[2]);
+    |                              ^^^^^^^ use of undeclared type or module `Vector3`
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0433`.
+error: Could not compile `benoit`.
+
+To learn more, run the command again with --verbose.

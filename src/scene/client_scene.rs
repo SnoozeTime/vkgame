@@ -96,33 +96,34 @@ impl Scene for ClientScene {
         if input.get_key(KeyType::Up) {
             self.commands
                 .push(ClientCommand::Move(CameraDirection::Forward));
-            self.ecs
-                .camera
-                .process_keyboard(dt, CameraDirection::Forward);
+            //self.ecs
+            //    .camera
+            //    .process_keyboard(dt, CameraDirection::Forward);
         }
 
         if input.get_key(KeyType::Down) {
             self.commands
                 .push(ClientCommand::Move(CameraDirection::Backward));
-            self.ecs
-                .camera
-                .process_keyboard(dt, CameraDirection::Backward);
+            //            self.ecs
+            //                .camera
+            //                .process_keyboard(dt, CameraDirection::Backward);
         }
 
         if input.get_key(KeyType::Left) {
             self.commands
                 .push(ClientCommand::Move(CameraDirection::Left));
-            self.ecs.camera.process_keyboard(dt, CameraDirection::Left);
+            //self.ecs.camera.process_keyboard(dt, CameraDirection::Left);
         }
 
         if input.get_key(KeyType::Right) {
             self.commands
                 .push(ClientCommand::Move(CameraDirection::Right));
-            self.ecs.camera.process_keyboard(dt, CameraDirection::Right);
+            //self.ecs.camera.process_keyboard(dt, CameraDirection::Right);
         }
 
         if input.get_key(KeyType::Space) {
-            println!("{:?}", self.ecs);
+            println!("Client state: {:?}", self.ecs);
+            println!("{:?}", self.ecs.camera.state.transform);
         }
 
         let (h_axis, v_axis) = (

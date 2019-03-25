@@ -231,6 +231,7 @@ impl NetworkSystem {
 
                 match delta_res {
                     Ok(mut delta) => {
+                        debug!("STATE: to player {:?} = {:?}", i, delta);
                         let msg = protocol::NetMessageContent::Delta(DeltaSnapshotInfo {
                             delta,
                             old_state: client.last_state,
@@ -303,6 +304,7 @@ impl NetworkSystem {
                         ecs.components
                             .players
                             .set(&entity, PlayerComponent::default());
+                        debug!("Player {} entity is {:?}", i, entity);
 
                         self.my_clients.get_mut(i).unwrap().entity = Some(entity);
                         (protocol::NetMessageContent::ConnectionAccepted, Some(i))

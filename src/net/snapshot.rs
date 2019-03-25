@@ -12,7 +12,7 @@ use crate::ecs::{
     components::{LightComponent, LightType, ModelComponent, TransformComponent},
     Entity, ECS,
 };
-use cgmath::InnerSpace;
+use cgmath::{InnerSpace, Vector3};
 use log::{debug, error};
 use serde_derive::{Deserialize, Serialize};
 const EPSILON: f32 = 0.00001;
@@ -236,9 +236,9 @@ pub fn compute_delta(old: &ECS, current: &ECS, player_entity: &Entity) -> DeltaS
     let mut deltas = Vec::new();
     for entity in current.nb_entities() {
         // Skip myself.
-        if entity == *player_entity {
-            continue;
-        }
+        //if entity == *player_entity {
+        //    continue;
+        //}
 
         // If can find same entity in old, compute the difference.
         let delta_transform = {
@@ -403,21 +403,15 @@ fn apply_transform_delta(
     delta: &(Option<[f32; 3]>, Option<[f32; 3]>, Option<[f32; 3]>),
 ) {
     if let Some(ref dpos) = delta.0.as_ref() {
-        transform.position.x += dpos[0];
-        transform.position.y += dpos[1];
-        transform.position.z += dpos[2];
+        transform.position += Vector3::new(dpos[0], dpos[1], dpos[2]);
     }
 
     if let Some(ref drot) = delta.1.as_ref() {
-        transform.rotation.x += drot[0];
-        transform.rotation.y += drot[1];
-        transform.rotation.z += drot[2];
+        transform.rotation += Vector3::new(drot[0], drot[1], drot[2]);
     }
 
     if let Some(ref dscale) = delta.2.as_ref() {
-        transform.scale.x += dscale[0];
-        transform.scale.y += dscale[1];
-        transform.scale.z += dscale[2];
+        transform.scale += Vector3::new(dscale[0], dscale[1], dscale[2]);
     }
 }
 
@@ -511,7 +505,7 @@ mod tests {
             rotation: Vector3::new(0.0, 1.0, 0.0),
             scale: Vector3::new(0.0, 0.0, 0.0),
         };
-        let old = TransformComponent {
+        let mut old = TransformComponent {
             position: Vector3::new(0.0, -12.0, 0.0),
             rotation: Vector3::new(0.0, 1.0, 0.0),
             scale: Vector3::new(1.0, 1.0, 1.0),
@@ -521,6 +515,11 @@ mod tests {
         assert_eq!(Some([2.3, 0.0, 2.0]), mpos);
         assert_eq!(None, mrot);
         assert_eq!(Some([-1.0, -1.0, -1.0]), mscale);
+
+        apply_transform_delta(&mut old, &(mpos, mrot, mscale));
+        assert_eq!(current.position, old.position);
+        assert_eq!(current.rotation, old.rotation);
+        assert_eq!(current.scale, old.scale);
     }
 
     #[test]

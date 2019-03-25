@@ -137,7 +137,7 @@ pub struct CameraState {
     aspect: f32,
 
     // -----------------------------
-    transform: TransformComponent,
+    pub transform: TransformComponent,
 
     #[serde(with = "crate::ser::VectorDef")]
     pub front: Vector3<f32>,
