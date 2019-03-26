@@ -295,9 +295,14 @@ impl NetworkSystem {
                         // Now we have a new client, let's create a new player entity
                         // from the player template.
                         let entity = ecs.new_entity();
-                        ecs.components
-                            .transforms
-                            .set(&entity, TransformComponent::default());
+                        ecs.components.transforms.set(
+                            &entity,
+                            TransformComponent {
+                                position: Vector3::new(0.0, 1.0, 0.0),
+                                rotation: Vector3::new(0.0, 0.0, 0.0),
+                                scale: Vector3::new(1.0, 1.0, 1.0),
+                            },
+                        );
                         ecs.components
                             .models
                             .set(&entity, ModelComponent::default());

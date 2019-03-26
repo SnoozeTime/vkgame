@@ -187,7 +187,7 @@ impl Default for Camera {
         let yaw = 0.0;
 
         let transform = TransformComponent {
-            position: Vector3::new(0.0, 1.0, 0.0),
+            position: Vector3::new(0.0, 0.0, 0.0),
             rotation: Vector3::new(0.0, 0.0, 0.0),
             scale: Vector3::new(1.0, 1.0, 1.0),
         };
