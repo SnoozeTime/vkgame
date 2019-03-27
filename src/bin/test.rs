@@ -1,12 +1,14 @@
-use twgraph::net::Server;
+use log::{debug, info, trace};
 use std::error::Error;
-use tokio::prelude::*;
+use std::thread;
+use std::time::Duration;
+
+use twgraph::ecs::components::*;
+use twgraph::ecs::*;
+use twgraph::net::snapshot::*;
 
 fn main() -> Result<(), Box<Error>> {
-    
-    let server = Server::connect(8080, 2)?;
+    env_logger::init();
 
-    tokio::run(server.map_err(|err| println!("Error happened: {:?}", err)));
     Ok(())
 }
-

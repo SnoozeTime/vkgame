@@ -1,16 +1,15 @@
-use std::error::Error;
 use std::convert::From;
+use std::error::Error;
 use std::fmt;
 
-
 // vulkano errors...
-use vulkano::memory::DeviceMemoryAllocError;
-use vulkano::swapchain::{CapabilitiesError, SwapchainCreationError};
 use image::ImageError;
-use vulkano::image::sys::ImageCreationError;
-use vulkano::sampler::SamplerCreationError;
-use vulkano::sync::FlushError;
 use vulkano::command_buffer::DrawIndexedError;
+use vulkano::image::sys::ImageCreationError;
+use vulkano::memory::DeviceMemoryAllocError;
+use vulkano::sampler::SamplerCreationError;
+use vulkano::swapchain::{CapabilitiesError, SwapchainCreationError};
+use vulkano::sync::FlushError;
 
 pub type TwResult<T> = Result<T, TwError>;
 
@@ -32,7 +31,6 @@ pub enum TwError {
 
     // GpuFuture error
     VkFutureFlush(FlushError),
-
 
     // Drawing
     VkDrawIndexed(DrawIndexedError),
@@ -61,22 +59,21 @@ impl fmt::Display for TwError {
     }
 }
 
-
 impl Error for TwError {
     fn description(&self) -> &str {
         match *self {
-            TwError::ModelLoading(ref x) => x,  
-            TwError::RenderingSystemInitialization(ref x) => x,  
-            TwError::VkDeviceMemoryAlloc(ref x) => x.description(),  
-            TwError::VkCapabilities(ref x) => x.description(),  
-            TwError::VkSwapchainCreation(ref x) => x.description(),  
-            TwError::ImageLoading(ref x) => x.description(),  
-            TwError::VkImageCreation(ref x) => x.description(),  
-            TwError::VkSamplerCreation(ref x) => x.description(),  
-            TwError::VkFutureFlush(ref x) => x.description(),  
-            TwError::VkDrawIndexed(ref x) => x.description(),  
-            TwError::Io(ref x) => x.description(),  
-            TwError::JsonSerde(ref x) => x.description(),  
+            TwError::ModelLoading(ref x) => x,
+            TwError::RenderingSystemInitialization(ref x) => x,
+            TwError::VkDeviceMemoryAlloc(ref x) => x.description(),
+            TwError::VkCapabilities(ref x) => x.description(),
+            TwError::VkSwapchainCreation(ref x) => x.description(),
+            TwError::ImageLoading(ref x) => x.description(),
+            TwError::VkImageCreation(ref x) => x.description(),
+            TwError::VkSamplerCreation(ref x) => x.description(),
+            TwError::VkFutureFlush(ref x) => x.description(),
+            TwError::VkDrawIndexed(ref x) => x.description(),
+            TwError::Io(ref x) => x.description(),
+            TwError::JsonSerde(ref x) => x.description(),
         }
     }
 }
@@ -129,18 +126,14 @@ impl From<DrawIndexedError> for TwError {
     }
 }
 
-
 impl From<std::io::Error> for TwError {
     fn from(err: std::io::Error) -> Self {
         TwError::Io(err)
     }
 }
 
-
 impl From<serde_json::Error> for TwError {
     fn from(err: serde_json::Error) -> Self {
         TwError::JsonSerde(err)
     }
 }
-
-

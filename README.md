@@ -23,6 +23,7 @@ Todo:
 - [ ] Gizmos: show transform + Axis
 - [ ] Easier load and save
 - [ ] Quick switch between existing levels
+- [ ] Create template from entity in editor
 
 # Input
 

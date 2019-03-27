@@ -2,15 +2,21 @@
 
 # TODO
 
+- Create PlayerSystem that will update the position based on the orientation + commands. Orientation is sent by the client everytime she moves the mouse. Commands are move forward/backward/left/right. Player system just reacts to events from the server/front-end?
+- Find better way for client timeout (Let's say client crash before sending last state ID and the server is stuck sending the entire state).
+- Round transforms when creating delta
+
 ## first version
 - Simple protocol
 - Connection client/server (naive? Ip/port only is ok)
 - Send all network state at every loop
+- Out of order packet are discarded
 
 ## Later
 Do we need to send delta instead?
 What is the packet size?
 Try to answer those questions.
+- Rate limiter on server side?
 
 # Design?
 
@@ -53,9 +59,10 @@ loop {
 How often do we send the state?
 
 ## What to send?
-Server will hold the ECS. Only the entities with NetworkComponent will be sent over
-the network.
-
+Try the quake way. The server is sending snapshots of state. To avoid sending
+too much, it takes a snapshot each frame, then send the difference (delta)
+between that state and the last known state of the client. The client needs to
+include its current state when sending command so that the server can know it.
 
 ## How client connect to server
 

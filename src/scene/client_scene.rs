@@ -1,6 +1,7 @@
 use cgmath::Vector3;
 use imgui::Ui;
 use log::debug;
+use serde_derive::{Deserialize, Serialize};
 use std::time::Duration;
 
 use super::Scene;
@@ -15,6 +16,14 @@ use crate::input::{Axis, Input, KeyType};
 use crate::resource::Resources;
 use crate::ui::Gui;
 
+use crate::net::ClientSystem;
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+pub enum ClientCommand {
+    Move(CameraDirection),
+    LookAt([f32; 3]),
+}
+
 pub struct GameUi {}
 impl Gui for GameUi {
     fn run_ui(&mut self, _ui: &Ui, _ecs: &mut ECS) -> bool {
@@ -23,23 +32,26 @@ impl Gui for GameUi {
     }
 }
 
-pub struct GameScene {
+pub struct ClientScene {
     pub ecs: ECS,
     pub game_ui: GameUi,
+
     // All systems for this Scene.
     // dummy_system: DummySystem,
+    backend: ClientSystem,
+    commands: Vec<ClientCommand>,
 }
 
-impl GameScene {
+impl ClientScene {
     pub fn new<'a>(render_system: &RenderingSystem<'a>) -> Self {
         let ecs = ECS::new();
-        GameScene::from_ecs(ecs, render_system)
+        ClientScene::from_ecs(ecs, render_system)
     }
 
     pub fn from_path<'a>(path: String, render_system: &RenderingSystem<'a>) -> Self {
         let ecs = ECS::load(path).unwrap();
 
-        GameScene::from_ecs(ecs, render_system)
+        ClientScene::from_ecs(ecs, render_system)
     }
 
     pub fn from_ecs<'a>(mut ecs: ECS, render_system: &RenderingSystem<'a>) -> Self {
@@ -53,17 +65,22 @@ impl GameScene {
         let aspect = (dimensions[0] as f32) / (dimensions[1] as f32);
         ecs.camera = Camera::new(transform, aspect, CameraInputHandler::fps_handler());
 
-        GameScene {
+        let backend = ClientSystem::connect("127.0.0.1:8080".parse().unwrap()).unwrap();
+        let commands = Vec::with_capacity(10);
+
+        ClientScene {
             ecs,
             game_ui: GameUi {},
-            //dummy_system: DummySystem::new(),
+            backend,
+            commands,
         }
     }
 }
 
-impl Scene for GameScene {
+impl Scene for ClientScene {
     fn update(&mut self, _dt: Duration) -> Option<Vec<Event>> {
         //self.dummy_system.do_dumb_thing(dt, &mut self.ecs);
+        self.backend.poll_events(&mut self.ecs);
         None
     }
 
@@ -74,28 +91,39 @@ impl Scene for GameScene {
         dt: Duration,
     ) -> Option<Vec<Event>> {
         let input = input.unwrap();
+
+        self.commands.clear();
         if input.get_key(KeyType::Up) {
-            self.ecs
-                .camera
-                .process_keyboard(dt, CameraDirection::Forward);
+            self.commands
+                .push(ClientCommand::Move(CameraDirection::Forward));
+            //self.ecs
+            //    .camera
+            //    .process_keyboard(dt, CameraDirection::Forward);
         }
 
         if input.get_key(KeyType::Down) {
-            self.ecs
-                .camera
-                .process_keyboard(dt, CameraDirection::Backward);
+            self.commands
+                .push(ClientCommand::Move(CameraDirection::Backward));
+            //            self.ecs
+            //                .camera
+            //                .process_keyboard(dt, CameraDirection::Backward);
         }
 
         if input.get_key(KeyType::Left) {
-            self.ecs.camera.process_keyboard(dt, CameraDirection::Left);
+            self.commands
+                .push(ClientCommand::Move(CameraDirection::Left));
+            //self.ecs.camera.process_keyboard(dt, CameraDirection::Left);
         }
 
         if input.get_key(KeyType::Right) {
-            self.ecs.camera.process_keyboard(dt, CameraDirection::Right);
+            self.commands
+                .push(ClientCommand::Move(CameraDirection::Right));
+            //self.ecs.camera.process_keyboard(dt, CameraDirection::Right);
         }
 
         if input.get_key(KeyType::Space) {
-            println!("{:?}", self.ecs);
+            println!("Client state: {:?}", self.ecs);
+            println!("{:?}", self.ecs.camera.state.transform);
         }
 
         let (h_axis, v_axis) = (
@@ -104,8 +132,11 @@ impl Scene for GameScene {
         );
         if h_axis != 0.0 || v_axis != 0.0 {
             self.ecs.camera.process_mouse(dt, h_axis, v_axis);
+            self.commands
+                .push(ClientCommand::LookAt(self.ecs.camera.state.front.into()));
         }
 
+        self.backend.send_commands(&self.commands);
         None
     }
 

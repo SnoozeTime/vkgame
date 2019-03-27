@@ -1,11 +1,11 @@
-use std::default::Default;
-use cgmath::SquareMatrix;
-use cgmath::{InnerSpace, Matrix4, Vector3, Rad, Angle, Point3};
-use serde_derive::{Serialize, Deserialize};
 use crate::ecs::components::TransformComponent;
+use crate::time::dt_as_secs;
+use cgmath::SquareMatrix;
+use cgmath::{Angle, InnerSpace, Matrix4, Point3, Rad, Vector3};
+use serde_derive::{Deserialize, Serialize};
+use std::default::Default;
 use std::fmt;
 use std::time::Duration;
-use crate::time::dt_as_secs;
 
 pub struct CameraInputHandler {
     keyboard_handler: Box<FnMut(&mut CameraState, Duration, CameraDirection) -> ()>,
@@ -19,15 +19,16 @@ impl fmt::Debug for CameraInputHandler {
 }
 
 impl CameraInputHandler {
-    pub fn new<FK: 'static, FM: 'static>(keyboard_handler: FK,
-                                         mouse_handler: FM) -> Self 
-        where FK: FnMut(&mut CameraState, Duration, CameraDirection) -> (),
-              FM: FnMut(&mut CameraState, Duration, f64, f64) -> () {
-                  CameraInputHandler {
-                      keyboard_handler: Box::new(keyboard_handler),
-                      mouse_handler: Box::new(mouse_handler),
-                  }
-              }
+    pub fn new<FK: 'static, FM: 'static>(keyboard_handler: FK, mouse_handler: FM) -> Self
+    where
+        FK: FnMut(&mut CameraState, Duration, CameraDirection) -> (),
+        FM: FnMut(&mut CameraState, Duration, f64, f64) -> (),
+    {
+        CameraInputHandler {
+            keyboard_handler: Box::new(keyboard_handler),
+            mouse_handler: Box::new(mouse_handler),
+        }
+    }
 
     pub fn noop_handler() -> Self {
         CameraInputHandler {
@@ -37,18 +38,20 @@ impl CameraInputHandler {
     }
 
     pub fn free_handler() -> Self {
-
         CameraInputHandler {
-            keyboard_handler: Box::new(move |ref mut camera, dt, direction| {
-
-                match direction {
-                    CameraDirection::Forward => camera.transform.position += camera.speed * dt_as_secs(dt) as f32 * camera.front,
-                    CameraDirection::Backward => camera.transform.position -= camera.speed * dt_as_secs(dt) as f32 * camera.front,
-                    CameraDirection::Left => camera.transform.position -= camera.speed * dt_as_secs(dt) as f32 * camera.right,
-                    CameraDirection::Right => camera.transform.position += camera.speed * dt_as_secs(dt) as f32 * camera.right,
+            keyboard_handler: Box::new(move |ref mut camera, dt, direction| match direction {
+                CameraDirection::Forward => {
+                    camera.transform.position += camera.speed * dt_as_secs(dt) as f32 * camera.front
                 }
-
-
+                CameraDirection::Backward => {
+                    camera.transform.position -= camera.speed * dt_as_secs(dt) as f32 * camera.front
+                }
+                CameraDirection::Left => {
+                    camera.transform.position -= camera.speed * dt_as_secs(dt) as f32 * camera.right
+                }
+                CameraDirection::Right => {
+                    camera.transform.position += camera.speed * dt_as_secs(dt) as f32 * camera.right
+                }
             }),
             mouse_handler: Box::new(move |ref mut camera, dt, mouse_x, mouse_y| {
                 let dt = dt_as_secs(dt) as f32;
@@ -69,7 +72,6 @@ impl CameraInputHandler {
                 camera.update_vectors();
             }),
         }
-
     }
 
     pub fn fps_handler() -> Self {
@@ -77,18 +79,27 @@ impl CameraInputHandler {
 
         CameraInputHandler {
             keyboard_handler: Box::new(move |ref mut camera, dt, direction| {
-
                 // projection on plane.
                 let proj_front = camera.front - (camera.front.dot(up)) * up;
                 let proj_right = camera.right - (camera.right.dot(up)) * up;
                 match direction {
-                    CameraDirection::Forward => camera.transform.position += camera.speed * dt_as_secs(dt) as f32 *proj_front,
-                    CameraDirection::Backward => camera.transform.position -= camera.speed * dt_as_secs(dt) as f32 * proj_front,
-                    CameraDirection::Left => camera.transform.position -= camera.speed * dt_as_secs(dt) as f32 * proj_right,
-                    CameraDirection::Right => camera.transform.position += camera.speed * dt_as_secs(dt) as f32 * proj_right,
+                    CameraDirection::Forward => {
+                        camera.transform.position +=
+                            camera.speed * dt_as_secs(dt) as f32 * proj_front
+                    }
+                    CameraDirection::Backward => {
+                        camera.transform.position -=
+                            camera.speed * dt_as_secs(dt) as f32 * proj_front
+                    }
+                    CameraDirection::Left => {
+                        camera.transform.position -=
+                            camera.speed * dt_as_secs(dt) as f32 * proj_right
+                    }
+                    CameraDirection::Right => {
+                        camera.transform.position +=
+                            camera.speed * dt_as_secs(dt) as f32 * proj_right
+                    }
                 }
-
-
             }),
             mouse_handler: Box::new(move |ref mut camera, dt, mouse_x, mouse_y| {
                 let dt = dt_as_secs(dt) as f32;
@@ -109,31 +120,27 @@ impl CameraInputHandler {
                 camera.update_vectors();
             }),
         }
-
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Camera {
-    state: CameraState,
+    pub state: CameraState,
 
     #[serde(skip)]
     #[serde(default = "CameraInputHandler::fps_handler")]
     input_handler: CameraInputHandler,
 }
 
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CameraState {
-
     aspect: f32,
 
     // -----------------------------
-    transform: TransformComponent,
-
+    pub transform: TransformComponent,
 
     #[serde(with = "crate::ser::VectorDef")]
-    front: Vector3<f32>,
+    pub front: Vector3<f32>,
     #[serde(with = "crate::ser::VectorDef")]
     right: Vector3<f32>,
     #[serde(with = "crate::ser::VectorDef")]
@@ -150,19 +157,17 @@ pub struct CameraState {
 }
 
 impl CameraState {
-
     fn update_vectors(&mut self) {
-        let front_z = -Rad(self.yaw).cos() * Rad(self.pitch).cos(); 
-        let front_y = Rad(self.pitch).sin(); 
-        let front_x = Rad(self.yaw).sin() * Rad(self.pitch).cos(); 
+        let front_z = -Rad(self.yaw).cos() * Rad(self.pitch).cos();
+        let front_y = Rad(self.pitch).sin();
+        let front_x = Rad(self.yaw).sin() * Rad(self.pitch).cos();
         self.front = Vector3::new(front_x, front_y, front_z).normalize();
         self.right = self.front.cross(self.world_up).normalize();
         self.up = self.right.cross(self.front).normalize();
     }
-
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Copy, Hash, PartialEq, Eq)]
 pub enum CameraDirection {
     Forward,
     Backward,
@@ -171,10 +176,7 @@ pub enum CameraDirection {
 }
 
 impl Default for Camera {
-
     fn default() -> Self {
-
-
         let front = Vector3::new(0.0, 0.0, -1.0);
         let world_up = Vector3::new(0.0, 1.0, 0.0);
 
@@ -185,7 +187,7 @@ impl Default for Camera {
         let yaw = 0.0;
 
         let transform = TransformComponent {
-            position: Vector3::new(0.0, 1.0, 0.0),
+            position: Vector3::new(0.0, 0.0, 0.0),
             rotation: Vector3::new(0.0, 0.0, 0.0),
             scale: Vector3::new(1.0, 1.0, 1.0),
         };
@@ -214,8 +216,11 @@ impl Default for Camera {
 }
 
 impl Camera {
-    pub fn new(transform: TransformComponent, aspect: f32, input_handler: CameraInputHandler) -> Self {
-
+    pub fn new(
+        transform: TransformComponent,
+        aspect: f32,
+        input_handler: CameraInputHandler,
+    ) -> Self {
         let front = Vector3::new(0.0, 0.0, -1.0);
         let world_up = Vector3::new(0.0, 1.0, 0.0);
 
@@ -249,13 +254,17 @@ impl Camera {
     }
 
     pub fn get_vp(&self) -> (Matrix4<f32>, Matrix4<f32>) {
-        let proj = cgmath::perspective(Rad(0.6*std::f32::consts::FRAC_PI_2),
-        self.state.aspect,
-        0.01,
-        100.0);
-        let position = Point3::new(self.state.transform.position.x,
-                                   self.state.transform.position.y,
-                                   self.state.transform.position.z);
+        let proj = cgmath::perspective(
+            Rad(0.6 * std::f32::consts::FRAC_PI_2),
+            self.state.aspect,
+            0.01,
+            100.0,
+        );
+        let position = Point3::new(
+            self.state.transform.position.x,
+            self.state.transform.position.y,
+            self.state.transform.position.z,
+        );
         let v = Matrix4::look_at(position, position + self.state.front, self.state.up);
 
         // fix projection for vulkan.
@@ -264,7 +273,7 @@ impl Camera {
         the_fix[1][1] = -1.0;
         the_fix[2][3] = 0.5;
         the_fix[2][2] = 0.5;
-        (v, the_fix*proj)
+        (v, the_fix * proj)
     }
 
     pub fn process_keyboard(&mut self, dt: Duration, direction: CameraDirection) {
