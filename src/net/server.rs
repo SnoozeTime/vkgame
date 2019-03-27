@@ -251,7 +251,12 @@ impl NetworkSystem {
 
         for i in to_disconnect {
             info!("Will disconnect player {}", i);
-            if !self.my_clients.remove(i) {
+            if let Some(c) = self.my_clients.remove(i) {
+                debug!("Will remove player {}", i);
+                if let Some(entity) = c.entity {
+                    ecs.delete_entity(&entity);
+                }
+            } else {
                 error!("Could not remove player {}", i);
             }
         }

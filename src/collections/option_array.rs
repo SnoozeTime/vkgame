@@ -26,13 +26,12 @@ impl<T> OptionArray<T> {
         }
     }
 
-    pub fn remove(&mut self, index: usize) -> bool {
+    pub fn remove(&mut self, index: usize) -> Option<T> {
         if index < self.inner.len() {
-            self.inner[index] = None;
             self.free.push(index);
-            true
+            self.inner[index].take()
         } else {
-            false
+            None
         }
     }
 
