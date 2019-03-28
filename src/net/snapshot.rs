@@ -225,7 +225,7 @@ pub fn compute_delta(old: &ECS, current: &ECS, player_entity: &Entity) -> DeltaS
     // Deallocating should be done first on client side to remove
     // outdated entities.
     // Find entities to delete, i.e. alive before but dead now.
-    let mut entities_to_delete: Vec<_> = old
+    let entities_to_delete: Vec<_> = old
         .nb_entities()
         .iter()
         .filter(|entity| !current.is_entity_alive(&entity))
@@ -235,11 +235,6 @@ pub fn compute_delta(old: &ECS, current: &ECS, player_entity: &Entity) -> DeltaS
     // Get all live entities in current
     let mut deltas = Vec::new();
     for entity in current.nb_entities() {
-        // Skip myself.
-        //if entity == *player_entity {
-        //    continue;
-        //}
-
         // If can find same entity in old, compute the difference.
         let delta_transform = {
             match (

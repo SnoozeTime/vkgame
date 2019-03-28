@@ -43,18 +43,8 @@ pub struct ClientScene {
 }
 
 impl ClientScene {
-    pub fn new<'a>(render_system: &RenderingSystem<'a>) -> Self {
-        let ecs = ECS::new();
-        ClientScene::from_ecs(ecs, render_system)
-    }
-
-    pub fn from_path<'a>(path: String, render_system: &RenderingSystem<'a>) -> Self {
-        let ecs = ECS::load(path).unwrap();
-
-        ClientScene::from_ecs(ecs, render_system)
-    }
-
-    pub fn from_ecs<'a>(mut ecs: ECS, render_system: &RenderingSystem<'a>) -> Self {
+    pub fn new<'a>(server_addr: &str, render_system: &RenderingSystem<'a>) -> Self {
+        let mut ecs = ECS::new();
         let transform = TransformComponent {
             position: Vector3::new(0.0, 1.0, 0.0),
             rotation: Vector3::new(0.0, 0.0, 0.0),
@@ -65,7 +55,7 @@ impl ClientScene {
         let aspect = (dimensions[0] as f32) / (dimensions[1] as f32);
         ecs.camera = Camera::new(transform, aspect, CameraInputHandler::fps_handler());
 
-        let backend = ClientSystem::connect("127.0.0.1:8080".parse().unwrap()).unwrap();
+        let backend = ClientSystem::connect(server_addr.parse().unwrap()).unwrap();
         let commands = Vec::with_capacity(10);
 
         ClientScene {
@@ -96,17 +86,11 @@ impl Scene for ClientScene {
         if input.get_key(KeyType::Up) {
             self.commands
                 .push(ClientCommand::Move(CameraDirection::Forward));
-            //self.ecs
-            //    .camera
-            //    .process_keyboard(dt, CameraDirection::Forward);
         }
 
         if input.get_key(KeyType::Down) {
             self.commands
                 .push(ClientCommand::Move(CameraDirection::Backward));
-            //            self.ecs
-            //                .camera
-            //                .process_keyboard(dt, CameraDirection::Backward);
         }
 
         if input.get_key(KeyType::Left) {
@@ -118,12 +102,6 @@ impl Scene for ClientScene {
         if input.get_key(KeyType::Right) {
             self.commands
                 .push(ClientCommand::Move(CameraDirection::Right));
-            //self.ecs.camera.process_keyboard(dt, CameraDirection::Right);
-        }
-
-        if input.get_key(KeyType::Space) {
-            println!("Client state: {:?}", self.ecs);
-            println!("{:?}", self.ecs.camera.state.transform);
         }
 
         let (h_axis, v_axis) = (

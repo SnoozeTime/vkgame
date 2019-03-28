@@ -61,9 +61,9 @@ impl Scene for NetworkScene {
 
     fn process_input(
         &mut self,
-        input: Option<&Input>,
-        resources: Option<&Resources>,
-        dt: Duration,
+        _input: Option<&Input>,
+        _resources: Option<&Resources>,
+        _dt: Duration,
     ) -> Option<Vec<Event>> {
         None
     }

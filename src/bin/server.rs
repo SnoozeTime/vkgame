@@ -1,5 +1,5 @@
 use clap::{App, Arg};
-use log::{error, info, trace};
+use log::{info, trace};
 use std::time::{Duration, Instant};
 use twgraph::scene::{NetworkScene, Scene};
 

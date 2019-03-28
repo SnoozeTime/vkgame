@@ -281,7 +281,7 @@ impl PlayerSystem {
 
     pub fn update(&self, dt: Duration, ecs: &mut ECS) {
         for (entity, events) in self.commands_per_players.iter() {
-            let mut transform = ecs
+            let transform = ecs
                 .components
                 .transforms
                 .get_mut(&entity)
@@ -306,7 +306,6 @@ impl PlayerSystem {
                     CameraDirection::Right => {
                         transform.position += 10.0 * dt_as_secs as f32 * proj_right;
                     }
-                    _ => {}
                 }
             }
         }

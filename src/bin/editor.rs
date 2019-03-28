@@ -6,7 +6,7 @@ use winit::EventsLoop;
 use twgraph::ecs::{systems::RenderingSystem, ECS};
 use twgraph::event::{EditorEvent, Event};
 use twgraph::resource::Resources;
-use twgraph::scene::{EditorScene, GameScene, Scene};
+use twgraph::scene::{EditorScene, GameScene, SceneStack};
 
 fn main() {
     let layer = "VK_LAYER_LUNARG_standard_validation";
@@ -25,18 +25,22 @@ fn main() {
     let mut input = Input::new(events_loop);
     let mut old_instant = Instant::now();
 
-    let mut scenes: Vec<Box<dyn Scene>> = Vec::new();
-    scenes.push(Box::new(EditorScene::new(&render_system, &resources)));
+    let mut scenes = SceneStack::new();
+    scenes.push(EditorScene::new(&render_system, &resources));
 
     'game_loop: loop {
         // CHECK FOR RESOURCE UPDATE - I Guess this is just for dev purposes :D So
         // should find a flag to deactivate on release build.
         // See here https://doc.rust-lang.org/cargo/reference/manifest.html#the-profile-sections
+        if scenes.len() == 0 {
+            break 'game_loop;
+        }
+        let scene = scenes
+            .get_current()
+            .expect("A scene should be in the stack");
+
         let events = resources.poll_events();
         render_system.handle_events(&events);
-
-        let nb_scene = scenes.len();
-        let scene = &mut scenes[nb_scene - 1];
 
         // calculate frame time.
         let now = Instant::now();
@@ -57,7 +61,7 @@ fn main() {
             if let Some(Event::EditorEvent(EditorEvent::PlayGame)) = events.get(0) {
                 // TODO copy the ECS
                 let ecs = ECS::new_from_existing(scene.get_ecs());
-                scenes.push(Box::new(GameScene::from_ecs(ecs, &render_system)));
+                scenes.push(GameScene::from_ecs(ecs, &render_system));
             }
         }
 

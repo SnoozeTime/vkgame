@@ -15,6 +15,7 @@ Figure it out
 - [ ] Send reliable (for chat messages)
 
 # Editor
+- [ ] Prompt before exit
 - [ ] Gizmos: show transform + Axis
 - [ ] Easier load and save
 - [ ] Quick switch between existing levels

@@ -223,14 +223,14 @@ impl NetworkSystem {
         for i in 0..self.my_clients.len() {
             if let Some(client) = self.my_clients.get_mut(i) {
                 let player_entity = client.entity.as_ref().unwrap();
-                let mut delta_res = if let Some(idx) = client.last_state {
+                let delta_res = if let Some(idx) = client.last_state {
                     self.snapshotter.get_delta(idx as usize, player_entity)
                 } else {
                     self.snapshotter.get_full_snapshot(player_entity)
                 };
 
                 match delta_res {
-                    Ok(mut delta) => {
+                    Ok(delta) => {
                         debug!("STATE: to player {:?} = {:?}", i, delta);
                         let msg = protocol::NetMessageContent::Delta(DeltaSnapshotInfo {
                             delta,
@@ -262,7 +262,7 @@ impl NetworkSystem {
         }
     }
 
-    fn handle_client_message(client: &Client, packet: Packet) -> Option<Event> {
+    fn handle_client_message(_client: &Client, packet: Packet) -> Option<Event> {
         match packet.content {
             protocol::NetMessageContent::Command(cmd) => Some(Event::ClientEvent(cmd)),
             _ => None,
@@ -333,14 +333,16 @@ impl NetworkSystem {
             self.send_to_client(id, to_send);
         } else {
             // ConnectionRefused is sent to parties that are not client yet.
-            self.to_clients.send(protocol::NetMessage {
+            if let Err(e) = self.to_clients.send(protocol::NetMessage {
                 target: addr,
                 content: Packet {
                     content: to_send,
                     seq_number: 0,
                     last_known_state: None,
                 },
-            });
+            }) {
+                error!("Error when sending ConnectionRefused = {:?}", e);
+            };
         }
     }
 
@@ -364,12 +366,6 @@ impl NetworkSystem {
         } else {
             client.last_sent_seq_number += 1;
         }
-    }
-
-    fn has_client(&self, addr: SocketAddr) -> bool {
-        self.my_clients
-            .iter()
-            .any(|client| client.is_some() && client.as_ref().unwrap().addr == addr)
     }
 
     fn get_client_id(&self, addr: SocketAddr) -> Option<usize> {

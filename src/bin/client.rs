@@ -1,15 +1,13 @@
 use clap::{App, Arg};
-use log::{debug, info};
-use std::thread;
+use log::info;
 use std::time::{Duration, Instant};
 use twgraph::input::{Input, KeyType};
 use vulkano::instance::Instance;
 use winit::EventsLoop;
 
-use twgraph::ecs::{systems::RenderingSystem, ECS};
-use twgraph::event::{EditorEvent, Event};
+use twgraph::ecs::systems::RenderingSystem;
 use twgraph::resource::Resources;
-use twgraph::scene::{ClientScene, EditorScene, Scene};
+use twgraph::scene::{ClientScene, SceneStack};
 
 fn main() {
     env_logger::init();
@@ -29,6 +27,8 @@ fn main() {
         .get_matches();
 
     let addr = matches.value_of("connect").unwrap_or("localhost:8080");
+
+    info!("Start client: Will connect to {}", addr);
     let layer = "VK_LAYER_LUNARG_standard_validation";
     let layers = vec![layer];
     let instance = {
@@ -45,9 +45,8 @@ fn main() {
     let mut input = Input::new(events_loop);
     let mut old_instant = Instant::now();
 
-    let mut scenes: Vec<Box<dyn Scene>> = Vec::new();
-    //    scenes.push(Box::new(EditorScene::new(&render_system, &resources)));
-    scenes.push(Box::new(ClientScene::new(&render_system)));
+    let mut scenes = SceneStack::new();
+    scenes.push(ClientScene::new(addr, &render_system));
 
     let fixed_time_stamp = Duration::new(0, 16666667);
     let mut previous_clock = Instant::now();
@@ -62,8 +61,7 @@ fn main() {
             let events = resources.poll_events();
             render_system.handle_events(&events);
 
-            let nb_scene = scenes.len();
-            let scene = &mut scenes[nb_scene - 1];
+            let scene = scenes.get_current().unwrap();
 
             // calculate frame time.
             let now = Instant::now();
@@ -78,7 +76,7 @@ fn main() {
 
             // Now scene specific updates.
             scene.update(frame_duration);
-            let events = scene.process_input(Some(&input), Some(&resources), frame_duration);
+            let _ = scene.process_input(Some(&input), Some(&resources), frame_duration);
 
             if input.get_key_down(KeyType::Escape) {
                 let _ = scenes.pop();
@@ -97,4 +95,6 @@ fn main() {
         accumulator += Instant::now() - previous_clock;
         previous_clock = Instant::now();
     }
+
+    info!("Bye bye");
 }
