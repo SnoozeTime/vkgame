@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
     env_logger::init();
 
     // Extract the server address from the command-line.
-    let matches = App::new("Serer")
+    let matches = App::new("Server")
         .version("0.1")
         .author("Benoit Eudier")
         .arg(
