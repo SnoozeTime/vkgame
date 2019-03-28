@@ -27,9 +27,7 @@ Todo:
 
 # Input
 
-- [ ] Create different backend for GUI and headless mode. (headless for server, should
-      read input from the console)
-
 # BUGS:
 
 - [ ] GUI does not resize (imgui renderer problem)
+- [ ] When window out of focuse sometime the input is stuck in one direction (network)

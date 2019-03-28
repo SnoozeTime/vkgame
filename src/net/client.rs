@@ -198,7 +198,7 @@ impl ClientSystem {
                             info!("Received connection refused");
                             break 'connection;
                         }
-                        _ => debug!("Received {:?} when connecting. That is strange", ev),
+                        _ => error!("Received {:?} when connecting. That is strange", ev),
                     }
                 }
 

@@ -33,7 +33,7 @@ impl NetworkScene {
 
     pub fn from_file(port: usize, max_clients: usize, filename: String) -> Self {
         let network = NetworkSystem::new(port, max_clients);
-        let ecs = ECS::load(filename).unwrap();
+        let ecs = ECS::load(filename).expect("Cannot load ECS from file");
         let player_system = PlayerSystem::new();
         NetworkScene {
             network,
