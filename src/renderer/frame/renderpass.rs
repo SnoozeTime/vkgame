@@ -1,38 +1,47 @@
+use std::sync::Arc;
 use vk_sys;
 use vulkano::device::Device;
 use vulkano::format::ClearValue;
 use vulkano::format::Format;
+use vulkano::framebuffer::AttachmentDescription;
+use vulkano::framebuffer::PassDependencyDescription;
+use vulkano::framebuffer::PassDescription;
 use vulkano::framebuffer::RenderPassAbstract;
 use vulkano::framebuffer::RenderPassDesc;
 use vulkano::framebuffer::RenderPassDescClearValues;
-use vulkano::framebuffer::AttachmentDescription;
-use vulkano::framebuffer::PassDescription;
-use vulkano::framebuffer::PassDependencyDescription;
 use vulkano::framebuffer::{LoadOp, StoreOp};
 use vulkano::image::ImageLayout;
 use vulkano::sync::AccessFlagBits;
 use vulkano::sync::PipelineStages;
-use std::sync::Arc;
-
 
 /// Will build the two render pass of the renderer
-pub fn build_render_pass(device: Arc<Device>,
-                         final_output_format: Format) -> 
-    (Arc<RenderPassAbstract+Send+Sync>,
-     Arc<RenderPassAbstract+Send+Sync>) {
-
-    (Arc::new(OffscreenRenderPassDesc::new(
-                    (final_output_format, 1),
-                    (Format::A2B10G10R10UnormPack32, 1),
-                    (Format::R16G16B16A16Sfloat, 1),
-                    (Format::R16G16B16A16Sfloat, 1),
-                    (Format::D16Unorm, 1),
-                    ).build_render_pass(device.clone()).unwrap()),
-
-    Arc::new(OnscreenRenderPassDesc::new((final_output_format, 1))
-             .build_render_pass(device.clone()).unwrap()))
+pub fn build_render_pass(
+    device: Arc<Device>,
+    final_output_format: Format,
+) -> (
+    Arc<RenderPassAbstract + Send + Sync>,
+    Arc<RenderPassAbstract + Send + Sync>,
+) {
+    (
+        Arc::new(
+            OffscreenRenderPassDesc::new(
+                (final_output_format, 1),
+                (Format::A2B10G10R10UnormPack32, 1),
+                (Format::R16G16B16A16Sfloat, 1),
+                (Format::R16G16B16A16Sfloat, 1),
+                (Format::D16Unorm, 1),
+                (Format::D16Unorm, 1),
+            )
+            .build_render_pass(device.clone())
+            .unwrap(),
+        ),
+        Arc::new(
+            OnscreenRenderPassDesc::new((final_output_format, 1))
+                .build_render_pass(device.clone())
+                .unwrap(),
+        ),
+    )
 }
-
 
 /// This render pass will render the scene to g-buffer.
 /// G-Buffer is a number of color attachments that will store
@@ -51,7 +60,6 @@ struct OffscreenRenderPassDesc {
 
 #[allow(unsafe_code)]
 unsafe impl RenderPassDesc for OffscreenRenderPassDesc {
-
     #[inline]
     fn num_attachments(&self) -> usize {
         self.attachments.len()
@@ -59,7 +67,9 @@ unsafe impl RenderPassDesc for OffscreenRenderPassDesc {
 
     #[inline]
     fn attachment_desc(&self, id: usize) -> Option<AttachmentDescription> {
-        self.attachments.get(id).map(|attachment| attachment.clone())
+        self.attachments
+            .get(id)
+            .map(|attachment| attachment.clone())
     }
 
     #[inline]
@@ -90,15 +100,14 @@ unsafe impl RenderPassDescClearValues<Vec<ClearValue>> for OffscreenRenderPassDe
 }
 
 impl OffscreenRenderPassDesc {
-
     pub fn new(
         final_color: (Format, u32),
-    diffuse: (Format, u32),
-    normals: (Format, u32),
-    fragment_pos: (Format, u32),
-    depth: (Format, u32),
+        diffuse: (Format, u32),
+        normals: (Format, u32),
+        fragment_pos: (Format, u32),
+        depth: (Format, u32),
+        shadow_depth: (Format, u32),
     ) -> Self {
-
         let mut attachments = Vec::new();
         attachments.push(AttachmentDescription {
             format: final_color.0,
@@ -155,9 +164,29 @@ impl OffscreenRenderPassDesc {
             final_layout: ImageLayout::DepthStencilAttachmentOptimal,
         });
 
+        // This is the shadow map attachment.
+        attachments.push(AttachmentDescription {
+            format: shadow_depth.0,
+            samples: shadow_depth.1,
+            load: LoadOp::Clear,
+            store: StoreOp::DontCare,
+            stencil_load: LoadOp::Clear,
+            stencil_store: StoreOp::DontCare,
+            initial_layout: ImageLayout::Undefined,
+            final_layout: ImageLayout::DepthStencilAttachmentOptimal,
+        });
+
+        let mut passes = Vec::new();
+        // draw the shadow map first.
+        passes.push(PassDescription {
+            color_attachments: vec![],
+            depth_stencil: Some((5, ImageLayout::DepthStencilAttachmentOptimal)),
+            input_attachments: vec![],
+            resolve_attachments: vec![],
+            preserve_attachments: vec![],
+        });
 
         // Only one subpass to render the scene to g-buffer
-        let mut passes = Vec::new();
         passes.push(PassDescription {
             color_attachments: vec![
                 (1, ImageLayout::ColorAttachmentOptimal),
@@ -168,14 +197,11 @@ impl OffscreenRenderPassDesc {
             input_attachments: vec![],
             resolve_attachments: vec![],
             preserve_attachments: vec![],
-
         });
-  
+
         // Lighting pass
         passes.push(PassDescription {
-            color_attachments: vec![
-                (0, ImageLayout::ColorAttachmentOptimal),
-            ],
+            color_attachments: vec![(0, ImageLayout::ColorAttachmentOptimal)],
             depth_stencil: None,
             input_attachments: vec![
                 (1, ImageLayout::ShaderReadOnlyOptimal),
@@ -189,54 +215,81 @@ impl OffscreenRenderPassDesc {
 
         // Skybox pass
         passes.push(PassDescription {
-            color_attachments: vec![
-                (0, ImageLayout::ColorAttachmentOptimal),
-            ],
+            color_attachments: vec![(0, ImageLayout::ColorAttachmentOptimal)],
             depth_stencil: Some((4, ImageLayout::DepthStencilAttachmentOptimal)),
-            input_attachments: vec![
-            ],
+            input_attachments: vec![],
             resolve_attachments: vec![],
             preserve_attachments: vec![],
-
         });
-
 
         let mut dependencies = Vec::new();
 
         dependencies.push(PassDependencyDescription {
             source_subpass: 0,
             destination_subpass: 1,
-            source_stages: PipelineStages { all_graphics: true, .. PipelineStages::none() },         // TODO: correct values
-            destination_stages: PipelineStages { all_graphics: true, .. PipelineStages::none() },         // TODO: correct values
-            source_access: AccessFlagBits::all(),         // TODO: correct values
-            destination_access: AccessFlagBits::all(),         // TODO: correct values
-            by_region: true,            // TODO: correct values
+            source_stages: PipelineStages {
+                all_graphics: true,
+                ..PipelineStages::none()
+            }, // TODO: correct values
+            destination_stages: PipelineStages {
+                all_graphics: true,
+                ..PipelineStages::none()
+            }, // TODO: correct values
+            source_access: AccessFlagBits::all(), // TODO: correct values
+            destination_access: AccessFlagBits::all(), // TODO: correct values
+            by_region: true,                      // TODO: correct values
         });
 
         dependencies.push(PassDependencyDescription {
             source_subpass: 1,
             destination_subpass: 2,
-            source_stages: PipelineStages { all_graphics: true, .. PipelineStages::none() },         // TODO: correct values
-            destination_stages: PipelineStages { all_graphics: true, .. PipelineStages::none() },         // TODO: correct values
-            source_access: AccessFlagBits::all(),         // TODO: correct values
-            destination_access: AccessFlagBits::all(),         // TODO: correct values
-            by_region: true,            // TODO: correct values
+            source_stages: PipelineStages {
+                all_graphics: true,
+                ..PipelineStages::none()
+            }, // TODO: correct values
+            destination_stages: PipelineStages {
+                all_graphics: true,
+                ..PipelineStages::none()
+            }, // TODO: correct values
+            source_access: AccessFlagBits::all(), // TODO: correct values
+            destination_access: AccessFlagBits::all(), // TODO: correct values
+            by_region: true,                      // TODO: correct values
         });
-
 
         dependencies.push(PassDependencyDescription {
             source_subpass: 2,
+            destination_subpass: 3,
+            source_stages: PipelineStages {
+                all_graphics: true,
+                ..PipelineStages::none()
+            }, // TODO: correct values
+            destination_stages: PipelineStages {
+                all_graphics: true,
+                ..PipelineStages::none()
+            }, // TODO: correct values
+            source_access: AccessFlagBits::all(), // TODO: correct values
+            destination_access: AccessFlagBits::all(), // TODO: correct values
+            by_region: true,                      // TODO: correct values
+        });
+
+        dependencies.push(PassDependencyDescription {
+            source_subpass: 3,
             // outside of render pass
             destination_subpass: vk_sys::SUBPASS_EXTERNAL as usize,
-            
+
             // TODO Correct values
-            source_stages: PipelineStages {all_graphics: true, .. PipelineStages::none()}, 
-            destination_stages: PipelineStages {all_graphics: true, .. PipelineStages::none() },
+            source_stages: PipelineStages {
+                all_graphics: true,
+                ..PipelineStages::none()
+            },
+            destination_stages: PipelineStages {
+                all_graphics: true,
+                ..PipelineStages::none()
+            },
             source_access: AccessFlagBits::all(),
             destination_access: AccessFlagBits::all(),
             by_region: true,
         });
-
 
         OffscreenRenderPassDesc {
             attachments,
@@ -246,9 +299,8 @@ impl OffscreenRenderPassDesc {
     }
 }
 
-
 /// This render pass will use the g-buffer and the lights to
-/// render the scene to the screen. It also has subpasses for 
+/// render the scene to the screen. It also has subpasses for
 /// post processing and GUI overlay
 pub struct OnscreenRenderPassDesc {
     attachments: Vec<AttachmentDescription>,
@@ -258,7 +310,6 @@ pub struct OnscreenRenderPassDesc {
 
 #[allow(unsafe_code)]
 unsafe impl RenderPassDesc for OnscreenRenderPassDesc {
-
     #[inline]
     fn num_attachments(&self) -> usize {
         self.attachments.len()
@@ -266,7 +317,9 @@ unsafe impl RenderPassDesc for OnscreenRenderPassDesc {
 
     #[inline]
     fn attachment_desc(&self, id: usize) -> Option<AttachmentDescription> {
-        self.attachments.get(id).map(|attachment| attachment.clone())
+        self.attachments
+            .get(id)
+            .map(|attachment| attachment.clone())
     }
 
     #[inline]
@@ -297,9 +350,7 @@ unsafe impl RenderPassDescClearValues<Vec<ClearValue>> for OnscreenRenderPassDes
 }
 
 impl OnscreenRenderPassDesc {
-
     pub fn new(final_color: (Format, u32)) -> Self {
-
         let mut attachments = Vec::new();
         attachments.push(AttachmentDescription {
             format: final_color.0,
@@ -313,18 +364,14 @@ impl OnscreenRenderPassDesc {
         });
 
         let mut passes = Vec::new();
-        
+
         // GUI pass
         passes.push(PassDescription {
-            color_attachments: vec![
-                (0, ImageLayout::ColorAttachmentOptimal),
-            ],
+            color_attachments: vec![(0, ImageLayout::ColorAttachmentOptimal)],
             depth_stencil: None,
-            input_attachments: vec![
-            ],
+            input_attachments: vec![],
             resolve_attachments: vec![],
             preserve_attachments: vec![],
-
         });
 
         let mut dependencies = Vec::new();
@@ -332,13 +379,19 @@ impl OnscreenRenderPassDesc {
         dependencies.push(PassDependencyDescription {
             source_subpass: vk_sys::SUBPASS_EXTERNAL as usize,
             destination_subpass: 0,
-            source_stages: PipelineStages { all_graphics: true, .. PipelineStages::none() },         // TODO: correct values
-            destination_stages: PipelineStages { all_graphics: true, .. PipelineStages::none() },         // TODO: correct values
-            source_access: AccessFlagBits::all(),         // TODO: correct values
-            destination_access: AccessFlagBits::all(),         // TODO: correct values
-            by_region: true,            // TODO: correct values
+            source_stages: PipelineStages {
+                all_graphics: true,
+                ..PipelineStages::none()
+            }, // TODO: correct values
+            destination_stages: PipelineStages {
+                all_graphics: true,
+                ..PipelineStages::none()
+            }, // TODO: correct values
+            source_access: AccessFlagBits::all(), // TODO: correct values
+            destination_access: AccessFlagBits::all(), // TODO: correct values
+            by_region: true,                      // TODO: correct values
         });
-       
+
         OnscreenRenderPassDesc {
             attachments,
             passes,
@@ -346,5 +399,3 @@ impl OnscreenRenderPassDesc {
         }
     }
 }
-
-

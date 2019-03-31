@@ -94,10 +94,6 @@ impl Scene for GameScene {
             self.ecs.camera.process_keyboard(dt, CameraDirection::Right);
         }
 
-        if input.get_key(KeyType::Space) {
-            println!("{:?}", self.ecs);
-        }
-
         let (h_axis, v_axis) = (
             input.get_axis(Axis::Horizontal),
             input.get_axis(Axis::Vertical),

@@ -64,7 +64,7 @@ impl ShadowSystem {
         }
     }
 
-    fn rebuild_pipeline<R>(&mut self, subpass: Subpass<R>, dimensions: [u32; 2])
+    pub fn rebuild_pipeline<R>(&mut self, subpass: Subpass<R>, dimensions: [u32; 2])
     where
         R: RenderPassAbstract + Clone + Send + Sync + 'static,
     {
@@ -106,6 +106,10 @@ impl ShadowSystem {
                 .build(queue.device().clone())
                 .unwrap(),
         )
+    }
+
+    pub fn shadow_map(&self) -> Arc<AttachmentImage> {
+        self.shadow_map.clone()
     }
 
     /// The shadow map is a depth buffer. It will be used in another subpass of the same
