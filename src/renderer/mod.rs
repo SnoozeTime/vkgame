@@ -283,13 +283,20 @@ impl<'a> Renderer<'a> {
             .frame_system
             .frame(future, self.images[image_num].clone());
         let mut after_future = None;
-        let cb = Arc::new(self.scene_system.draw(resources, camera, objects));
+        let cb = Arc::new(self.scene_system.draw(resources, camera, &objects));
         let gui_cb = Arc::new(self.gui.render(ui));
 
         while let Some(pass) = frame.next_pass() {
             match pass {
                 Pass::Shadow(mut shadow_pass) => {
                     // Draw scene with directional light.
+                    for (light, transform) in lights.iter() {
+                        // only one light that cast shadow.
+                        if light.cast_shadows {
+                            shadow_pass.draw_shadow_map(resources, transform, &objects);
+                            break;
+                        }
+                    }
                 }
                 Pass::Deferred(mut draw_pass) => {
                     draw_pass.execute(cb.clone());

@@ -174,6 +174,7 @@ impl ECS {
             LightComponent {
                 color: [1.0, 1.0, 1.0],
                 light_type: LightType::Directional,
+                cast_shadows: false,
             },
         );
 

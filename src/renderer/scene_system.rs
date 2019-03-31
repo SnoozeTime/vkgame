@@ -1,4 +1,4 @@
-use log::debug;
+use log::*;
 use vulkano::buffer::BufferUsage;
 
 use vulkano::buffer::cpu_pool::CpuBufferPool;
@@ -108,7 +108,7 @@ impl SceneDrawSystem {
         &self,
         resources: &Resources,
         camera: &mut Camera,
-        objects: Vec<(&ModelComponent, &TransformComponent)>,
+        objects: &Vec<(&ModelComponent, &TransformComponent)>,
     ) -> AutoCommandBuffer {
         debug!("----------------------------------------------");
         debug!("begin scene rendering");
@@ -131,7 +131,7 @@ impl SceneDrawSystem {
             // just print a warning and do not render this object.
             let texture = resources.textures.textures.get(&model.texture_name);
             if !texture.is_some() {
-                println!("Texture {} is not loaded", model.texture_name);
+                error!("Texture {} is not loaded", model.texture_name);
                 continue;
             }
             let texture = texture.unwrap();
@@ -139,7 +139,7 @@ impl SceneDrawSystem {
             // Same for the mesh
             let model_buf = resources.models.models.get(&model.mesh_name);
             if !model_buf.is_some() {
-                println!("Model {} is not loaded", model.mesh_name);
+                error!("Model {} is not loaded", model.mesh_name);
                 continue;
             }
             let model = model_buf.unwrap();
@@ -313,11 +313,11 @@ pub fn create_mvp(
     let scale = t.scale;
     let from_t = Matrix4::from_translation(t.position);
     let from_s = Matrix4::from_nonuniform_scale(scale.x, scale.y, scale.z);
-    debug!("From translation: {:?}", from_t);
-    debug!("From scale: {:?}", from_s);
+    trace!("From translation: {:?}", from_t);
+    trace!("From scale: {:?}", from_s);
     let model = from_t * from_s;
 
-    debug!("Model {:?}, View {:?}, Projection {:?}", model, view, proj);
+    trace!("Model {:?}, View {:?}, Projection {:?}", model, view, proj);
     vs::ty::Data {
         model: model.into(),
         view: (*view).into(),

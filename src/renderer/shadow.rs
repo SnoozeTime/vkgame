@@ -1,13 +1,19 @@
+use cgmath::{InnerSpace, Matrix4, Point3, SquareMatrix, Vector3};
+use log::*;
 use std::sync::Arc;
 use vulkano::buffer::{cpu_pool::CpuBufferPool, BufferUsage};
+use vulkano::command_buffer::{AutoCommandBuffer, AutoCommandBufferBuilder, DynamicState};
+use vulkano::descriptor::descriptor_set::PersistentDescriptorSet;
 use vulkano::device::{Device, Queue};
 use vulkano::format::Format;
 use vulkano::framebuffer::{RenderPassAbstract, Subpass};
 use vulkano::image::{AttachmentImage, ImageUsage};
 use vulkano::pipeline::{viewport::Viewport, GraphicsPipeline, GraphicsPipelineAbstract};
 
+use crate::ecs::components::{ModelComponent, TransformComponent};
 use crate::event::{Event, ResourceEvent};
 use crate::renderer::model::Vertex;
+use crate::resource::Resources;
 
 /// Will render the shadows to the screen.
 ///
@@ -140,6 +146,102 @@ impl ShadowSystem {
                 }
             }
         }
+    }
+
+    /// This is the first pass for rendering shadow. The scene will be written to the
+    /// shadow map from the pov of the light
+    pub fn draw_shadowmap(
+        &self,
+        resources: &Resources,
+        light_transform: &TransformComponent,
+        objects: &Vec<(&ModelComponent, &TransformComponent)>,
+    ) -> AutoCommandBuffer {
+        let (view, proj) = ShadowSystem::get_vp(light_transform);
+
+        // 1. Create the secondary command buffer
+        // --------------------------------------
+        let mut builder = AutoCommandBufferBuilder::secondary_graphics(
+            self.queue.device().clone(),
+            self.queue.family(),
+            self.pipeline.clone().subpass(),
+        )
+        .unwrap();
+
+        // 2. Draw all objects in the scene
+        // --------------------------------
+        for (model, transform) in objects.iter() {
+            let model_buf = resources.models.models.get(&model.mesh_name);
+            if !model_buf.is_some() {
+                error!("Model {} is not loaded", model.mesh_name);
+                continue;
+            }
+            let model = model_buf.unwrap();
+
+            let uniform_buffer_subbuffer = {
+                let uniform_data = create_mvp(transform, &view, &proj);
+                self.uniform_buffer.next(uniform_data).unwrap()
+            };
+
+            let set = Arc::new(
+                PersistentDescriptorSet::start(self.pipeline.clone(), 0)
+                    .add_buffer(uniform_buffer_subbuffer)
+                    .unwrap()
+                    .build()
+                    .unwrap(),
+            );
+            // Now we can issue the draw command.
+            builder = builder
+                .draw_indexed(
+                    self.pipeline.clone(),
+                    &DynamicState::none(),
+                    vec![model.vertex_buffer.clone()],
+                    model.index_buffer.clone(),
+                    set.clone(),
+                    (),
+                )
+                .unwrap();
+        }
+
+        debug!("End render scene");
+        debug!("----------------------------------------------");
+        builder.build().unwrap()
+    }
+
+    /// Get the view matrix from the light. Projection is also needed and here
+    /// we use an orthogonal projection
+    fn get_vp(transform: &TransformComponent) -> (Matrix4<f32>, Matrix4<f32>) {
+        let ortho = cgmath::ortho(-10.0, 10.0, -10.0, 10.0, 0.1, 100.0);
+        let up = Vector3::new(0.0, 1.0, 0.0);
+        // somewhere far away as it is a directional light.
+        let position = -50.0
+            * Point3::new(
+                transform.position.x,
+                transform.position.y,
+                transform.position.z,
+            );
+        let view = Matrix4::look_at(position, position + transform.position, up);
+        let mut the_fix = Matrix4::identity();
+        the_fix[1][1] = -1.0;
+        the_fix[2][3] = 0.5;
+        the_fix[2][2] = 0.5;
+
+        (view, the_fix * ortho)
+    }
+}
+
+fn create_mvp(t: &TransformComponent, view: &Matrix4<f32>, proj: &Matrix4<f32>) -> vs::ty::Data {
+    let scale = t.scale;
+    let from_t = Matrix4::from_translation(t.position);
+    let from_s = Matrix4::from_nonuniform_scale(scale.x, scale.y, scale.z);
+    trace!("From translation: {:?}", from_t);
+    trace!("From scale: {:?}", from_s);
+    let model = from_t * from_s;
+
+    trace!("Model {:?}, View {:?}, Projection {:?}", model, view, proj);
+    vs::ty::Data {
+        model: model.into(),
+        view: (*view).into(),
+        proj: (*proj).into(),
     }
 }
 

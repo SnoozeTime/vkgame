@@ -138,6 +138,9 @@ pub struct LightComponent {
     // Should be between 0 and 1.0
     pub color: [f32; 3],
     pub light_type: LightType,
+
+    #[serde(default)]
+    pub cast_shadows: bool,
 }
 
 impl Default for LightComponent {
@@ -145,6 +148,7 @@ impl Default for LightComponent {
         LightComponent {
             color: [1.0, 1.0, 1.0],
             light_type: LightType::Directional,
+            cast_shadows: false,
         }
     }
 }
@@ -243,6 +247,7 @@ impl TransformComponent {
 impl LightComponent {
     pub fn draw_ui(&mut self, ui: &Ui, editor: &mut Editor) {
         ui.input_float3(im_str!("color"), &mut self.color).build();
+        ui.checkbox(im_str!("Cast shadows"), &mut self.cast_shadows);
 
         let selection = editor
             .components_state

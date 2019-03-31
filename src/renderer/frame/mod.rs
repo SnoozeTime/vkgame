@@ -30,7 +30,9 @@ use super::skybox::SkyboxSystem;
 use super::GBufferComponent;
 // Renderpass description takes a lot of place so it is created here.
 use crate::camera::Camera;
+use crate::ecs::components::{ModelComponent, TransformComponent};
 use crate::event::Event;
+use crate::resource::Resources;
 mod renderpass;
 
 impl GBufferComponent {
@@ -326,6 +328,7 @@ impl FrameSystem {
         self.ambient_lighting_system.handle_event(ev);
         self.skybox_system.handle_event(ev);
         self.pp_system.handle_event(ev);
+        self.shadow_system.handle_event(ev);
     }
 }
 
@@ -453,6 +456,32 @@ pub enum Pass<'f, 's: 'f> {
 
 pub struct ShadowPass<'f, 's: 's> {
     frame: &'f mut Frame<'s>,
+}
+
+impl<'f, 's: 'f> ShadowPass<'f, 's> {
+    // First, draw to shadow map.
+    pub fn draw_shadow_map(
+        &mut self,
+        resources: &Resources,
+        light_transform: &TransformComponent,
+        objects: &Vec<(&ModelComponent, &TransformComponent)>,
+    ) {
+        let buf =
+            self.frame
+                .system
+                .shadow_system
+                .draw_shadowmap(resources, light_transform, objects);
+        unsafe {
+            self.frame.command_buffer = Some(
+                self.frame
+                    .command_buffer
+                    .take()
+                    .unwrap()
+                    .execute_commands(buf)
+                    .unwrap(),
+            );
+        }
+    }
 }
 
 pub struct DrawPass<'f, 's: 'f> {

@@ -130,7 +130,7 @@ pub struct DeltaEntity {
     //TODO is using 0 instead of option better? (smaller packet size)
     pub delta_transform: (Option<[f32; 3]>, Option<[f32; 3]>, Option<[f32; 3]>),
     pub delta_model: (Option<String>, Option<String>),
-    pub delta_light: (Option<LightType>, Option<[f32; 3]>),
+    pub delta_light: (Option<LightType>, Option<[f32; 3]>, Option<bool>),
 }
 
 impl DeltaEntity {
@@ -146,7 +146,7 @@ impl DeltaEntity {
         }
 
         match self.delta_light {
-            (None, None) => (),
+            (None, None, None) => (),
             _ => return false,
         }
 
@@ -158,7 +158,7 @@ impl DeltaEntity {
             entity,
             delta_transform: (None, None, None),
             delta_model: (None, None),
-            delta_light: (None, None),
+            delta_light: (None, None, None),
         }
     }
 }
@@ -207,7 +207,7 @@ pub fn compute_delta(old: &ECS, current: &ECS, player_entity: &Entity) -> DeltaS
                 ) {
                     (Some(new_light), Some(old_light)) => compute_light_delta(old_light, new_light),
                     (Some(new_light), None) => compute_light_delta_empty(new_light),
-                    (None, _) => (None, None),
+                    (None, _) => (None, None, None),
                 }
             };
 
@@ -269,7 +269,7 @@ pub fn compute_delta(old: &ECS, current: &ECS, player_entity: &Entity) -> DeltaS
             ) {
                 (Some(new_light), Some(old_light)) => compute_light_delta(old_light, new_light),
                 (Some(new_light), None) => compute_light_delta_empty(new_light),
-                (None, _) => (None, None),
+                (None, _) => (None, None, None),
             }
         };
 
@@ -325,7 +325,7 @@ pub fn apply_delta(ecs: &mut ECS, delta_snapshot: DeltaSnapshot) {
             }
 
             match &delta.delta_light {
-                (None, None) => (),
+                (None, None, None) => (),
                 _ => {
                     ecs.components
                         .lights
@@ -448,11 +448,19 @@ fn apply_model_delta(model: &mut ModelComponent, delta: &(Option<String>, Option
 fn compute_light_delta(
     old_light: &LightComponent,
     new_light: &LightComponent,
-) -> (Option<LightType>, Option<[f32; 3]>) {
+) -> (Option<LightType>, Option<[f32; 3]>, Option<bool>) {
     let lt = if old_light.light_type == new_light.light_type {
         None
     } else {
         Some(new_light.light_type)
+    };
+
+    let cast_shadows = {
+        if new_light.cast_shadows == old_light.cast_shadows {
+            None
+        } else {
+            Some(new_light.cast_shadows)
+        }
     };
 
     let color_diff = [
@@ -471,10 +479,13 @@ fn compute_light_delta(
         Some(color_diff)
     };
 
-    (lt, color)
+    (lt, color, cast_shadows)
 }
 
-fn apply_light_delta(light: &mut LightComponent, delta: &(Option<LightType>, Option<[f32; 3]>)) {
+fn apply_light_delta(
+    light: &mut LightComponent,
+    delta: &(Option<LightType>, Option<[f32; 3]>, Option<bool>),
+) {
     if let Some(light_type) = delta.0.as_ref() {
         light.light_type = *light_type;
     }
@@ -482,10 +493,20 @@ fn apply_light_delta(light: &mut LightComponent, delta: &(Option<LightType>, Opt
     if let Some(color) = delta.1.as_ref() {
         light.color = *color;
     }
+
+    if let Some(cast_shadows) = delta.2.as_ref() {
+        light.cast_shadows = *cast_shadows;
+    }
 }
 
-fn compute_light_delta_empty(new_light: &LightComponent) -> (Option<LightType>, Option<[f32; 3]>) {
-    (Some(new_light.light_type), Some(new_light.color))
+fn compute_light_delta_empty(
+    new_light: &LightComponent,
+) -> (Option<LightType>, Option<[f32; 3]>, Option<bool>) {
+    (
+        Some(new_light.light_type),
+        Some(new_light.color),
+        Some(new_light.cast_shadows),
+    )
 }
 
 #[cfg(test)]
