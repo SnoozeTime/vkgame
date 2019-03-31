@@ -12,6 +12,7 @@ Figure it out
 - [ ] Figure out inside and buildings
 
 # Network
+- [ ] Replace json by cbor
 - [ ] Send reliable (for chat messages)
 
 # Editor
