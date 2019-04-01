@@ -303,10 +303,26 @@ impl<'a> Renderer<'a> {
                 }
                 Pass::Lighting(mut lighting_pass) => {
                     //                    lighting_pass.ambient_light([0.5, 0.5, 0.5]);
+                    let max_nb_cast = 1;
+                    let mut total_cast_shadows = 0;
                     for (light, transform) in lights.iter() {
+                        let mut should_cast_shadows = false;
+                        if light.cast_shadows && total_cast_shadows < max_nb_cast {
+                            should_cast_shadows = true;
+                            total_cast_shadows += 1;
+                        }
+
                         match &light.light_type {
                             LightType::Directional => {
-                                lighting_pass.directional_light(transform.position, light.color);
+                                if should_cast_shadows {
+                                    lighting_pass.directional_light_with_shadows(
+                                        transform.position,
+                                        light.color,
+                                    );
+                                } else {
+                                    lighting_pass
+                                        .directional_light(transform.position, light.color);
+                                }
                             }
                             LightType::Point => {
                                 lighting_pass.point_light(transform.position, light.color);

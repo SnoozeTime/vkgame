@@ -556,6 +556,33 @@ impl<'f, 's: 'f> LightingPass<'f, 's> {
         }
     }
 
+    pub fn directional_light_with_shadows(&mut self, direction: Vector3<f32>, color: [f32; 3]) {
+        let command_buffer = {
+            self.frame
+                .system
+                .directional_lighting_system
+                .draw_with_shadow(
+                    self.frame.system.diffuse_buffer.image.clone(),
+                    self.frame.system.normals_buffer.image.clone(),
+                    self.frame.system.depth_buffer.image.clone(),
+                    self.frame.system.shadow_system.shadow_map(),
+                    direction,
+                    color,
+                )
+        };
+
+        unsafe {
+            self.frame.command_buffer = Some(
+                self.frame
+                    .command_buffer
+                    .take()
+                    .unwrap()
+                    .execute_commands(command_buffer)
+                    .unwrap(),
+            );
+        }
+    }
+
     pub fn directional_light(&mut self, direction: Vector3<f32>, color: [f32; 3]) {
         let command_buffer = {
             self.frame.system.directional_lighting_system.draw(
