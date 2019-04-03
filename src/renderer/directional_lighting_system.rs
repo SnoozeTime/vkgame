@@ -1,5 +1,5 @@
-use vulkano::buffer::BufferUsage;
-use vulkano::buffer::CpuAccessibleBuffer;
+use log::*;
+use vulkano::buffer::{cpu_pool::CpuBufferPool, BufferUsage, CpuAccessibleBuffer};
 use vulkano::device::Queue;
 use vulkano::framebuffer::{RenderPassAbstract, Subpass};
 use vulkano::image::ImageViewAccess;
@@ -17,6 +17,8 @@ use cgmath::Vector3;
 use std::iter;
 use std::sync::Arc;
 
+use super::shadow::ShadowSystem;
+use crate::ecs::components::TransformComponent;
 use crate::event::{Event, ResourceEvent};
 
 #[derive(Debug, Clone)]
@@ -39,6 +41,7 @@ pub struct DirectionalLightingSystem {
     pipeline: Arc<GraphicsPipelineAbstract + Send + Sync>,
     // lighting with shadows.
     shadow_pipeline: Arc<GraphicsPipelineAbstract + Send + Sync>,
+    uniform_buffer: CpuBufferPool<shadow_fs::ty::Data>,
 
     dimensions: [u32; 2],
 }
@@ -76,6 +79,8 @@ impl DirectionalLightingSystem {
             .expect("Failed to create fragment shader module");
         let shadow_fs = shadow_fs::Shader::load(queue.device().clone())
             .expect("Failed to create shadow fragment shader module");
+        let uniform_buffer =
+            CpuBufferPool::<shadow_fs::ty::Data>::new(queue.device().clone(), BufferUsage::all());
 
         let (pipeline, shadow_pipeline) = DirectionalLightingSystem::build_pipeline(
             queue.clone(),
@@ -94,6 +99,7 @@ impl DirectionalLightingSystem {
             shadow_fs,
             pipeline,
             shadow_pipeline,
+            uniform_buffer,
             dimensions: [1, 1],
         }
     }
@@ -246,28 +252,42 @@ impl DirectionalLightingSystem {
     /// Draw the color added the light at position `position` and color `color`
     /// With the shadow map.
     /// The shadow map SHOULD correspond to the light. otherwise strange things will happen :D
-    pub fn draw_with_shadow<C, N, D, SM>(
+    pub fn draw_with_shadow<C, N, D, P, SM>(
         &self,
         color_input: C,
         normals_input: N,
         depth_input: D,
+        position_input: P,
         shadow_map: SM,
-        direction: Vector3<f32>,
+        light_transform: &TransformComponent,
         color: [f32; 3],
     ) -> AutoCommandBuffer
     where
         C: ImageViewAccess + Send + Sync + 'static,
         N: ImageViewAccess + Send + Sync + 'static,
         D: ImageViewAccess + Send + Sync + 'static,
+        P: ImageViewAccess + Send + Sync + 'static,
         SM: ImageViewAccess + Send + Sync + 'static,
     {
+        debug!("Drawing shadows");
         // Data for the light source
+        let direction: Vector3<f32> = light_transform.position.into();
         let push_constants = fs::ty::PushConstants {
             position: direction.extend(0.0).into(),
             color: [color[0], color[1], color[2], 1.0],
         };
 
-        // gbuffer. Input that was rendered in previous pass
+        // View projection for the light.
+        let (v, p) = ShadowSystem::get_vp(light_transform);
+        let uniform_light_data = self
+            .uniform_buffer
+            .next(shadow_fs::ty::Data {
+                view: v.into(),
+                proj: p.into(),
+            })
+            .unwrap();
+
+        // gbuffer. Input that was rendered in previous pass + Some stuff for shadows.
         let descriptor_set = PersistentDescriptorSet::start(self.shadow_pipeline.clone(), 0)
             .add_image(color_input)
             .unwrap()
@@ -275,7 +295,11 @@ impl DirectionalLightingSystem {
             .unwrap()
             .add_image(depth_input)
             .unwrap()
+            .add_image(position_input)
+            .unwrap()
             .add_image(shadow_map)
+            .unwrap()
+            .add_buffer(uniform_light_data)
             .unwrap()
             .build()
             .unwrap();
@@ -302,6 +326,7 @@ impl DirectionalLightingSystem {
         if let Event::ResourceEvent(ResourceEvent::ResourceReloaded(ref path)) = ev {
             if (*path).ends_with("directional_light.vert")
                 || (*path).ends_with("directional_light.frag")
+                || (*path).ends_with("directional_light_shadow.frag")
             {
                 if let Err(err) = self
                     .vs
@@ -421,10 +446,26 @@ mod shadow_fs {
             binding: 2
         },
         {
+            name: u_position,
+            ty: InputAttachment,
+            set: 0,
+            binding: 3,
+        },
+        {
             name: u_shadow,
             ty: InputAttachment,
             set: 0,
-            binding: 3
+            binding: 4
+        },
+        {
+            name: Data,
+            ty: Buffer,
+            set: 0,
+            binding: 5,
+            data: [
+                (view, "mat4"),
+                (proj, "mat4")
+            ]
         }
         ]
     }

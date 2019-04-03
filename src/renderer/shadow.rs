@@ -209,7 +209,7 @@ impl ShadowSystem {
 
     /// Get the view matrix from the light. Projection is also needed and here
     /// we use an orthogonal projection
-    fn get_vp(transform: &TransformComponent) -> (Matrix4<f32>, Matrix4<f32>) {
+    pub fn get_vp(transform: &TransformComponent) -> (Matrix4<f32>, Matrix4<f32>) {
         let ortho = cgmath::ortho(-10.0, 10.0, -10.0, 10.0, 0.1, 100.0);
         let up = Vector3::new(0.0, 1.0, 0.0);
         // somewhere far away as it is a directional light.

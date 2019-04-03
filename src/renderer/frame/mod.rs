@@ -556,7 +556,11 @@ impl<'f, 's: 'f> LightingPass<'f, 's> {
         }
     }
 
-    pub fn directional_light_with_shadows(&mut self, direction: Vector3<f32>, color: [f32; 3]) {
+    pub fn directional_light_with_shadows(
+        &mut self,
+        light_transform: &TransformComponent,
+        color: [f32; 3],
+    ) {
         let command_buffer = {
             self.frame
                 .system
@@ -565,8 +569,9 @@ impl<'f, 's: 'f> LightingPass<'f, 's> {
                     self.frame.system.diffuse_buffer.image.clone(),
                     self.frame.system.normals_buffer.image.clone(),
                     self.frame.system.depth_buffer.image.clone(),
+                    self.frame.system.frag_pos_buffer.image.clone(),
                     self.frame.system.shadow_system.shadow_map(),
-                    direction,
+                    light_transform,
                     color,
                 )
         };

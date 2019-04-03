@@ -9,6 +9,7 @@ use twgraph::resource::Resources;
 use twgraph::scene::{EditorScene, GameScene, SceneStack};
 
 fn main() {
+    env_logger::init();
     let layer = "VK_LAYER_LUNARG_standard_validation";
     let layers = vec![layer];
     let instance = {

@@ -5,7 +5,12 @@
 layout(input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput u_diffuse;
 layout(input_attachment_index = 1, set = 0, binding = 1) uniform subpassInput u_normals;
 layout(input_attachment_index = 2, set = 0, binding = 2) uniform subpassInput u_depth;
-layout(input_attachment_index = 3, set = 0, binding = 3) uniform subpassInput u_shadow;
+layout(input_attachment_index = 3, set = 0, binding = 3) uniform subpassInput u_position;
+layout(input_attachment_index = 4, set = 0, binding = 4) uniform subpassInput u_shadow;
+layout(set = 0, binding = 5) uniform Data {
+        mat4 view;
+        mat4 proj;
+} light_vp;
 
 // For the point light
 layout(push_constant) uniform PushConstants {

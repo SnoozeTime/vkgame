@@ -110,9 +110,9 @@ impl SceneDrawSystem {
         camera: &mut Camera,
         objects: &Vec<(&ModelComponent, &TransformComponent)>,
     ) -> AutoCommandBuffer {
-        debug!("----------------------------------------------");
-        debug!("begin scene rendering");
-        debug!("Camera at position: {:?}", camera.state.transform.position);
+        trace!("----------------------------------------------");
+        trace!("begin scene rendering");
+        trace!("Camera at position: {:?}", camera.state.transform.position);
         let (view, proj) = camera.get_vp();
 
         // 1. Create the secondary command buffer
@@ -151,7 +151,7 @@ impl SceneDrawSystem {
                 let uniform_data = create_mvp(transform, &view, &proj);
                 self.uniform_buffer.next(uniform_data).unwrap()
             };
-            debug!("Render object at position {:?}", transform);
+            trace!("Render object at position {:?}", transform);
 
             let set = Arc::new(
                 PersistentDescriptorSet::start(self.pipeline.clone(), 0)
@@ -181,8 +181,8 @@ impl SceneDrawSystem {
                 .unwrap();
         }
 
-        debug!("End render scene");
-        debug!("----------------------------------------------");
+        trace!("End render scene");
+        trace!("----------------------------------------------");
         builder.build().unwrap()
     }
 

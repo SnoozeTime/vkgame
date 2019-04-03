@@ -315,10 +315,8 @@ impl<'a> Renderer<'a> {
                         match &light.light_type {
                             LightType::Directional => {
                                 if should_cast_shadows {
-                                    lighting_pass.directional_light_with_shadows(
-                                        transform.position,
-                                        light.color,
-                                    );
+                                    lighting_pass
+                                        .directional_light_with_shadows(transform, light.color);
                                 } else {
                                     lighting_pass
                                         .directional_light(transform.position, light.color);
