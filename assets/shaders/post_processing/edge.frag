@@ -40,6 +40,11 @@ void main() {
         }
         float filter_value = sqrt(edge_vert*edge_vert + edge_horiz*edge_horiz);
 
+        
+       // float z_b = texture(diffuseSampler, uv).x;
+       // float z_n = 2.0 * z_b - 1.0;
+       // float z_e = 2.0 * 0.1 * 100. / (100.0 + 0.1 - z_n * (100.0 - 0.1));
+       // f_color = vec4(z_e, z_e, z_e, 1.0);
         if (filter_value > 0.01) {
                 f_color = vec4(0.0, 0.0, 0.0, 1.0);
         } else {

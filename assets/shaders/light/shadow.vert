@@ -10,6 +10,8 @@ layout(binding = 0) uniform Data {
         mat4 proj;
 } uniforms;
 
+layout(location = 0) out vec2 outUv;
 void main() {
         gl_Position = uniforms.proj * uniforms.view * uniforms.model * vec4(position, 1.0);
+        outUv = texcoords;
 }

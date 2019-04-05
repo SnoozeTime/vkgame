@@ -35,29 +35,6 @@ use crate::event::Event;
 use crate::resource::Resources;
 mod renderpass;
 
-impl GBufferComponent {
-    fn new(device: Arc<Device>, dimensions: [u32; 2], format: Format, usage: ImageUsage) -> Self {
-        let image = AttachmentImage::with_usage(device.clone(), dimensions, format, usage).unwrap();
-
-        let sampler = Sampler::new(
-            device.clone(),
-            Filter::Linear,
-            Filter::Linear,
-            MipmapMode::Linear,
-            SamplerAddressMode::ClampToEdge,
-            SamplerAddressMode::ClampToEdge,
-            SamplerAddressMode::ClampToEdge,
-            0.0,
-            1.0,
-            0.0,
-            1.0,
-        )
-        .unwrap();
-
-        GBufferComponent { image, sampler }
-    }
-}
-
 pub struct FrameSystem {
     // Queue used to render graphic
     queue: Arc<Queue>,
@@ -81,7 +58,7 @@ pub struct FrameSystem {
     directional_lighting_system: DirectionalLightingSystem,
     pub pp_system: PPSystem,
     pub skybox_system: SkyboxSystem,
-    shadow_system: ShadowSystem,
+    pub shadow_system: ShadowSystem,
 }
 
 impl FrameSystem {
@@ -288,7 +265,9 @@ impl FrameSystem {
                 .unwrap()
                 .add(self.depth_buffer.image.clone())
                 .unwrap()
-                .add(self.shadow_system.shadow_map())
+                .add(self.shadow_system.shadow_map().image)
+                .unwrap()
+                .add(self.shadow_system.debug_color().image)
                 .unwrap()
                 .build()
                 .unwrap(),
@@ -302,6 +281,7 @@ impl FrameSystem {
             [0.0, 0.0, 0.0, 0.0].into(),
             1f32.into(),
             1f32.into(),
+            [0.0, 0.0, 0.0, 0.0].into(),
         ];
         let command_buffer = Some(
             AutoCommandBufferBuilder::primary_one_time_submit(
@@ -570,7 +550,7 @@ impl<'f, 's: 'f> LightingPass<'f, 's> {
                     self.frame.system.normals_buffer.image.clone(),
                     self.frame.system.depth_buffer.image.clone(),
                     self.frame.system.frag_pos_buffer.image.clone(),
-                    self.frame.system.shadow_system.shadow_map(),
+                    self.frame.system.shadow_system.shadow_map().image,
                     light_transform,
                     color,
                 )

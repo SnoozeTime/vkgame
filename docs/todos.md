@@ -1,6 +1,7 @@
 
 # Graphics
 - [ ] Simple shadows
+- [ ] Refactor recompilation (should have Trait that register path and recompile shaders)
 - [ ] Show lights
 - [ ] Post processing: Sun + flare, Bloom, ambient occlusion
 

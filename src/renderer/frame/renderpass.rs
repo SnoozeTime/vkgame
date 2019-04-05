@@ -31,6 +31,7 @@ pub fn build_render_pass(
                 (Format::R16G16B16A16Sfloat, 1),
                 (Format::D16Unorm, 1),
                 (Format::D16Unorm, 1),
+                (Format::R16G16B16A16Sfloat, 1),
             )
             .build_render_pass(device.clone())
             .unwrap(),
@@ -107,6 +108,7 @@ impl OffscreenRenderPassDesc {
         fragment_pos: (Format, u32),
         depth: (Format, u32),
         shadow_depth: (Format, u32),
+        debug_color: (Format, u32),
     ) -> Self {
         let mut attachments = Vec::new();
         attachments.push(AttachmentDescription {
@@ -169,17 +171,27 @@ impl OffscreenRenderPassDesc {
             format: shadow_depth.0,
             samples: shadow_depth.1,
             load: LoadOp::Clear,
-            store: StoreOp::DontCare,
+            store: StoreOp::Store,
             stencil_load: LoadOp::Clear,
             stencil_store: StoreOp::DontCare,
             initial_layout: ImageLayout::Undefined,
             final_layout: ImageLayout::DepthStencilAttachmentOptimal,
         });
+        attachments.push(AttachmentDescription {
+            format: debug_color.0,
+            samples: debug_color.1,
+            load: LoadOp::Clear,
+            store: StoreOp::Store,
+            stencil_load: LoadOp::Clear,
+            stencil_store: StoreOp::Store,
+            initial_layout: ImageLayout::Undefined,
+            final_layout: ImageLayout::ColorAttachmentOptimal,
+        });
 
         let mut passes = Vec::new();
         // draw the shadow map first.
         passes.push(PassDescription {
-            color_attachments: vec![],
+            color_attachments: vec![(6, ImageLayout::ColorAttachmentOptimal)],
             depth_stencil: Some((5, ImageLayout::DepthStencilAttachmentOptimal)),
             input_attachments: vec![],
             resolve_attachments: vec![],

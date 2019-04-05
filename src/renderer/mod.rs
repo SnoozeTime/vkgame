@@ -37,12 +37,43 @@ use crate::resource::Resources;
 use frame::{FrameSystem, Pass};
 use scene_system::SceneDrawSystem;
 
+use vulkano::format::Format;
 use vulkano::image::AttachmentImage;
-use vulkano::sampler::Sampler;
+use vulkano::image::ImageUsage;
+use vulkano::sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode};
 
+#[derive(Clone)]
 pub struct GBufferComponent {
     pub image: Arc<AttachmentImage>,
     pub sampler: Arc<Sampler>,
+}
+
+impl GBufferComponent {
+    pub fn new(
+        device: Arc<Device>,
+        dimensions: [u32; 2],
+        format: Format,
+        usage: ImageUsage,
+    ) -> Self {
+        let image = AttachmentImage::with_usage(device.clone(), dimensions, format, usage).unwrap();
+
+        let sampler = Sampler::new(
+            device.clone(),
+            Filter::Linear,
+            Filter::Linear,
+            MipmapMode::Linear,
+            SamplerAddressMode::ClampToEdge,
+            SamplerAddressMode::ClampToEdge,
+            SamplerAddressMode::ClampToEdge,
+            0.0,
+            1.0,
+            0.0,
+            1.0,
+        )
+        .unwrap();
+
+        GBufferComponent { image, sampler }
+    }
 }
 
 pub struct Renderer<'a> {

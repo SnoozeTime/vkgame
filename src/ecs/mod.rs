@@ -164,7 +164,7 @@ impl ECS {
         components.transforms.set(
             &id3,
             TransformComponent {
-                position: Vector3::new(1.0, 5.0, 1.0),
+                position: Vector3::new(7.0, 1.0, 1.0),
                 rotation: Vector3::new(0.0, 0.0, 0.0),
                 scale: Vector3::new(1.0, 1.0, 1.0),
             },
@@ -174,7 +174,7 @@ impl ECS {
             LightComponent {
                 color: [1.0, 1.0, 1.0],
                 light_type: LightType::Directional,
-                cast_shadows: false,
+                cast_shadows: true,
             },
         );
 

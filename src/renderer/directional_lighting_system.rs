@@ -332,6 +332,7 @@ impl DirectionalLightingSystem {
                     .vs
                     .recompile(self.queue.device().clone())
                     .and_then(|_| self.fs.recompile(self.queue.device().clone()))
+                    .and_then(|_| self.shadow_fs.recompile(self.queue.device().clone()))
                     .and_then(|_| {
                         self.rebuild_pipeline(self.pipeline.clone().subpass(), self.dimensions);
                         Ok(())
