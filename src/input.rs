@@ -20,6 +20,8 @@ pub enum KeyType {
     Space,
     Escape,
     Print,
+    NextScene,
+    PreviousScene,
 }
 
 /// Similar to winit modifier state. Didn't want to leak type from
@@ -210,6 +212,8 @@ impl Input {
         mapping.insert(VirtualKeyCode::P, KeyType::Print);
         mapping.insert(VirtualKeyCode::Escape, KeyType::Escape);
         mapping.insert(VirtualKeyCode::Space, KeyType::Space);
+        mapping.insert(VirtualKeyCode::Subtract, KeyType::PreviousScene);
+        mapping.insert(VirtualKeyCode::Equals, KeyType::NextScene);
 
         Input {
             back,

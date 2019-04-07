@@ -1,4 +1,4 @@
-use log::debug;
+use log::*;
 use notify::{watcher, DebouncedEvent, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, TryRecvError};
@@ -11,6 +11,7 @@ use crate::renderer::model::ModelManager;
 use crate::renderer::texture::TextureManager;
 
 use std::ffi::OsStr;
+use std::fs;
 
 pub struct Resources {
     pub models: ModelManager,
@@ -22,7 +23,7 @@ pub struct Resources {
     // Will receive event from watcher.
     rx: Receiver<DebouncedEvent>,
     watcher: RecommendedWatcher,
-    _resource_path: PathBuf,
+    resource_path: PathBuf,
 }
 
 impl Resources {
@@ -42,7 +43,7 @@ impl Resources {
             queue,
             rx,
             watcher,
-            _resource_path: resource_path.to_path_buf(),
+            resource_path: resource_path.to_path_buf(),
         };
 
         timed!(r.init_textures());
@@ -58,6 +59,26 @@ impl Resources {
             .unwrap();
 
         r
+    }
+
+    /// List the current saved scene. This is used by the editor to easily switch between
+    /// scenes.
+    pub fn get_scene_names(&self) -> Vec<PathBuf> {
+        let level_path = self.resource_path.join("levels");
+        let mut paths = Vec::new();
+        match std::fs::read_dir(&level_path) {
+            Ok(readdir) => {
+                for res in readdir {
+                    match res {
+                        Ok(dir_entry) => paths.push(dir_entry.path()),
+                        Err(e) => error!("Error while reading DirEntry = {:?}", e),
+                    }
+                }
+            }
+            Err(e) => error!("Error while reading {:?} = {:?}", level_path, e),
+        }
+
+        paths
     }
 
     fn init_textures(&mut self) {

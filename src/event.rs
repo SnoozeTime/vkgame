@@ -15,6 +15,16 @@ pub enum Event {
 pub enum EditorEvent {
     PlayGame,
     ResourceEvent(ResourceEvent),
+
+    /// Quit the editor (i.e. the application)
+    QuitEditor,
+
+    //LoadScene,
+    /// Load next scene in the list of known scenes
+    LoadNext,
+
+    /// Load previous scene in the list of known scenes
+    LoadPrevious,
 }
 
 /// Events such as resource reloaded.
@@ -24,4 +34,6 @@ pub enum ResourceEvent {
 }
 
 #[derive(Debug, Clone)]
-pub enum GameEvent {}
+pub enum GameEvent {
+    QuitGame,
+}

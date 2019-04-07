@@ -10,7 +10,7 @@ use crate::ecs::{
     systems::{DummySystem, RenderingSystem},
     ECS,
 };
-use crate::event::Event;
+use crate::event::{Event, GameEvent};
 use crate::input::{Axis, Input, KeyType};
 use crate::resource::Resources;
 use crate::ui::Gui;
@@ -102,7 +102,19 @@ impl Scene for GameScene {
             self.ecs.camera.process_mouse(dt, h_axis, v_axis);
         }
 
-        None
+        let mut events: Option<Vec<Event>> = None;
+        if input.get_key_down(KeyType::Escape) {
+            if let None = events {
+                events = Some(vec![Event::GameEvent(GameEvent::QuitGame)]);
+            } else {
+                events
+                    .as_mut()
+                    .unwrap()
+                    .push(Event::GameEvent(GameEvent::QuitGame));
+            }
+        }
+
+        events
     }
 
     fn get_parts_mut(&mut self) -> (&mut ECS, Option<&mut Gui>) {

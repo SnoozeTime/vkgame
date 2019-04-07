@@ -24,17 +24,31 @@ layout(location = 0) out vec4 f_color;
 float shadow_factor() {
         
         vec4 world_pos = subpassLoad(u_position);
-        vec4 frag_pos_from_lightpov = light_vp.proj * light_vp.view * world_pos;
+        vec4 shadow_clip = light_vp.view * world_pos;
+        float shadow = 1.0;
 
-        vec3 frag_pos_clip = vec3(frag_pos_from_lightpov.x,
-                                  frag_pos_from_lightpov.y,
-                                  frag_pos_from_lightpov.z/frag_pos_from_lightpov.w);
-        vec3 first_obj_pos = subpassLoad(u_shadow).rgb;
+        vec4 shadowCoord = shadow_clip / shadow_clip.w;
+        shadowCoord.st = shadowCoord.st * 0.5 + 0.5;
 
-        if (first_obj_pos.r < frag_pos_clip.z) {
-                return 0.0;
+        if (shadowCoord.z > -1.0 && shadowCoord.z < 1.0) {
+                float dist = subpassLoad(u_shadow).r;
+                if (shadowCoord.w > 0.0 && dist < shadowCoord.z) {
+                        shadow = 0.25;
+                }
         }
-        return 0.0;
+
+//
+//        vec4 frag_pos_from_lightpov = light_vp.proj * light_vp.view * world_pos;
+//
+//        vec3 frag_pos_clip = vec3(frag_pos_from_lightpov.x,
+//                                  frag_pos_from_lightpov.y,
+//                                  frag_pos_from_lightpov.z/frag_pos_from_lightpov.w);
+//        vec3 first_obj_pos = subpassLoad(u_shadow).rgb;
+//
+//        if (first_obj_pos.r < frag_pos_clip.z) {
+//                return 0.0;
+//        }
+        return shadow;
 }
 
 void main() {
@@ -51,6 +65,6 @@ void main() {
         vec3 lightDir = normalize(push_constants.position.xyz);
         float diff = max(dot(norm, lightDir), 0.0);
 
-        vec3 diffuse = (1.0 - shadow_factor()) * diff * push_constants.color.rgb * subpassLoad(u_diffuse).rgb;
+        vec3 diffuse = shadow_factor() * diff * push_constants.color.rgb * subpassLoad(u_diffuse).rgb;
         f_color = vec4(diffuse, 1.0);
 }
