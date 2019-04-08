@@ -312,6 +312,7 @@ impl PlayerSystem {
     }
 }
 
+
 pub struct PhysicsSystem {
 }
 
@@ -320,18 +321,32 @@ impl PhysicsSystem {
         PhysicsSystem {}
     }
 
-    pub fn do_gravity(&mut self, dt: Duration, ecs: &mut ECS) {
+    pub fn on_update(&mut self, dt: Duration, ecs: &mut ECS) {
+        // Physics system seems to follow this pattern
+        // 1. Do broadphase to locate potential interacting pairs
+        // -> Throw in algorithm here later
+
+        // 2. Do collision detection on everything
+        // -> Given pairs of potential colliding objects, determine if they collide during dt
+
+        // 3. Resolution - apply forces, move transforms etc to keep physics in check
+        self.apply_motion(dt, ecs);
+
+    }
+
+    fn apply_motion(&mut self, dt: Duration, ecs: &mut ECS) {
         let dt = dt_as_secs(dt) as f32;
 
+        // Get all entities
         let live_entities = ecs.nb_entities();
 
-        // Get all transform + gravity entities
+
         for entity in &live_entities {
             let maybe_g = ecs.components.rigid_bodies.get_mut(entity);
             let maybe_t = ecs.components.transforms.get_mut(entity);
 
+            // Simple movement downwards from now
             match (maybe_g, maybe_t) {
-                // Works for now but won't work when we have interactions
                 (Some(g),Some(t)) =>
                     if t.position.y >= 0f32 {
                         t.position.y = t.position.y - dt * 0.5f32;

@@ -66,7 +66,7 @@ impl GameScene {
 impl Scene for GameScene {
     fn update(&mut self, _dt: Duration) -> Option<Vec<Event>> {
         //self.dummy_system.do_dumb_thing(dt, &mut self.ecs);
-        self.physics_system.do_gravity(_dt, &mut self.ecs);
+        self.physics_system.on_update(_dt, &mut self.ecs);
         None
     }
 

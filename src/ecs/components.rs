@@ -363,9 +363,19 @@ impl Default for PlayerComponent {
 }
 
 // Start with rigid body simulation. Might need a better structure later.
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RigidBodyComponent {
+    pub mass: f32,
+    pub y_velocity: f32,
+}
 
+impl Default for RigidBodyComponent {
+    fn default() -> Self {
+        RigidBodyComponent {
+            mass: 20f32,
+            y_velocity: 0f32,
+        }
+    }
 }
 
 impl RigidBodyComponent {
