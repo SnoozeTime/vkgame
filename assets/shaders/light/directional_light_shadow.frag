@@ -24,8 +24,8 @@ layout(location = 0) out vec4 f_color;
 float shadow_factor() {
         
         vec4 world_pos = subpassLoad(u_position);
-        vec4 shadow_clip = light_vp.view * world_pos;
-        float shadow = 0.25;
+        vec4 shadow_clip =  light_vp.view * world_pos;
+        float shadow = 1.0;
 
         vec4 shadowCoord = shadow_clip / shadow_clip.w;
         shadowCoord.st = shadowCoord.st * 0.5 + 0.5;
