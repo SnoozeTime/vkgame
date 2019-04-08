@@ -238,6 +238,7 @@ impl GravitySystem {
             let maybe_t = ecs.components.transforms.get_mut(entity);
 
             match (maybe_g, maybe_t) {
+                // Works for now but won't work when we have interactions
                 (Some(g),Some(t)) =>
                     if t.position.y >= 0f32 {
                         t.position.y = t.position.y - dt * 0.5f32;

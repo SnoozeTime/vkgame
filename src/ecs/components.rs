@@ -19,26 +19,53 @@ impl NameComponent {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RigidBodyComponent {
-//    pub mass: f32,
+    pub mass: f32,
+
+    #[serde(with = "VectorDef")]
+    pub velocity: Vector3<f32>,
 
 }
 
 impl RigidBodyComponent {
-    pub fn draw_ui(&mut self, _ui: &Ui, _editor: &Editor) {
+    pub fn draw_ui(&mut self, ui: &Ui, editor: &mut Editor) {
         // nothing to see here.
+
+        ui.tree_node(im_str!("velocity:")).opened(true, ImGuiCond::FirstUseEver).build(|| {
+            if ui.input_float(im_str!("x"), &mut self.velocity.x)
+                .step(0.1)
+                .step_fast(1.0)
+                .build() {
+                editor.set_unsaved();
+            }
+            if ui.input_float(im_str!("y"), &mut self.velocity.y)
+                .step(0.1)
+                .step_fast(1.0)
+                .build() {
+                editor.set_unsaved();
+            }
+            if ui.input_float(im_str!("z"), &mut self.velocity.z)
+                .step(0.1)
+                .step_fast(1.0)
+                .build() {
+                editor.set_unsaved();
+            }
+        });
+
     }
 
 }
 
-//impl Default for RigidBodyComponent {
-//    fn default() -> Self {
-//        RigidBodyComponent {
-//           mass: 5f32,
-//        }
-//    }
-//}
+impl Default for RigidBodyComponent {
+    fn default() -> Self {
+        RigidBodyComponent {
+            mass: 5f32,
+            velocity: Vector3::new(0.0, 0.0, 0.0),
+
+        }
+    }
+}
 
 /// This is a component that is going to be rendered
 /// by the render system.
