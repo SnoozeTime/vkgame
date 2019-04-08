@@ -4,6 +4,7 @@
 - [ ] Refactor recompilation (should have Trait that register path and recompile shaders)
 - [ ] Show lights
 - [ ] Post processing: Sun + flare, Bloom, ambient occlusion
+- [ ] If too light (3 render passes...), move shadow map gen to second renderpass (same as gbuffer) and do lighting in third 
 
 # Animation
 Figure it out

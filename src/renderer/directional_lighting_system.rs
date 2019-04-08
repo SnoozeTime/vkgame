@@ -18,6 +18,7 @@ use std::iter;
 use std::sync::Arc;
 
 use super::shadow::ShadowSystem;
+use super::GBufferComponent;
 use crate::ecs::components::TransformComponent;
 use crate::event::{Event, ResourceEvent};
 
@@ -252,13 +253,13 @@ impl DirectionalLightingSystem {
     /// Draw the color added the light at position `position` and color `color`
     /// With the shadow map.
     /// The shadow map SHOULD correspond to the light. otherwise strange things will happen :D
-    pub fn draw_with_shadow<C, N, D, P, SM>(
+    pub fn draw_with_shadow<C, N, D, P>(
         &self,
         color_input: C,
         normals_input: N,
         depth_input: D,
         position_input: P,
-        shadow_map: SM,
+        shadow_map: &GBufferComponent,
         light_transform: &TransformComponent,
         color: [f32; 3],
     ) -> AutoCommandBuffer
@@ -267,7 +268,6 @@ impl DirectionalLightingSystem {
         N: ImageViewAccess + Send + Sync + 'static,
         D: ImageViewAccess + Send + Sync + 'static,
         P: ImageViewAccess + Send + Sync + 'static,
-        SM: ImageViewAccess + Send + Sync + 'static,
     {
         debug!("Drawing shadows");
         // Data for the light source
@@ -297,7 +297,7 @@ impl DirectionalLightingSystem {
             .unwrap()
             .add_image(position_input)
             .unwrap()
-            .add_image(shadow_map)
+            .add_sampled_image(shadow_map.image.clone(), shadow_map.sampler.clone())
             .unwrap()
             .add_buffer(uniform_light_data)
             .unwrap()
@@ -454,7 +454,7 @@ mod shadow_fs {
         },
         {
             name: u_shadow,
-            ty: InputAttachment,
+            ty: SampledImage,
             set: 0,
             binding: 4
         },

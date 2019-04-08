@@ -21,7 +21,7 @@ pub struct EditorScene {
 
 impl EditorScene {
     pub fn new<'a>(render_system: &RenderingSystem<'a>, resources: &Resources) -> Self {
-        let ecs = ECS::new();
+        let ecs = ECS::dummy_ecs();
         EditorScene::from_ecs(ecs, render_system, resources)
     }
 

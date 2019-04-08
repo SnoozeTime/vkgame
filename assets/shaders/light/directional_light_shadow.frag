@@ -6,7 +6,7 @@ layout(input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput u_
 layout(input_attachment_index = 1, set = 0, binding = 1) uniform subpassInput u_normals;
 layout(input_attachment_index = 2, set = 0, binding = 2) uniform subpassInput u_depth;
 layout(input_attachment_index = 3, set = 0, binding = 3) uniform subpassInput u_position;
-layout(input_attachment_index = 4, set = 0, binding = 4) uniform subpassInput u_shadow;
+layout(set = 0, binding = 4) uniform sampler2D u_shadow;
 layout(set = 0, binding = 5) uniform Data {
         mat4 view;
         mat4 proj;
@@ -25,13 +25,13 @@ float shadow_factor() {
         
         vec4 world_pos = subpassLoad(u_position);
         vec4 shadow_clip = light_vp.view * world_pos;
-        float shadow = 1.0;
+        float shadow = 0.25;
 
         vec4 shadowCoord = shadow_clip / shadow_clip.w;
         shadowCoord.st = shadowCoord.st * 0.5 + 0.5;
 
         if (shadowCoord.z > -1.0 && shadowCoord.z < 1.0) {
-                float dist = subpassLoad(u_shadow).r;
+                float dist = texture(u_shadow, shadowCoord.st).r;
                 if (shadowCoord.w > 0.0 && dist < shadowCoord.z) {
                         shadow = 0.25;
                 }
@@ -59,7 +59,6 @@ void main() {
 //                f_color = vec4(1.0, 1.0, 1.0, 1.0);
                 return;
         }
-
         
         vec3 norm = normalize(subpassLoad(u_normals).rgb);
         vec3 lightDir = normalize(push_constants.position.xyz);
