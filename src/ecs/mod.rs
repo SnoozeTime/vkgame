@@ -11,7 +11,7 @@ pub mod systems;
 
 use self::components::{
     DummyComponent, LightComponent, LightType, ModelComponent, NameComponent, PlayerComponent,
-    TransformComponent,
+    TransformComponent, RigidBodyComponent,
 };
 use self::gen_index::{GenerationalIndex, GenerationalIndexAllocator, GenerationalIndexArray};
 use crate::camera::Camera;
@@ -413,4 +413,5 @@ register_components!(
     [lights, LightComponent, "Light"],
     [names, NameComponent, "Name"],
     [players, PlayerComponent, "Player"],
+    [rigid_bodies, RigidBodyComponent, "Rigid bodies"],
 );

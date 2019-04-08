@@ -7,7 +7,7 @@ use super::Scene;
 use crate::camera::{Camera, CameraDirection, CameraInputHandler};
 use crate::ecs::{
     components::TransformComponent,
-    systems::{DummySystem, RenderingSystem},
+    systems::{DummySystem, RenderingSystem, PhysicsSystem},
     ECS,
 };
 use crate::event::{Event, GameEvent};
@@ -28,6 +28,7 @@ pub struct GameScene {
     pub game_ui: GameUi,
     // All systems for this Scene.
     // dummy_system: DummySystem,
+    physics_system: PhysicsSystem,
 }
 
 impl GameScene {
@@ -57,6 +58,7 @@ impl GameScene {
             ecs,
             game_ui: GameUi {},
             //dummy_system: DummySystem::new(),
+            physics_system: PhysicsSystem::new(),
         }
     }
 }
@@ -64,6 +66,7 @@ impl GameScene {
 impl Scene for GameScene {
     fn update(&mut self, _dt: Duration) -> Option<Vec<Event>> {
         //self.dummy_system.do_dumb_thing(dt, &mut self.ecs);
+        self.physics_system.do_gravity(_dt, &mut self.ecs);
         None
     }
 

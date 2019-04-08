@@ -361,3 +361,15 @@ impl Default for PlayerComponent {
         }
     }
 }
+
+// Start with rigid body simulation. Might need a better structure later.
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct RigidBodyComponent {
+
+}
+
+impl RigidBodyComponent {
+    pub fn draw_ui(&mut self, _ui: &Ui, _editor: &Editor) {
+        // nothing to see here.
+    }
+}

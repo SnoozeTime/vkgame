@@ -311,3 +311,36 @@ impl PlayerSystem {
         }
     }
 }
+
+pub struct PhysicsSystem {
+}
+
+impl PhysicsSystem {
+    pub fn new() -> Self {
+        PhysicsSystem {}
+    }
+
+    pub fn do_gravity(&mut self, dt: Duration, ecs: &mut ECS) {
+        let dt = dt_as_secs(dt) as f32;
+
+        let live_entities = ecs.nb_entities();
+
+        // Get all transform + gravity entities
+        for entity in &live_entities {
+            let maybe_g = ecs.components.rigid_bodies.get_mut(entity);
+            let maybe_t = ecs.components.transforms.get_mut(entity);
+
+            match (maybe_g, maybe_t) {
+                // Works for now but won't work when we have interactions
+                (Some(g),Some(t)) =>
+                    if t.position.y >= 0f32 {
+                        t.position.y = t.position.y - dt * 0.5f32;
+                    } else {
+                        t.position.y = 0f32;
+                    },
+                _ => {}
+            }
+        }
+
+    }
+}
