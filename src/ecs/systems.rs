@@ -312,7 +312,7 @@ impl PlayerSystem {
     }
 }
 
-
+// Move this to a separate package and import everything needed
 pub struct PhysicsSystem {
 }
 
@@ -348,8 +348,10 @@ impl PhysicsSystem {
             // Simple movement downwards from now
             match (maybe_g, maybe_t) {
                 (Some(g),Some(t)) =>
-                    if t.position.y >= 0f32 {
-                        t.position.y = t.position.y - dt * 0.5f32;
+                // Collision needs to be strict smaller, else it breaks for some reason
+                    if t.position.y > 0f32 {
+                        g.y_velocity += -9.82f32 * dt;
+                        t.position.y += dt * g.y_velocity;
                     } else {
                         t.position.y = 0f32;
                     },
