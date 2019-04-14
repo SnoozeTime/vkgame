@@ -18,12 +18,13 @@ Figure it out
 - [ ] Send reliable (for chat messages)
 
 # Editor
-- [ ] Prompt before exit
+- [X] Prompt before exit
 - [ ] Gizmos: show transform + Axis
-- [ ] Easier load and save
-- [ ] Quick switch between existing levels
+- [X] Easier load and save
+- [X] Quick switch between existing levels
 - [ ] Create template from entity in editor
 
 # BUGS:
 - [ ] GUI does not resize (imgui renderer problem)
 - [ ] When window out of focuse sometime the input is stuck in one direction (network)
+- [ ] Vulkano panic with device lost error 

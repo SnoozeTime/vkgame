@@ -287,6 +287,9 @@ impl DirectionalLightingSystem {
             })
             .unwrap();
 
+        debug!("View: {:?}", v);
+        debug!("proj: {:?}", p);
+        debug!(" P V {:?}", p * v);
         // gbuffer. Input that was rendered in previous pass + Some stuff for shadows.
         let descriptor_set = PersistentDescriptorSet::start(self.shadow_pipeline.clone(), 0)
             .add_image(color_input)

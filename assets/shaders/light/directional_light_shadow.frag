@@ -24,18 +24,44 @@ layout(location = 0) out vec4 f_color;
 float shadow_factor() {
         
         vec4 world_pos = vec4(subpassLoad(u_position).rgb, 1.0);
-        vec4 shadow_clip = light_vp.view * world_pos;
+        vec4 shadow_clip = light_vp.proj * light_vp.view * world_pos;
         float shadow = 1.0;
 
         vec4 shadowCoord = shadow_clip / shadow_clip.w;
-        //shadowCoord.st = shadowCoord.st * 0.5 + 0.5;
+        shadowCoord.xy = shadowCoord.xy * 0.5 + 0.5;
+        float closestDepth = texture(u_shadow, shadowCoord.xy).r;
+        float currentDepth = shadowCoord.z;
 
+        if (currentDepth > 0.0 && currentDepth <= 0.1) {
+                shadow = 0.0;
+        } else if (currentDepth <= 0.2) {
+                shadow = 0.0;
 
-        if (shadowCoord.z > -1.0 && shadowCoord.z < 1.0) {
-                float dist = texture(u_shadow, shadowCoord.st).r;
-                if (shadowCoord.w > 0.0 && dist < shadowCoord.z) {
-                        shadow = 0.25;
-                }
+        } else if (currentDepth <= 0.3) {
+
+                shadow = 0.0;
+        } else if (currentDepth <= 0.4) {
+                shadow = 1.0;
+        } else if (currentDepth <= 0.5) {
+
+                shadow = 0.35;
+        } else if (currentDepth <= 0.6) {
+
+                shadow = 0.0;
+        } else if (currentDepth <= 0.7) {
+
+                shadow = 0.45;
+        } else if (currentDepth <= 0.8) {
+
+                shadow = 0.5;
+        } else if (currentDepth <= 0.9) {
+
+                shadow = 0.6;
+        } else if (currentDepth <= 1.0) {
+
+                shadow = 0.7;
+        } else {
+                shadow = 0.0;
         }
 
         return shadow;
@@ -55,4 +81,20 @@ void main() {
 
         vec3 diffuse = shadow_factor() * diff * push_constants.color.rgb * subpassLoad(u_diffuse).rgb;
         f_color = vec4(diffuse, 1.0);
+       // vec4 world_pos = vec4(subpassLoad(u_position).rgb, 1.0);
+       // vec4 shadow_clip = light_vp.proj * light_vp.view * world_pos;
+
+       // vec4 shadowCoord = shadow_clip / shadow_clip.w;
+       // shadowCoord.xy = shadowCoord.xy * 0.5 + 0.5;
+ 
+        vec4 world_pos = vec4(subpassLoad(u_position).rgb, 1.0);
+        vec4 shadow_clip = light_vp.proj * light_vp.view * world_pos;
+        float shadow = 1.0;
+
+        vec4 shadowCoord = shadow_clip / shadow_clip.w;
+        //shadowCoord.xy = shadowCoord.xy * 0.5 + 0.5;
+        float closestDepth = texture(u_shadow, shadowCoord.xy).r;
+        float currentDepth = shadowCoord.z;
+        //f_color = vec4(world_pos.xyz, 1.0);
+        f_color = vec4(shadowCoord.yyz, 1.0);
 }

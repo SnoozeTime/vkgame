@@ -193,6 +193,7 @@ impl ShadowSystem {
 
         // 2. Draw all objects in the scene
         // --------------------------------
+        debug!("Start Drawing shadow map ------------------");
         for (model, transform) in objects.iter() {
             let texture = resources.textures.textures.get(&model.texture_name);
             if !texture.is_some() {
@@ -209,6 +210,19 @@ impl ShadowSystem {
 
             let uniform_buffer_subbuffer = {
                 let uniform_data = create_mvp(transform, &view, &proj);
+                if log_enabled!(Level::Debug) {
+                    let scale = transform.scale;
+                    let from_t = Matrix4::from_translation(transform.position);
+                    let from_s = Matrix4::from_nonuniform_scale(scale.x, scale.y, scale.z);
+                    let model = from_t * from_s;
+
+                    debug!("Transform = {:?}", transform);
+                    debug!("Model = {:?}", model);
+                    debug!(
+                        "p*v*t = {:?}",
+                        proj * view * model * cgmath::Vector4::new(0.0, 0.0, 0.0, 1.0)
+                    );
+                }
                 self.uniform_buffer.next(uniform_data).unwrap()
             };
 
@@ -239,6 +253,7 @@ impl ShadowSystem {
                 )
                 .unwrap();
         }
+        debug!("finished Drawing shadow map ------------------");
 
         builder.build().unwrap()
     }
@@ -269,7 +284,7 @@ impl ShadowSystem {
         the_fix[2][3] = 0.5;
         the_fix[2][2] = 0.5;
 
-        (view, the_fix * ortho)
+        (view, the_fix * proj)
     }
 }
 
