@@ -5,19 +5,21 @@ use vulkano::framebuffer::{RenderPassAbstract, Subpass};
 use vulkano::pipeline::viewport::Viewport;
 use vulkano::pipeline::{GraphicsPipeline, GraphicsPipelineAbstract};
 
+use super::utils::{self, Vertex2d};
 use crate::event::{Event, ResourceEvent};
 use vulkano::command_buffer::AutoCommandBuffer;
 use vulkano::command_buffer::AutoCommandBufferBuilder;
 use vulkano::command_buffer::DynamicState;
 use vulkano::descriptor::descriptor_set::PersistentDescriptorSet;
 
-use super::utils::{self, Vertex2d};
 use super::GBufferComponent;
 use std::iter;
 use std::sync::Arc;
 
-pub struct PPSystem {
+/// Just display an image on screen
+pub struct DebugSystem {
     queue: Arc<Queue>,
+
     vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex2d]>>,
     index_buffer: Arc<CpuAccessibleBuffer<[u32]>>,
     vs: vs::Shader,
@@ -26,7 +28,7 @@ pub struct PPSystem {
     dimensions: [u32; 2],
 }
 
-impl PPSystem {
+impl DebugSystem {
     pub fn new<R>(queue: Arc<Queue>, subpass: Subpass<R>) -> Self
     where
         R: RenderPassAbstract + Send + Sync + 'static,
@@ -39,8 +41,8 @@ impl PPSystem {
         let fs = fs::Shader::load(queue.device().clone())
             .expect("Failed to create fragment shader module");
 
-        let pipeline = PPSystem::build_pipeline(queue.clone(), subpass, [1, 1], &vs, &fs);
-        PPSystem {
+        let pipeline = DebugSystem::build_pipeline(queue.clone(), subpass, [1, 1], &vs, &fs);
+        DebugSystem {
             queue,
             vertex_buffer,
             index_buffer,
@@ -56,8 +58,13 @@ impl PPSystem {
         R: RenderPassAbstract + Send + Sync + 'static,
     {
         self.dimensions = dimensions;
-        self.pipeline =
-            PPSystem::build_pipeline(self.queue.clone(), subpass, dimensions, &self.vs, &self.fs);
+        self.pipeline = DebugSystem::build_pipeline(
+            self.queue.clone(),
+            subpass,
+            dimensions,
+            &self.vs,
+            &self.fs,
+        );
     }
 
     fn build_pipeline<R>(
@@ -119,7 +126,7 @@ impl PPSystem {
 
     pub fn handle_event(&mut self, ev: &Event) {
         if let Event::ResourceEvent(ResourceEvent::ResourceReloaded(ref path)) = ev {
-            if (*path).ends_with("edge.vert") || (*path).ends_with("edge.frag") {
+            if (*path).ends_with("quad.vert") || (*path).ends_with("quad.frag") {
                 if let Err(err) = self
                     .vs
                     .recompile(self.queue.device().clone())
@@ -139,7 +146,7 @@ impl PPSystem {
 mod vs {
     twgraph_shader::twshader! {
         kind: "vertex",
-        path: "assets/shaders/post_processing/edge.vert",
+        path: "assets/shaders/debug/quad.vert",
         input: [
             {
                 name: "position",
@@ -162,7 +169,7 @@ mod vs {
 mod fs {
     twgraph_shader::twshader! {
         kind: "fragment",
-        path: "assets/shaders/post_processing/edge.frag",
+        path: "assets/shaders/debug/quad.frag",
         input: [
             {
                 name: "uv",

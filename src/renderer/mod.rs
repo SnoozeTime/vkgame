@@ -1,4 +1,5 @@
 mod ambient_lighting_system;
+mod debug_system;
 mod directional_lighting_system;
 mod frame;
 pub mod model;
@@ -10,6 +11,7 @@ mod shadow;
 mod skybox;
 pub mod texture;
 mod ui;
+mod utils;
 
 use pick::Object3DPicker;
 use ui::GuiRenderer;
@@ -29,10 +31,12 @@ use vulkano::sync::{FlushError, GpuFuture};
 use std::sync::Arc;
 
 use crate::camera::Camera;
+use crate::config::GameConfig;
+use crate::config::RenderOptions;
 use crate::ecs::components::{LightComponent, LightType, ModelComponent, TransformComponent};
 use crate::ecs::{Entity, ECS};
 use crate::error::{TwError, TwResult};
-use crate::event::Event;
+use crate::event::{EditorEvent, Event};
 use crate::resource::Resources;
 use frame::{FrameSystem, Pass};
 use scene_system::SceneDrawSystem;
@@ -100,6 +104,9 @@ pub struct Renderer<'a> {
     // pipeline for mouse picking
     pub object_picker: Object3DPicker,
     scene_system: SceneDrawSystem,
+
+    // Options for the renderer - enable disable stuff
+    pub options: RenderOptions,
 }
 
 impl<'a> Renderer<'a> {
@@ -234,6 +241,7 @@ impl<'a> Renderer<'a> {
             gui,
             object_picker,
             dimensions,
+            options: RenderOptions::default(),
             scene_system,
         })
     }
@@ -366,7 +374,17 @@ impl<'a> Renderer<'a> {
                     sky_pass.draw_skybox(camera);
                 }
                 Pass::PostProcessing(mut post_processing) => {
-                    post_processing.outlines();
+                    if self.options.display_outlines {
+                        post_processing.outlines();
+                    }
+
+                    if self.options.show_shadowmap {
+                        post_processing.show_shadowmap();
+                    }
+
+                    if self.options.show_shadowmap_color {
+                        post_processing.show_shadowmap_color();
+                    }
                 }
                 Pass::Gui(mut draw_pass) => {
                     draw_pass.execute(gui_cb.clone());
@@ -411,8 +429,15 @@ impl<'a> Renderer<'a> {
 
     pub fn handle_events(&mut self, events: &Vec<Event>) {
         for ev in events {
-            self.scene_system.handle_event(&ev);
-            self.frame_system.handle_event(&ev);
+            match ev {
+                Event::EditorEvent(EditorEvent::ConfigChange(ref config)) => {
+                    self.options = config.renderer_config;
+                }
+                _ => {
+                    self.scene_system.handle_event(&ev);
+                    self.frame_system.handle_event(&ev);
+                }
+            }
         }
     }
 }

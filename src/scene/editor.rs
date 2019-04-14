@@ -20,7 +20,7 @@ pub struct EditorScene {
 }
 
 impl EditorScene {
-    pub fn new<'a>(render_system: &RenderingSystem<'a>, resources: &Resources) -> Self {
+    pub fn new(render_system: &RenderingSystem, resources: &Resources) -> Self {
         let ecs = ECS::dummy_ecs();
         EditorScene::from_ecs(ecs, render_system, resources)
     }
@@ -146,6 +146,7 @@ impl Scene for EditorScene {
                 Event::EditorEvent(EditorEvent::LoadPrevious) => {
                     self.editor.previous_scene(&mut self.ecs);
                 }
+
                 _ => {
                     if let None = events {
                         events = Some(vec![ev]);

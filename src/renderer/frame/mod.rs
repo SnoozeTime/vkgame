@@ -22,6 +22,7 @@ use vulkano::sync::GpuFuture;
 use cgmath::Vector3;
 
 use super::ambient_lighting_system::AmbientLightingSystem;
+use super::debug_system::DebugSystem;
 use super::directional_lighting_system::DirectionalLightingSystem;
 use super::point_lighting_system::PointLightingSystem;
 use super::pp_system::PPSystem;
@@ -58,6 +59,7 @@ pub struct FrameSystem {
     ambient_lighting_system: AmbientLightingSystem,
     directional_lighting_system: DirectionalLightingSystem,
     pub pp_system: PPSystem,
+    debug_system: DebugSystem,
     pub skybox_system: SkyboxSystem,
     pub shadow_system: ShadowSystem,
 }
@@ -122,6 +124,10 @@ impl FrameSystem {
             Subpass::from(render_pass.clone(), 0).unwrap()
         ));
 
+        let debug_system = timed!(DebugSystem::new(
+            queue.clone(),
+            Subpass::from(render_pass.clone(), 0).unwrap()
+        ));
         let skybox_subpass = Subpass::from(offscreen_render_pass.clone(), 2).unwrap();
         let skybox_system = timed!(SkyboxSystem::new(
             queue.clone(),
@@ -142,6 +148,7 @@ impl FrameSystem {
             ambient_lighting_system,
             directional_lighting_system,
             pp_system,
+            debug_system,
             skybox_system,
             shadow_system,
         }
@@ -197,6 +204,8 @@ impl FrameSystem {
         self.directional_lighting_system
             .rebuild_pipeline(self.lighting_subpass(), dimensions);
         self.pp_system
+            .rebuild_pipeline(self.pp_subpass(), dimensions);
+        self.debug_system
             .rebuild_pipeline(self.pp_subpass(), dimensions);
         self.shadow_system
             .rebuild_pipeline(self.shadow_subpass(), dimensions);
@@ -307,6 +316,7 @@ impl FrameSystem {
         self.ambient_lighting_system.handle_event(ev);
         self.skybox_system.handle_event(ev);
         self.pp_system.handle_event(ev);
+        self.debug_system.handle_event(ev);
         self.shadow_system.handle_event(ev);
     }
 }
@@ -631,6 +641,7 @@ pub struct PostProcessingPass<'f, 's: 'f> {
 }
 
 impl<'f, 's: 'f> PostProcessingPass<'f, 's> {
+    /// Add black outlines to objects
     pub fn outlines(&mut self) {
         let command_buffer = self
             .frame
@@ -638,6 +649,31 @@ impl<'f, 's: 'f> PostProcessingPass<'f, 's> {
             .pp_system
             .draw(&self.frame.system.diffuse_buffer);
 
+        unsafe {
+            self.frame.command_buffer = Some(
+                self.frame
+                    .command_buffer
+                    .take()
+                    .unwrap()
+                    .execute_commands(command_buffer)
+                    .unwrap(),
+            );
+        }
+    }
+
+    /// Will draw the main shadow map to the debug screen
+    pub fn show_shadowmap(&mut self) {
+        self.draw_image(&self.frame.system.shadow_system.shadow_map())
+    }
+
+    /// Will draw the color attachment that is from the point of view of the
+    /// light to the debug screen.
+    pub fn show_shadowmap_color(&mut self) {
+        self.draw_image(&self.frame.system.shadow_system.debug_color())
+    }
+
+    fn draw_image(&mut self, image: &GBufferComponent) {
+        let command_buffer = self.frame.system.debug_system.draw(image);
         unsafe {
             self.frame.command_buffer = Some(
                 self.frame

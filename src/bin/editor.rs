@@ -94,6 +94,8 @@ fn main() {
                     _ => (),
                 }
             }
+
+            render_system.handle_events(&events);
         }
 
         if start_game {

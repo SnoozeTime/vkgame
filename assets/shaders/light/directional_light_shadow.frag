@@ -23,12 +23,13 @@ layout(location = 0) out vec4 f_color;
 
 float shadow_factor() {
         
-        vec4 world_pos = subpassLoad(u_position);
-        vec4 shadow_clip =  light_vp.view * world_pos;
+        vec4 world_pos = vec4(subpassLoad(u_position).rgb, 1.0);
+        vec4 shadow_clip = light_vp.view * world_pos;
         float shadow = 1.0;
 
         vec4 shadowCoord = shadow_clip / shadow_clip.w;
-        shadowCoord.st = shadowCoord.st * 0.5 + 0.5;
+        //shadowCoord.st = shadowCoord.st * 0.5 + 0.5;
+
 
         if (shadowCoord.z > -1.0 && shadowCoord.z < 1.0) {
                 float dist = texture(u_shadow, shadowCoord.st).r;
@@ -37,17 +38,6 @@ float shadow_factor() {
                 }
         }
 
-//
-//        vec4 frag_pos_from_lightpov = light_vp.proj * light_vp.view * world_pos;
-//
-//        vec3 frag_pos_clip = vec3(frag_pos_from_lightpov.x,
-//                                  frag_pos_from_lightpov.y,
-//                                  frag_pos_from_lightpov.z/frag_pos_from_lightpov.w);
-//        vec3 first_obj_pos = subpassLoad(u_shadow).rgb;
-//
-//        if (first_obj_pos.r < frag_pos_clip.z) {
-//                return 0.0;
-//        }
         return shadow;
 }
 
@@ -56,7 +46,6 @@ void main() {
         // Any depth superior or equal to 1.0 means that the pixel has been untouched by the deferred
         // pass. We don't want to deal with them.
         if (in_depth >= 1.0) {
-//                f_color = vec4(1.0, 1.0, 1.0, 1.0);
                 return;
         }
         

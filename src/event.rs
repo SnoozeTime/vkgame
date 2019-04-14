@@ -1,4 +1,5 @@
 use crate::camera::CameraDirection;
+use crate::config::GameConfig;
 use crate::scene::ClientCommand;
 use std::path::PathBuf;
 
@@ -25,6 +26,9 @@ pub enum EditorEvent {
 
     /// Load previous scene in the list of known scenes
     LoadPrevious,
+
+    /// Game configuration has changed from the editor,
+    ConfigChange(GameConfig),
 }
 
 /// Events such as resource reloaded.

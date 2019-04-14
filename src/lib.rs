@@ -8,6 +8,7 @@ pub mod error;
 pub mod renderer;
 pub mod ser;
 
+pub mod config;
 pub mod event;
 pub mod input;
 pub mod resource;

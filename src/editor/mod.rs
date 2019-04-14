@@ -7,8 +7,11 @@ use crate::ui::Gui;
 use imgui::{im_str, ImGuiCond, ImGuiSelectableFlags, ImString, ImVec2, Ui};
 use log::*;
 use std::collections::HashMap;
+use std::default::Default;
 use std::path::PathBuf;
+mod config_window;
 mod file_select;
+use crate::config::GameConfig;
 use crate::resource::Resources;
 use file_select::{file_select, FileSelect};
 
@@ -45,6 +48,9 @@ pub struct Editor {
     pub pending_event: Option<Event>,
     // once pending event is confirmed or canceld, would be store here
     pub event_to_process: Option<Event>,
+
+    show_config_window: bool,
+    game_config: GameConfig,
 }
 
 impl Editor {
@@ -77,6 +83,8 @@ impl Editor {
             show_confirmation_prompt: false,
             pending_event: None,
             event_to_process: None,
+            show_config_window: false,
+            game_config: GameConfig::default(),
         }
     }
 
@@ -207,6 +215,14 @@ impl Editor {
             self.event_to_process = Some(Event::EditorEvent(EditorEvent::LoadPrevious));
         }
     }
+
+    pub fn show_configuration_window(&mut self) {
+        self.show_config_window = true;
+    }
+
+    pub fn hide_configuration_window(&mut self) {
+        self.show_config_window = false;
+    }
 }
 
 /*
@@ -300,6 +316,10 @@ fn display_menu(ui: &Ui, editor: &mut Editor, ecs: &mut ECS) {
             {
                 open_rename_popup = true;
             }
+
+            if ui.menu_item(im_str!("Configuration")).build() {
+                editor.show_configuration_window();
+            }
         });
 
         ui.text(im_str!("Current file name: {}", editor.filename()));
@@ -377,6 +397,10 @@ impl Gui for Editor {
 
         display_menu(ui, self, ecs);
         display_confirmation_popup(ui, self, ecs);
+
+        if self.show_config_window {
+            config_window::show_configuration_window(ui, self);
+        }
 
         // That is our tree !
         ui.window(im_str!("Scene"))
