@@ -284,7 +284,7 @@ impl ShadowSystem {
         the_fix[2][3] = 0.5;
         the_fix[2][2] = 0.5;
 
-        (view, the_fix * proj)
+        (view, the_fix * ortho)
     }
 }
 

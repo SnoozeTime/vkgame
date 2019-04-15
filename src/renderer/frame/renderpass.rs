@@ -25,20 +25,22 @@ pub fn build_render_pass(
 ) {
     (
         Arc::new(
-            ShadowRenderPassDesc::new((Format::D16Unorm, 1), (Format::R16G16B16A16Sfloat, 1))
-                .build_render_pass(device.clone())
-                .unwrap(),
-        ),
-        Arc::new(
             OffscreenRenderPassDesc::new(
                 (final_output_format, 1),
                 (Format::A2B10G10R10UnormPack32, 1),
                 (Format::R16G16B16A16Sfloat, 1),
                 (Format::R16G16B16A16Sfloat, 1),
                 (Format::D16Unorm, 1),
+                (Format::D16Unorm, 1),
+                (Format::R16G16B16A16Sfloat, 1),
             )
             .build_render_pass(device.clone())
             .unwrap(),
+        ),
+        Arc::new(
+            LightingRenderPassDesc::new((final_output_format, 1))
+                .build_render_pass(device.clone())
+                .unwrap(),
         ),
         Arc::new(
             OnscreenRenderPassDesc::new((final_output_format, 1))
@@ -220,6 +222,8 @@ impl OffscreenRenderPassDesc {
         normals: (Format, u32),
         fragment_pos: (Format, u32),
         depth: (Format, u32),
+        shadow: (Format, u32),
+        shadow_diffuse: (Format, u32),
     ) -> Self {
         let mut attachments = Vec::new();
         attachments.push(AttachmentDescription {
@@ -276,7 +280,37 @@ impl OffscreenRenderPassDesc {
             initial_layout: ImageLayout::Undefined,
             final_layout: ImageLayout::DepthStencilAttachmentOptimal,
         });
+        attachments.push(AttachmentDescription {
+            format: shadow.0,
+            samples: shadow.1,
+            load: LoadOp::Clear,
+            store: StoreOp::Store,
+            stencil_load: LoadOp::Clear,
+            stencil_store: StoreOp::DontCare,
+            initial_layout: ImageLayout::Undefined,
+            final_layout: ImageLayout::DepthStencilAttachmentOptimal,
+        });
+        attachments.push(AttachmentDescription {
+            format: shadow_diffuse.0,
+            samples: shadow_diffuse.1,
+            load: LoadOp::Clear,
+            store: StoreOp::Store,
+            stencil_load: LoadOp::Clear,
+            stencil_store: StoreOp::Store,
+            initial_layout: ImageLayout::Undefined,
+            final_layout: ImageLayout::ColorAttachmentOptimal,
+        });
+
         let mut passes = Vec::new();
+
+        //shadow map pass
+        passes.push(PassDescription {
+            color_attachments: vec![(6, ImageLayout::ColorAttachmentOptimal)],
+            depth_stencil: Some((5, ImageLayout::DepthStencilAttachmentOptimal)),
+            input_attachments: vec![],
+            resolve_attachments: vec![],
+            preserve_attachments: vec![],
+        });
 
         // Only one subpass to render the scene to g-buffer
         passes.push(PassDescription {
@@ -287,20 +321,6 @@ impl OffscreenRenderPassDesc {
             ],
             depth_stencil: Some((4, ImageLayout::DepthStencilAttachmentOptimal)),
             input_attachments: vec![],
-            resolve_attachments: vec![],
-            preserve_attachments: vec![],
-        });
-
-        // Lighting pass
-        passes.push(PassDescription {
-            color_attachments: vec![(0, ImageLayout::ColorAttachmentOptimal)],
-            depth_stencil: None,
-            input_attachments: vec![
-                (1, ImageLayout::ShaderReadOnlyOptimal),
-                (2, ImageLayout::ShaderReadOnlyOptimal),
-                (3, ImageLayout::ShaderReadOnlyOptimal),
-                (4, ImageLayout::ShaderReadOnlyOptimal),
-            ],
             resolve_attachments: vec![],
             preserve_attachments: vec![],
         });
@@ -316,22 +336,22 @@ impl OffscreenRenderPassDesc {
 
         let mut dependencies = Vec::new();
 
-        dependencies.push(PassDependencyDescription {
-            source_subpass: vk_sys::SUBPASS_EXTERNAL as usize,
-            destination_subpass: 0,
-            source_stages: PipelineStages {
-                all_graphics: true,
-                ..PipelineStages::none()
-            }, // TODO: correct values
-            destination_stages: PipelineStages {
-                all_graphics: true,
-                ..PipelineStages::none()
-            }, // TODO: correct values
-            source_access: AccessFlagBits::all(), // TODO: correct values
-            destination_access: AccessFlagBits::all(), // TODO: correct values
-            by_region: true,                      // TODO: correct values
-        });
-
+        //        dependencies.push(PassDependencyDescription {
+        //            source_subpass: vk_sys::SUBPASS_EXTERNAL as usize,
+        //            destination_subpass: 0,
+        //            source_stages: PipelineStages {
+        //                all_graphics: true,
+        //                ..PipelineStages::none()
+        //            }, // TODO: correct values
+        //            destination_stages: PipelineStages {
+        //                all_graphics: true,
+        //                ..PipelineStages::none()
+        //            }, // TODO: correct values
+        //            source_access: AccessFlagBits::all(), // TODO: correct values
+        //            destination_access: AccessFlagBits::all(), // TODO: correct values
+        //            by_region: true,                      // TODO: correct values
+        //        });
+        //
         dependencies.push(PassDependencyDescription {
             source_subpass: 0,
             destination_subpass: 1,
@@ -363,7 +383,6 @@ impl OffscreenRenderPassDesc {
             destination_access: AccessFlagBits::all(), // TODO: correct values
             by_region: true,                      // TODO: correct values
         });
-
         dependencies.push(PassDependencyDescription {
             source_subpass: 2,
             // outside of render pass
@@ -391,6 +410,106 @@ impl OffscreenRenderPassDesc {
     }
 }
 
+/// This render pass will use the g-buffer and the lights to
+/// render the scene to the screen. It also has subpasses for
+/// post processing and GUI overlay
+pub struct LightingRenderPassDesc {
+    attachments: Vec<AttachmentDescription>,
+    passes: Vec<PassDescription>,
+    dependencies: Vec<PassDependencyDescription>,
+}
+
+#[allow(unsafe_code)]
+unsafe impl RenderPassDesc for LightingRenderPassDesc {
+    #[inline]
+    fn num_attachments(&self) -> usize {
+        self.attachments.len()
+    }
+
+    #[inline]
+    fn attachment_desc(&self, id: usize) -> Option<AttachmentDescription> {
+        self.attachments
+            .get(id)
+            .map(|attachment| attachment.clone())
+    }
+
+    #[inline]
+    fn num_subpasses(&self) -> usize {
+        self.passes.len()
+    }
+
+    #[inline]
+    fn subpass_desc(&self, id: usize) -> Option<PassDescription> {
+        self.passes.get(id).map(|pass| pass.clone())
+    }
+
+    #[inline]
+    fn num_dependencies(&self) -> usize {
+        self.dependencies.len()
+    }
+
+    #[inline]
+    fn dependency_desc(&self, id: usize) -> Option<PassDependencyDescription> {
+        self.dependencies.get(id).map(|dep| dep.clone())
+    }
+}
+
+unsafe impl RenderPassDescClearValues<Vec<ClearValue>> for LightingRenderPassDesc {
+    fn convert_clear_values(&self, values: Vec<ClearValue>) -> Box<Iterator<Item = ClearValue>> {
+        Box::new(values.into_iter())
+    }
+}
+
+impl LightingRenderPassDesc {
+    pub fn new(final_color: (Format, u32)) -> Self {
+        let mut attachments = Vec::new();
+        attachments.push(AttachmentDescription {
+            format: final_color.0,
+            samples: final_color.1,
+            load: LoadOp::DontCare,
+            store: StoreOp::Store,
+            stencil_load: LoadOp::Clear,
+            stencil_store: StoreOp::Store,
+            initial_layout: ImageLayout::ColorAttachmentOptimal,
+            final_layout: ImageLayout::ColorAttachmentOptimal,
+        });
+
+        let mut passes = Vec::new();
+
+        // GUI pass
+        passes.push(PassDescription {
+            color_attachments: vec![(0, ImageLayout::ColorAttachmentOptimal)],
+            depth_stencil: None,
+            input_attachments: vec![],
+            resolve_attachments: vec![],
+            preserve_attachments: vec![],
+        });
+
+        let mut dependencies = Vec::new();
+
+        dependencies.push(PassDependencyDescription {
+            source_subpass: vk_sys::SUBPASS_EXTERNAL as usize,
+            destination_subpass: 0,
+            source_stages: PipelineStages {
+                all_graphics: true,
+                ..PipelineStages::none()
+            }, // TODO: correct values
+            destination_stages: PipelineStages {
+                all_graphics: true,
+                ..PipelineStages::none()
+            }, // TODO: correct values
+            source_access: AccessFlagBits::all(), // TODO: correct values
+            destination_access: AccessFlagBits::all(), // TODO: correct values
+            by_region: true,                      // TODO: correct values
+        });
+
+        LightingRenderPassDesc {
+            attachments,
+            passes,
+            dependencies,
+        }
+    }
+}
 /// This render pass will use the g-buffer and the lights to
 /// render the scene to the screen. It also has subpasses for
 /// post processing and GUI overlay

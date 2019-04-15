@@ -41,7 +41,7 @@ pub struct FrameSystem {
     queue: Arc<Queue>,
 
     // Will determine where are we drawing to.
-    shadow_render_pass: Arc<RenderPassAbstract + Send + Sync>,
+    lighting_render_pass: Arc<RenderPassAbstract + Send + Sync>,
     offscreen_render_pass: Arc<RenderPassAbstract + Send + Sync>,
     render_pass: Arc<RenderPassAbstract + Send + Sync>,
 
@@ -66,7 +66,7 @@ pub struct FrameSystem {
 
 impl FrameSystem {
     pub fn new(queue: Arc<Queue>, final_output_format: Format) -> Self {
-        let (shadow_render_pass, offscreen_render_pass, render_pass) = timed!(
+        let (offscreen_render_pass, lighting_render_pass, render_pass) = timed!(
             renderpass::build_render_pass(queue.device().clone(), final_output_format)
         );
 
@@ -101,7 +101,7 @@ impl FrameSystem {
             usage
         ));
 
-        let lighting_subpass = timed!(Subpass::from(offscreen_render_pass.clone(), 1).unwrap());
+        let lighting_subpass = timed!(Subpass::from(lighting_render_pass.clone(), 0).unwrap());
         let point_lighting_system = timed!(PointLightingSystem::new(
             queue.clone(),
             lighting_subpass.clone()
@@ -116,7 +116,7 @@ impl FrameSystem {
         ));
         let shadow_system = timed!(ShadowSystem::new(
             queue.clone(),
-            Subpass::from(shadow_render_pass.clone(), 0).unwrap()
+            Subpass::from(offscreen_render_pass.clone(), 0).unwrap()
         ));
 
         let pp_system = timed!(PPSystem::new(
@@ -136,7 +136,7 @@ impl FrameSystem {
         ));
 
         FrameSystem {
-            shadow_render_pass,
+            lighting_render_pass,
             offscreen_render_pass,
             render_pass,
             queue: queue.clone(),
@@ -165,17 +165,17 @@ impl FrameSystem {
 
     #[inline]
     pub fn shadow_subpass(&self) -> Subpass<Arc<RenderPassAbstract + Send + Sync>> {
-        Subpass::from(self.shadow_render_pass.clone(), 0).unwrap()
+        Subpass::from(self.offscreen_render_pass.clone(), 0).unwrap()
     }
     /// Return the subpass where we should write objects to the final image.
     #[inline]
     pub fn deferred_subpass(&self) -> Subpass<Arc<RenderPassAbstract + Send + Sync>> {
-        Subpass::from(self.offscreen_render_pass.clone(), 0).unwrap()
+        Subpass::from(self.offscreen_render_pass.clone(), 1).unwrap()
     }
 
     #[inline]
     pub fn lighting_subpass(&self) -> Subpass<Arc<RenderPassAbstract + Send + Sync>> {
-        Subpass::from(self.offscreen_render_pass.clone(), 1).unwrap()
+        Subpass::from(self.lighting_render_pass.clone(), 0).unwrap()
     }
 
     #[inline]
@@ -253,11 +253,9 @@ impl FrameSystem {
 
             self.rebuild_systems(img_dims);
         }
-        let framebuffer = Arc::new(
-            Framebuffer::start(self.shadow_render_pass.clone())
-                .add(self.shadow_system.shadow_map().image)
-                .unwrap()
-                .add(self.shadow_system.debug_color().image)
+        let lighting_framebuffer = Arc::new(
+            Framebuffer::start(self.lighting_render_pass.clone())
+                .add(final_image.clone())
                 .unwrap()
                 .build()
                 .unwrap(),
@@ -272,24 +270,36 @@ impl FrameSystem {
         );
 
         // Framebuffer contains all the attachments and output image.
-        let gbuffer_framebuffer = Arc::new(
+        let framebuffer = Arc::new(
             Framebuffer::start(self.offscreen_render_pass.clone())
                 .add(final_image.clone())
-                .unwrap()
+                .expect("Cannot add final_image attachment")
                 .add(self.diffuse_buffer.image.clone())
-                .unwrap()
+                .expect("Cannot add diffuse buffer attachment")
                 .add(self.normals_buffer.image.clone())
-                .unwrap()
+                .expect("Cannot add normal buffer attachment")
                 .add(self.frag_pos_buffer.image.clone())
-                .unwrap()
+                .expect("Cannot add frag_pos_buffer")
                 .add(self.depth_buffer.image.clone())
-                .unwrap()
+                .expect("Cannot add depth buffer")
+                .add(self.shadow_system.shadow_map().image)
+                .expect("Cannot add shadow map")
+                .add(self.shadow_system.debug_color().image)
+                .expect("Cnnot add shadow diffuse")
                 .build()
-                .unwrap(),
+                .expect("Cannot build framebuffer"),
         );
+        let clear_values = vec![
+            [0.0, 0.0, 0.0, 0.0].into(),
+            [0.0, 0.0, 0.0, 1.0].into(),
+            [0.0, 0.0, 0.0, 0.0].into(),
+            [0.0, 0.0, 0.0, 0.0].into(),
+            1f32.into(),
+            1f32.into(),
+            [0.0, 0.0, 0.0, 0.0].into(),
+        ];
 
         // Ok, begin the render pass now and return the Frame with all the information
-        let clear_values = vec![1f32.into(), [0.0, 0.0, 0.0, 0.0].into()];
         let command_buffer = Some(
             AutoCommandBufferBuilder::primary_one_time_submit(
                 self.queue.device().clone(),
@@ -302,7 +312,7 @@ impl FrameSystem {
 
         Frame {
             system: self,
-            gbuffer_framebuffer,
+            lighting_framebuffer,
             onscreen_framebuffer,
             before_main_cb_future: Some(Box::new(before_future)),
             num_pass: 0,
@@ -325,7 +335,7 @@ impl FrameSystem {
 pub struct Frame<'a> {
     system: &'a mut FrameSystem,
 
-    gbuffer_framebuffer: Arc<FramebufferAbstract + Send + Sync>,
+    lighting_framebuffer: Arc<FramebufferAbstract + Send + Sync>,
     onscreen_framebuffer: Arc<FramebufferAbstract + Send + Sync>,
 
     // 0 -> haven't begun yet
@@ -352,28 +362,13 @@ impl<'a> Frame<'a> {
         } {
             0 => Some(Pass::Shadow(ShadowPass { frame: self })),
             1 => {
-                // Finished drawing shadowmaps, begin next
-                // render pass
-                let clear_values = vec![
-                    [0.0, 0.0, 0.0, 0.0].into(),
-                    [0.0, 0.0, 0.0, 1.0].into(),
-                    [0.0, 0.0, 0.0, 0.0].into(),
-                    [0.0, 0.0, 0.0, 0.0].into(),
-                    1f32.into(),
-                ];
-
-                let cmd_buf = self
-                    .command_buffer
-                    .take()
-                    .unwrap()
-                    .end_render_pass()
-                    .unwrap()
-                    .begin_render_pass(self.gbuffer_framebuffer.clone(), true, clear_values)
-                    .unwrap();
-
-                self.command_buffer = Some(cmd_buf);
-
-                // Render pass has started but nothing is done yet.
+                self.command_buffer = Some(
+                    self.command_buffer
+                        .take()
+                        .unwrap()
+                        .next_subpass(true)
+                        .unwrap(),
+                );
                 Some(Pass::Deferred(DrawPass { frame: self }))
             }
             2 => {
@@ -384,20 +379,25 @@ impl<'a> Frame<'a> {
                         .next_subpass(true)
                         .unwrap(),
                 );
-                Some(Pass::Lighting(LightingPass { frame: self }))
-            }
-            3 => {
-                self.command_buffer = Some(
-                    self.command_buffer
-                        .take()
-                        .unwrap()
-                        .next_subpass(true)
-                        .unwrap(),
-                );
                 Some(Pass::Skybox(SkyboxPass { frame: self }))
             }
+            3 => {
+                let clear_values = vec![ClearValue::None];
+                let cmd_buf = self
+                    .command_buffer
+                    .take()
+                    .unwrap()
+                    .end_render_pass()
+                    .unwrap()
+                    .begin_render_pass(self.lighting_framebuffer.clone(), true, clear_values)
+                    .unwrap();
+
+                self.command_buffer = Some(cmd_buf);
+
+                Some(Pass::Lighting(LightingPass { frame: self }))
+            }
             4 => {
-                // Finished drawing skybox, begin next
+                // Finished drawing lights, begin next
                 // render pass
                 let clear_values = vec![ClearValue::None];
 
@@ -569,10 +569,10 @@ impl<'f, 's: 'f> LightingPass<'f, 's> {
                 .system
                 .directional_lighting_system
                 .draw_with_shadow(
-                    self.frame.system.diffuse_buffer.image.clone(),
-                    self.frame.system.normals_buffer.image.clone(),
-                    self.frame.system.depth_buffer.image.clone(),
-                    self.frame.system.frag_pos_buffer.image.clone(),
+                    &self.frame.system.diffuse_buffer,
+                    &self.frame.system.normals_buffer,
+                    &self.frame.system.depth_buffer,
+                    &self.frame.system.frag_pos_buffer,
                     &self.frame.system.shadow_system.shadow_map(),
                     light_transform,
                     color,

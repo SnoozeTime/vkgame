@@ -18,15 +18,10 @@ use std::iter;
 use std::sync::Arc;
 
 use super::shadow::ShadowSystem;
+use super::utils::{self, Vertex2d};
 use super::GBufferComponent;
 use crate::ecs::components::TransformComponent;
 use crate::event::{Event, ResourceEvent};
-
-#[derive(Debug, Clone)]
-struct Vertex {
-    position: [f32; 2],
-}
-vulkano::impl_vertex!(Vertex, position);
 
 /// Render light that comes from infinity from a certain direction.
 /// A directional light can cast shadows. In that case, the shadow map
@@ -34,7 +29,9 @@ vulkano::impl_vertex!(Vertex, position);
 pub struct DirectionalLightingSystem {
     queue: Arc<Queue>,
 
-    vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
+    vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex2d]>>,
+    index_buffer: Arc<CpuAccessibleBuffer<[u32]>>,
+
     vs: vs::Shader,
     fs: fs::Shader,
     shadow_fs: shadow_fs::Shader,
@@ -52,27 +49,8 @@ impl DirectionalLightingSystem {
     where
         R: RenderPassAbstract + Clone + Send + Sync + 'static,
     {
-        // that is suspicious
-        let vertex_buffer = {
-            CpuAccessibleBuffer::from_iter(
-                queue.device().clone(),
-                BufferUsage::all(),
-                [
-                    Vertex {
-                        position: [-1.0, -1.0],
-                    },
-                    Vertex {
-                        position: [-1.0, 3.0],
-                    },
-                    Vertex {
-                        position: [3.0, -1.0],
-                    },
-                ]
-                .iter()
-                .cloned(),
-            )
-            .expect("Failed to create buffer")
-        };
+        let (vertex_buffer, index_buffer) =
+            utils::create_quad(queue.clone()).expect("Could not create quad buff");
 
         let vs = vs::Shader::load(queue.device().clone())
             .expect("Failed to create vertex shader module");
@@ -95,6 +73,7 @@ impl DirectionalLightingSystem {
         DirectionalLightingSystem {
             queue,
             vertex_buffer,
+            index_buffer,
             vs,
             fs,
             shadow_fs,
@@ -142,7 +121,7 @@ impl DirectionalLightingSystem {
         (
             Arc::new(
                 GraphicsPipeline::start()
-                    .vertex_input_single_buffer::<Vertex>()
+                    .vertex_input_single_buffer::<Vertex2d>()
                     .vertex_shader(vs.main_entry_point(), ())
                     .triangle_list()
                     .viewports_dynamic_scissors_irrelevant(1)
@@ -171,7 +150,7 @@ impl DirectionalLightingSystem {
             ),
             Arc::new(
                 GraphicsPipeline::start()
-                    .vertex_input_single_buffer::<Vertex>()
+                    .vertex_input_single_buffer::<Vertex2d>()
                     .vertex_shader(vs.main_entry_point(), ())
                     .triangle_list()
                     .viewports_dynamic_scissors_irrelevant(1)
@@ -253,22 +232,16 @@ impl DirectionalLightingSystem {
     /// Draw the color added the light at position `position` and color `color`
     /// With the shadow map.
     /// The shadow map SHOULD correspond to the light. otherwise strange things will happen :D
-    pub fn draw_with_shadow<C, N, D, P>(
+    pub fn draw_with_shadow(
         &self,
-        color_input: C,
-        normals_input: N,
-        depth_input: D,
-        position_input: P,
+        color_input: &GBufferComponent,
+        normals_input: &GBufferComponent,
+        depth_input: &GBufferComponent,
+        position_input: &GBufferComponent,
         shadow_map: &GBufferComponent,
         light_transform: &TransformComponent,
         color: [f32; 3],
-    ) -> AutoCommandBuffer
-    where
-        C: ImageViewAccess + Send + Sync + 'static,
-        N: ImageViewAccess + Send + Sync + 'static,
-        D: ImageViewAccess + Send + Sync + 'static,
-        P: ImageViewAccess + Send + Sync + 'static,
-    {
+    ) -> AutoCommandBuffer {
         debug!("Drawing shadows");
         // Data for the light source
         let direction: Vector3<f32> = light_transform.position.into();
@@ -292,13 +265,13 @@ impl DirectionalLightingSystem {
         debug!(" P V {:?}", p * v);
         // gbuffer. Input that was rendered in previous pass + Some stuff for shadows.
         let descriptor_set = PersistentDescriptorSet::start(self.shadow_pipeline.clone(), 0)
-            .add_image(color_input)
+            .add_sampled_image(color_input.image.clone(), color_input.sampler.clone())
             .unwrap()
-            .add_image(normals_input)
+            .add_sampled_image(normals_input.image.clone(), normals_input.sampler.clone())
             .unwrap()
-            .add_image(depth_input)
+            .add_sampled_image(depth_input.image.clone(), depth_input.sampler.clone())
             .unwrap()
-            .add_image(position_input)
+            .add_sampled_image(position_input.image.clone(), position_input.sampler.clone())
             .unwrap()
             .add_sampled_image(shadow_map.image.clone(), shadow_map.sampler.clone())
             .unwrap()
@@ -313,10 +286,11 @@ impl DirectionalLightingSystem {
             self.shadow_pipeline.clone().subpass(),
         )
         .unwrap()
-        .draw(
+        .draw_indexed(
             self.shadow_pipeline.clone(),
             &DynamicState::none(),
             vec![self.vertex_buffer.clone()],
+            self.index_buffer.clone(),
             descriptor_set,
             push_constants,
         )
@@ -327,7 +301,7 @@ impl DirectionalLightingSystem {
 
     pub fn handle_event(&mut self, ev: &Event) {
         if let Event::ResourceEvent(ResourceEvent::ResourceReloaded(ref path)) = ev {
-            if (*path).ends_with("directional_light.vert")
+            if (*path).ends_with("quad.vert")
                 || (*path).ends_with("directional_light.frag")
                 || (*path).ends_with("directional_light_shadow.frag")
             {
@@ -351,18 +325,22 @@ impl DirectionalLightingSystem {
 mod vs {
     twgraph_shader::twshader! {
         kind: "vertex",
-        path: "assets/shaders/light/directional_light.vert",
+        path: "assets/shaders/debug/quad.vert",
         input: [
-        {
-            name: "position",
-            format: R32G32Sfloat
-        }
+            {
+                name: "position",
+                format: R32G32Sfloat
+            },
+            {
+                name: "uv",
+                format: R32G32Sfloat
+            }
         ],
         output: [
-        {
-            name: "v_screen_coords",
-            format: R32G32Sfloat
-        }
+            {
+                name: "outUv",
+                format: R32G32Sfloat
+            }
         ]
     }
 }
@@ -373,7 +351,7 @@ mod fs {
         path: "assets/shaders/light/directional_light.frag",
         input: [
         {
-            name: "v_screen_coords",
+            name: "uv",
             format: R32G32Sfloat
         }
         ],
@@ -416,7 +394,7 @@ mod shadow_fs {
         path: "assets/shaders/light/directional_light_shadow.frag",
         input: [
         {
-            name: "v_screen_coords",
+            name: "uv",
             format: R32G32Sfloat
         }
         ],
@@ -433,25 +411,25 @@ mod shadow_fs {
         descriptors: [
         {
             name: u_diffuse,
-            ty: InputAttachment,
+            ty: SampledImage,
             set: 0,
             binding: 0
         },
         {
             name: u_normals,
-            ty: InputAttachment,
+            ty: SampledImage,
             set: 0,
             binding: 1
         },
         {
             name: u_depth,
-            ty: InputAttachment,
+            ty: SampledImage,
             set: 0,
             binding: 2
         },
         {
             name: u_position,
-            ty: InputAttachment,
+            ty: SampledImage,
             set: 0,
             binding: 3,
         },
