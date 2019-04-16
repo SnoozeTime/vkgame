@@ -192,6 +192,11 @@ impl<T: Clone> GenerationalIndexArray<T> {
     }
 
     pub fn empty(&mut self, index: &GenerationalIndex) {
+        if index.index() >= self.0.len() {
+            self.0
+                .extend(iter::repeat(None).take(1 + index.index() - self.0.len()))
+        }
+
         self.0[index.index()] = None;
     }
 
