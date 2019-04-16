@@ -113,6 +113,7 @@ impl ShadowSystem {
                 .vertex_input_single_buffer::<Vertex>()
                 .vertex_shader(vs.main_entry_point(), ())
                 .triangle_list()
+                .cull_mode_front()
                 .viewports_dynamic_scissors_irrelevant(1)
                 .depth_stencil_simple_depth()
                 .viewports(std::iter::once(Viewport {
