@@ -2,9 +2,9 @@
 
 // These are the diffuse, normals and depth that we have renderer to some buffers the
 // previous render subpass.
-layout(input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput u_diffuse;
-layout(input_attachment_index = 1, set = 0, binding = 1) uniform subpassInput u_normals;
-layout(input_attachment_index = 2, set = 0, binding = 2) uniform subpassInput u_depth;
+layout(set = 0, binding = 0) uniform sampler2D u_diffuse;
+layout(set = 0, binding = 1) uniform sampler2D u_normals;
+layout(set = 0, binding = 2) uniform sampler2D u_depth;
 
 // For the point light
 layout(push_constant) uniform PushConstants {
@@ -12,11 +12,11 @@ layout(push_constant) uniform PushConstants {
         vec4 position;
 } push_constants;
 
-layout(location = 0) in vec2 v_screen_coords;
+layout(location = 0) in vec2 uv;
 layout(location = 0) out vec4 f_color;
 
 void main() {
-        float in_depth = subpassLoad(u_depth).x;
+        float in_depth = texture(u_depth, uv).x;
         // Any depth superior or equal to 1.0 means that the pixel has been untouched by the deferred
         // pass. We don't want to deal with them.
         if (in_depth >= 1.0) {
@@ -24,10 +24,10 @@ void main() {
                 return;
         }
 
-        vec3 norm = normalize(subpassLoad(u_normals).rgb);
+        vec3 norm = normalize(texture(u_normals, uv).rgb);
         vec3 lightDir = normalize(push_constants.position.xyz);
         float diff = max(dot(norm, lightDir), 0.0);
 
-        vec3 diffuse = diff * push_constants.color.rgb * subpassLoad(u_diffuse).rgb;
+        vec3 diffuse = diff * push_constants.color.rgb * texture(u_diffuse, uv).rgb;
         f_color = vec4(diffuse, 1.0);
 }

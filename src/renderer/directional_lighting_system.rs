@@ -181,19 +181,14 @@ impl DirectionalLightingSystem {
     }
 
     /// Draw the color added the light at position `position` and color `color`
-    pub fn draw<C, N, D>(
+    pub fn draw(
         &self,
-        color_input: C,
-        normals_input: N,
-        depth_input: D,
+        color_input: &GBufferComponent,
+        normals_input: &GBufferComponent,
+        depth_input: &GBufferComponent,
         direction: Vector3<f32>,
         color: [f32; 3],
-    ) -> AutoCommandBuffer
-    where
-        C: ImageViewAccess + Send + Sync + 'static,
-        N: ImageViewAccess + Send + Sync + 'static,
-        D: ImageViewAccess + Send + Sync + 'static,
-    {
+    ) -> AutoCommandBuffer {
         // Data for the light source
         let push_constants = fs::ty::PushConstants {
             position: direction.extend(0.0).into(),
@@ -202,11 +197,11 @@ impl DirectionalLightingSystem {
 
         // gbuffer. Input that was rendered in previous pass
         let descriptor_set = PersistentDescriptorSet::start(self.pipeline.clone(), 0)
-            .add_image(color_input)
+            .add_sampled_image(color_input.image.clone(), color_input.sampler.clone())
             .unwrap()
-            .add_image(normals_input)
+            .add_sampled_image(normals_input.image.clone(), normals_input.sampler.clone())
             .unwrap()
-            .add_image(depth_input)
+            .add_sampled_image(depth_input.image.clone(), depth_input.sampler.clone())
             .unwrap()
             .build()
             .unwrap();
@@ -217,10 +212,11 @@ impl DirectionalLightingSystem {
             self.pipeline.clone().subpass(),
         )
         .unwrap()
-        .draw(
+        .draw_indexed(
             self.pipeline.clone(),
             &DynamicState::none(),
             vec![self.vertex_buffer.clone()],
+            self.index_buffer.clone(),
             descriptor_set,
             push_constants,
         )
@@ -368,19 +364,19 @@ mod fs {
         descriptors: [
         {
             name: u_diffuse,
-            ty: InputAttachment,
+            ty: SampledImage,
             set: 0,
             binding: 0
         },
         {
             name: u_normals,
-            ty: InputAttachment,
+            ty: SampledImage,
             set: 0,
             binding: 1
         },
         {
             name: U_depth,
-            ty: InputAttachment,
+            ty: SampledImage,
             set: 0,
             binding: 2
         }

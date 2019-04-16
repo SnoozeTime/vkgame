@@ -520,7 +520,7 @@ impl<'f, 's: 'f> LightingPass<'f, 's> {
             self.frame
                 .system
                 .ambient_lighting_system
-                .draw(self.frame.system.diffuse_buffer.image.clone(), color)
+                .draw(&self.frame.system.diffuse_buffer, color)
         };
 
         unsafe {
@@ -538,10 +538,10 @@ impl<'f, 's: 'f> LightingPass<'f, 's> {
     pub fn point_light(&mut self, position: Vector3<f32>, color: [f32; 3]) {
         let command_buffer = {
             self.frame.system.point_lighting_system.draw(
-                self.frame.system.diffuse_buffer.image.clone(),
-                self.frame.system.normals_buffer.image.clone(),
-                self.frame.system.frag_pos_buffer.image.clone(),
-                self.frame.system.depth_buffer.image.clone(),
+                &self.frame.system.diffuse_buffer,
+                &self.frame.system.normals_buffer,
+                &self.frame.system.frag_pos_buffer,
+                &self.frame.system.depth_buffer,
                 position,
                 color,
             )
@@ -594,9 +594,9 @@ impl<'f, 's: 'f> LightingPass<'f, 's> {
     pub fn directional_light(&mut self, direction: Vector3<f32>, color: [f32; 3]) {
         let command_buffer = {
             self.frame.system.directional_lighting_system.draw(
-                self.frame.system.diffuse_buffer.image.clone(),
-                self.frame.system.normals_buffer.image.clone(),
-                self.frame.system.depth_buffer.image.clone(),
+                &self.frame.system.diffuse_buffer,
+                &self.frame.system.normals_buffer,
+                &self.frame.system.depth_buffer,
                 direction,
                 color,
             )
