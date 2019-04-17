@@ -5,7 +5,7 @@ layout(push_constant) uniform PushConstants {
    vec3 color;
 } push_constants;
 
-layout(location = 1) in vec2 uv;
+layout(location = 0) in vec2 uv;
 layout(location = 0) out vec4 f_color;
 
 void main() {
