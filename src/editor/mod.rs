@@ -50,6 +50,7 @@ pub struct Editor {
     pub event_to_process: Option<Event>,
 
     show_config_window: bool,
+    show_debug_attachment: bool,
     game_config: GameConfig,
 }
 
@@ -84,6 +85,7 @@ impl Editor {
             pending_event: None,
             event_to_process: None,
             show_config_window: false,
+            show_debug_attachment: false,
             game_config: GameConfig::default(),
         }
     }

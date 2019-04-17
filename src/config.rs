@@ -1,3 +1,4 @@
+use crate::renderer::AttachmentType;
 use std::default::Default;
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -14,6 +15,7 @@ pub struct RenderOptions {
     pub display_outlines: bool,
     pub show_shadowmap: bool,
     pub show_shadowmap_color: bool,
+    pub attachment_to_show: Option<AttachmentType>,
 }
 
 impl Default for RenderOptions {
@@ -22,6 +24,7 @@ impl Default for RenderOptions {
             display_outlines: true,
             show_shadowmap: false,
             show_shadowmap_color: false,
+            attachment_to_show: None,
         }
     }
 }
