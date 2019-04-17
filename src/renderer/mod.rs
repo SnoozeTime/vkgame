@@ -1,4 +1,5 @@
 mod ambient_lighting_system;
+mod attachments;
 mod debug_system;
 mod directional_lighting_system;
 mod frame;
@@ -12,6 +13,8 @@ mod skybox;
 pub mod texture;
 mod ui;
 mod utils;
+
+pub use attachments::{AttachmentType, DEBUG_ATTACHMENTS};
 
 use pick::Object3DPicker;
 use ui::GuiRenderer;
@@ -378,12 +381,8 @@ impl<'a> Renderer<'a> {
                         post_processing.outlines();
                     }
 
-                    if self.options.show_shadowmap {
-                        post_processing.show_shadowmap();
-                    }
-
-                    if self.options.show_shadowmap_color {
-                        post_processing.show_shadowmap_color();
+                    if let Some(ty) = self.options.attachment_to_show {
+                        post_processing.debug_show_attachment(ty);
                     }
                 }
                 Pass::Gui(mut draw_pass) => {

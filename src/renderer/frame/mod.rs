@@ -30,6 +30,7 @@ use super::shadow::ShadowSystem;
 use super::skybox::SkyboxSystem;
 use super::GBufferComponent;
 // Renderpass description takes a lot of place so it is created here.
+use super::AttachmentType;
 use crate::camera::Camera;
 use crate::ecs::components::{ModelComponent, TransformComponent};
 use crate::event::Event;
@@ -661,15 +662,20 @@ impl<'f, 's: 'f> PostProcessingPass<'f, 's> {
         }
     }
 
-    /// Will draw the main shadow map to the debug screen
-    pub fn show_shadowmap(&mut self) {
-        self.draw_image(&self.frame.system.shadow_system.shadow_map())
-    }
+    /// Draw an attachment to a quad for debugging
+    pub fn debug_show_attachment(&mut self, ty: AttachmentType) {
+        let img = match ty {
+            AttachmentType::GBufferDiffuse => self.frame.system.diffuse_buffer.clone(),
 
-    /// Will draw the color attachment that is from the point of view of the
-    /// light to the debug screen.
-    pub fn show_shadowmap_color(&mut self) {
-        self.draw_image(&self.frame.system.shadow_system.debug_color())
+            AttachmentType::GBufferNormal => self.frame.system.normals_buffer.clone(),
+
+            AttachmentType::GBufferPosition => self.frame.system.frag_pos_buffer.clone(),
+
+            AttachmentType::LightDiffuse(_) => self.frame.system.shadow_system.debug_color(),
+            AttachmentType::ShadowMap(_) => self.frame.system.shadow_system.shadow_map(),
+        };
+
+        self.draw_image(&img);
     }
 
     fn draw_image(&mut self, image: &GBufferComponent) {

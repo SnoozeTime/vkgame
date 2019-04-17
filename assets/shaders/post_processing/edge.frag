@@ -18,7 +18,7 @@ void main() {
         vec2 image_size = textureSize(diffuseSampler, 0);
         float edge = 1/ image_size.x;
         float edge_x = 1.0/ image_size.x;
-        float edge_y = 1.0/ image_size.x;
+        float edge_y = 1.0/ image_size.y;
         float edge_vert =0.0;
         for (int i = 0; i < 3; i++) {
 

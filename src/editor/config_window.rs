@@ -1,6 +1,7 @@
 use super::Editor;
 use crate::event::{EditorEvent, Event};
-use imgui::{im_str, ImGuiCond, Ui};
+use crate::renderer::DEBUG_ATTACHMENTS;
+use imgui::{im_str, ImGuiCond, ImGuiSelectableFlags, ImVec2, Ui};
 
 /// Show a window where the user can turn on/off the game
 /// configuration
@@ -19,22 +20,39 @@ pub fn show_configuration_window(ui: &Ui, editor: &mut Editor) {
                             EditorEvent::ConfigChange(editor.game_config),
                         ));
                     }
+
+                    // Check here to show one of the intermediate buffers to screen
                     if ui.checkbox(
-                        im_str!("Show shadow map"),
-                        &mut editor.game_config.renderer_config.show_shadowmap,
+                        im_str!("Show debug attachment"),
+                        &mut editor.show_debug_attachment,
                     ) {
-                        editor.event_to_process = Some(Event::EditorEvent(
-                            EditorEvent::ConfigChange(editor.game_config),
-                        ));
+                        if !editor.show_debug_attachment {
+                            editor.game_config.renderer_config.attachment_to_show = None;
+                            editor.event_to_process = Some(Event::EditorEvent(
+                                EditorEvent::ConfigChange(editor.game_config),
+                            ));
+                        }
                     }
 
-                    if ui.checkbox(
-                        im_str!("Show light-pov scene"),
-                        &mut editor.game_config.renderer_config.show_shadowmap_color,
-                    ) {
-                        editor.event_to_process = Some(Event::EditorEvent(
-                            EditorEvent::ConfigChange(editor.game_config),
-                        ));
+                    if editor.show_debug_attachment {
+                        for el in DEBUG_ATTACHMENTS.iter() {
+                            let selected = editor
+                                .game_config
+                                .renderer_config
+                                .attachment_to_show
+                                .map_or(false, |ty| ty == *el);
+                            if ui.selectable(
+                                im_str!("{:?}", el),
+                                selected,
+                                ImGuiSelectableFlags::empty(),
+                                ImVec2::new(0.0, 0.0),
+                            ) {
+                                editor.game_config.renderer_config.attachment_to_show = Some(*el);
+                                editor.event_to_process = Some(Event::EditorEvent(
+                                    EditorEvent::ConfigChange(editor.game_config),
+                                ));
+                            }
+                        }
                     }
                 });
             // Display each kind of configuration
