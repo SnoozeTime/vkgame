@@ -366,14 +366,16 @@ impl Default for PlayerComponent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RigidBodyComponent {
     pub mass: f32,
-    pub y_velocity: f32,
+
+    #[serde(with = "VectorDef")]
+    pub velocity:  Vector3<f32>,
 }
 
 impl Default for RigidBodyComponent {
     fn default() -> Self {
         RigidBodyComponent {
             mass: 20f32,
-            y_velocity: 0f32,
+            velocity: Vector3::new(0.0, 0.0, 0.0),
         }
     }
 }

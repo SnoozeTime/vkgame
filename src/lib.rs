@@ -19,3 +19,4 @@ pub mod collections;
 pub mod editor;
 pub mod net;
 pub mod sync;
+pub mod physics;

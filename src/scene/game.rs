@@ -7,9 +7,10 @@ use super::Scene;
 use crate::camera::{Camera, CameraDirection, CameraInputHandler};
 use crate::ecs::{
     components::TransformComponent,
-    systems::{DummySystem, RenderingSystem, PhysicsSystem},
+    systems::{DummySystem, RenderingSystem},
     ECS,
 };
+use crate::physics::PhysicsSystem;
 use crate::event::{Event, GameEvent};
 use crate::input::{Axis, Input, KeyType};
 use crate::resource::Resources;
