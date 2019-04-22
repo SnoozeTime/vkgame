@@ -296,9 +296,9 @@ impl DirectionalLightingSystem {
             .unwrap()
             .add_image(normals_input)
             .unwrap()
-            .add_image(depth_input)
-            .unwrap()
             .add_image(position_input)
+            .unwrap()
+            .add_image(depth_input)
             .unwrap()
             .add_sampled_image(shadow_map.image.clone(), shadow_map.sampler.clone())
             .unwrap()
@@ -447,13 +447,13 @@ mod shadow_fs {
             name: u_depth,
             ty: InputAttachment,
             set: 0,
-            binding: 2
+            binding: 3
         },
         {
             name: u_position,
             ty: InputAttachment,
             set: 0,
-            binding: 3,
+            binding: 2,
         },
         {
             name: u_shadow,
