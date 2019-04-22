@@ -237,9 +237,9 @@ impl OffscreenRenderPassDesc {
             format: diffuse.0,
             samples: diffuse.1,
             load: LoadOp::Clear,
-            store: StoreOp::DontCare,
+            store: StoreOp::Store,
             stencil_load: LoadOp::Clear,
-            stencil_store: StoreOp::DontCare,
+            stencil_store: StoreOp::Store,
             initial_layout: ImageLayout::Undefined,
             final_layout: ImageLayout::ColorAttachmentOptimal,
         });

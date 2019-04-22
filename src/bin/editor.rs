@@ -24,8 +24,10 @@ fn main() {
         )
         .get_matches();
 
-    let layer = "VK_LAYER_LUNARG_standard_validation";
-    let layers = vec![layer];
+    //    let layer = "VK_LAYER_LUNARG_standard_validation";
+    //
+    //    let layers = vec![layer];
+    let layers = vec![];
     let instance = {
         let extensions = vulkano_win::required_extensions();
         Instance::new(None, &extensions, layers).expect("Could not create instance")

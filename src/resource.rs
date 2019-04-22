@@ -35,7 +35,7 @@ impl Resources {
         let (tx, rx) = channel();
         let watcher = watcher(tx, Duration::from_secs(1)).unwrap();
 
-        let resource_path = Path::new("assets");
+        let resource_path = Path::new(option_env!("TWENGINE_ASSET_FOLDER").unwrap_or("assets"));
 
         let mut r = Resources {
             models,
@@ -86,7 +86,7 @@ impl Resources {
         self.textures
             .load_texture(
                 "white".to_string(),
-                Path::new("assets/white.png"),
+                self.resource_path.join("white.png"),
                 self.queue.device().clone(),
                 self.queue.clone(),
             )
@@ -94,7 +94,7 @@ impl Resources {
         self.textures
             .load_texture(
                 "red".to_string(),
-                Path::new("assets/red.png"),
+                self.resource_path.join("red.png"),
                 self.queue.device().clone(),
                 self.queue.clone(),
             )
@@ -102,7 +102,7 @@ impl Resources {
         self.textures
             .load_texture(
                 "blue".to_string(),
-                Path::new("assets/blue.png"),
+                self.resource_path.join("blue.png"),
                 self.queue.device().clone(),
                 self.queue.clone(),
             )
@@ -110,7 +110,7 @@ impl Resources {
         self.textures
             .load_texture(
                 "green".to_string(),
-                Path::new("assets/green.png"),
+                self.resource_path.join("green.png"),
                 self.queue.device().clone(),
                 self.queue.clone(),
             )
@@ -118,7 +118,7 @@ impl Resources {
         self.textures
             .load_texture(
                 "green2".to_string(),
-                Path::new("assets/green2.png"),
+                self.resource_path.join("green2.png"),
                 self.queue.device().clone(),
                 self.queue.clone(),
             )
@@ -126,7 +126,7 @@ impl Resources {
         self.textures
             .load_texture(
                 "brown".to_string(),
-                Path::new("assets/brown.png"),
+                self.resource_path.join("brown.png"),
                 self.queue.device().clone(),
                 self.queue.clone(),
             )
@@ -134,7 +134,7 @@ impl Resources {
         self.textures
             .load_texture(
                 "tree1".to_string(),
-                Path::new("assets/tree1.png"),
+                self.resource_path.join("tree1.png"),
                 self.queue.device().clone(),
                 self.queue.clone(),
             )
@@ -142,7 +142,7 @@ impl Resources {
         self.textures
             .load_texture(
                 "terrain1".to_string(),
-                Path::new("assets/terrain1.png"),
+                self.resource_path.join("terrain1.png"),
                 self.queue.device().clone(),
                 self.queue.clone(),
             )
@@ -154,35 +154,35 @@ impl Resources {
         self.models
             .load_model(
                 "cube".to_string(),
-                Path::new("assets/test1.obj"),
+                self.resource_path.join("test1.obj"),
                 self.queue.device().clone(),
             )
             .expect("Cannot load model");
         self.models
             .load_model(
                 "floor".to_string(),
-                Path::new("assets/floor.obj"),
+                self.resource_path.join("floor.obj"),
                 self.queue.device().clone(),
             )
             .expect("Cannot load model");
         self.models
             .load_model(
                 "room".to_string(),
-                Path::new("assets/room.obj"),
+                self.resource_path.join("room.obj"),
                 self.queue.device().clone(),
             )
             .expect("Cannot load model");
         self.models
             .load_model(
                 "tree1".to_string(),
-                Path::new("assets/tree1.obj"),
+                self.resource_path.join("tree1.obj"),
                 self.queue.device().clone(),
             )
             .expect("Cannot load model");
         self.models
             .load_model(
                 "terrain".to_string(),
-                Path::new("assets/terrain.obj"),
+                self.resource_path.join("terrain.obj"),
                 self.queue.device().clone(),
             )
             .expect("cannot load terrain");
@@ -193,10 +193,11 @@ impl Resources {
     fn reload_model(&mut self, path: &PathBuf) {
         if let Some(filename) = path.file_stem().and_then(|osstr| osstr.to_str()) {
             debug!("Will reload: {}", filename);
-            if let Err(err) =
-                self.models
-                    .load_model(filename.to_string(), &path, self.queue.device().clone())
-            {
+            if let Err(err) = self.models.load_model(
+                filename.to_string(),
+                path.to_path_buf(),
+                self.queue.device().clone(),
+            ) {
                 debug!("Error while reloading model {:?}: {:?}", path, err);
             }
         }
@@ -211,7 +212,7 @@ impl Resources {
         {
             if let Err(err) = self.textures.load_texture(
                 filename,
-                &path,
+                (*path).clone(),
                 self.queue.device().clone(),
                 self.queue.clone(),
             ) {

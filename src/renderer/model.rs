@@ -1,10 +1,10 @@
-use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
-use std::path::Path;
-use vulkano::device::Device;
-use std::sync::Arc;
-use std::collections::HashMap;
-use tobj;
 use crate::error::{TwError, TwResult};
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::Arc;
+use tobj;
+use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
+use vulkano::device::Device;
 /*
  *  The vertex data that will be passed as input to
  *  the graphic pipeline.
@@ -17,9 +17,7 @@ pub struct Vertex {
 }
 
 impl Vertex {
-    fn new(x: f32, y: f32, z: f32,
-           tx: f32, ty: f32,
-           nx: f32, ny: f32, nz: f32) -> Self {
+    fn new(x: f32, y: f32, z: f32, tx: f32, ty: f32, nx: f32, ny: f32, nz: f32) -> Self {
         let position = [x, y, z];
         let texcoords = [tx, ty];
         let normals = [nx, ny, nz];
@@ -42,72 +40,85 @@ pub struct Model {
 }
 
 impl Model {
-
     // Uses the tinyobj library to load mesh from obj file.
-    pub fn load_from_obj(device: Arc<Device>, filepath: &Path) -> TwResult<Model> {
-
-        let box_obj = tobj::load_obj(filepath);
+    pub fn load_from_obj(device: Arc<Device>, filepath: PathBuf) -> TwResult<Model> {
+        let box_obj = tobj::load_obj(&filepath);
         let (mut models, _materials) = box_obj.unwrap();
 
         let mut indices = Vec::new();
         let mut vertices = Vec::new();
-        
+
         for model in &mut models {
             let mesh = &mut model.mesh;
             indices.append(&mut mesh.indices);
 
             // Verify everything is consistent
             if mesh.positions.len() % 3 != 0 {
-                return Err(TwError::ModelLoading("Mesh position vector length is not a multiple of 3.".to_owned()));
+                return Err(TwError::ModelLoading(
+                    "Mesh position vector length is not a multiple of 3.".to_owned(),
+                ));
             }
             if mesh.texcoords.len() % 2 != 0 {
-                return Err(TwError::ModelLoading("Mesh texture vector length is not a multiple of 2.".to_owned()));
+                return Err(TwError::ModelLoading(
+                    "Mesh texture vector length is not a multiple of 2.".to_owned(),
+                ));
             }
 
             if mesh.normals.len() % 3 != 0 {
-                return Err(TwError::ModelLoading("Normals vector length is not a multiple of 3.".to_owned()));
+                return Err(TwError::ModelLoading(
+                    "Normals vector length is not a multiple of 3.".to_owned(),
+                ));
             }
 
-            if (mesh.positions.len() / 3) != (mesh.texcoords.len() /2) || (mesh.positions.len() != mesh.normals.len()){
-                return Err(TwError::ModelLoading(
-                        format!("Number of positions ({}) does not correspond to number of texture coords ({})",
-                        mesh.positions.len() / 3,
-                        mesh.texcoords.len() / 2)));
+            if (mesh.positions.len() / 3) != (mesh.texcoords.len() / 2)
+                || (mesh.positions.len() != mesh.normals.len())
+            {
+                return Err(TwError::ModelLoading(format!(
+                    "Number of positions ({}) does not correspond to number of texture coords ({})",
+                    mesh.positions.len() / 3,
+                    mesh.texcoords.len() / 2
+                )));
             }
 
             for v in 0..mesh.positions.len() / 3 {
-                vertices.push(Vertex::new(mesh.positions[3 * v],
-                                          mesh.positions[3 * v + 1],
-                                          mesh.positions[3 * v + 2],
-                                          mesh.texcoords[2 * v],
-                                          1.0 - mesh.texcoords[2 * v + 1],
-                                          mesh.normals[3 * v],
-                                          mesh.normals[3 * v + 1],
-                                          mesh.normals[3 * v + 2]));
+                vertices.push(Vertex::new(
+                    mesh.positions[3 * v],
+                    mesh.positions[3 * v + 1],
+                    mesh.positions[3 * v + 2],
+                    mesh.texcoords[2 * v],
+                    1.0 - mesh.texcoords[2 * v + 1],
+                    mesh.normals[3 * v],
+                    mesh.normals[3 * v + 1],
+                    mesh.normals[3 * v + 2],
+                ));
             }
         }
 
-        Self::load_from_vec(device, vertices, indices) 
+        Self::load_from_vec(device, vertices, indices)
     }
 
-    pub fn load_from_vec(device: Arc<Device>, vertices: Vec<Vertex>, indices: Vec<u32>) -> TwResult<Model> {
-
+    pub fn load_from_vec(
+        device: Arc<Device>,
+        vertices: Vec<Vertex>,
+        indices: Vec<u32>,
+    ) -> TwResult<Model> {
         let vertex_buffer = CpuAccessibleBuffer::from_iter(
             device.clone(),
             BufferUsage::all(),
-            vertices.iter().cloned())?;
+            vertices.iter().cloned(),
+        )?;
 
         let index_buffer = CpuAccessibleBuffer::from_iter(
             device.clone(),
             BufferUsage::all(),
-            indices.iter().cloned())?;
+            indices.iter().cloned(),
+        )?;
 
         Ok(Model {
             vertex_buffer,
             index_buffer,
         })
     }
-
 }
 
 // Just store the models so that they can be referenced by name in the scene.
@@ -116,7 +127,6 @@ pub struct ModelManager {
 }
 
 impl ModelManager {
-
     pub fn new() -> Self {
         ModelManager {
             models: HashMap::new(),
@@ -126,15 +136,13 @@ impl ModelManager {
     pub fn load_model(
         &mut self,
         model_name: String,
-        filename: &Path,
-        device: Arc<Device>) -> TwResult<()> {
-
+        filename: PathBuf,
+        device: Arc<Device>,
+    ) -> TwResult<()> {
         let model = Model::load_from_obj(device, filename)?;
 
         self.models.insert(model_name, model);
 
         Ok(())
     }
-
 }
-
