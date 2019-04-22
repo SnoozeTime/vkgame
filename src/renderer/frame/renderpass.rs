@@ -241,9 +241,9 @@ impl OffscreenRenderPassDesc {
             format: diffuse.0,
             samples: diffuse.1,
             load: LoadOp::Clear,
-            store: StoreOp::DontCare,
+            store: StoreOp::Store,
             stencil_load: LoadOp::Clear,
-            stencil_store: StoreOp::DontCare,
+            stencil_store: StoreOp::Store,
             initial_layout: ImageLayout::Undefined,
             final_layout: ImageLayout::ColorAttachmentOptimal,
         });
@@ -490,6 +490,22 @@ impl LightingRenderPassDesc {
         dependencies.push(PassDependencyDescription {
             source_subpass: vk_sys::SUBPASS_EXTERNAL as usize,
             destination_subpass: 0,
+            source_stages: PipelineStages {
+                all_graphics: true,
+                ..PipelineStages::none()
+            }, // TODO: correct values
+            destination_stages: PipelineStages {
+                all_graphics: true,
+                ..PipelineStages::none()
+            }, // TODO: correct values
+            source_access: AccessFlagBits::all(), // TODO: correct values
+            destination_access: AccessFlagBits::all(), // TODO: correct values
+            by_region: true,                      // TODO: correct values
+        });
+
+        dependencies.push(PassDependencyDescription {
+            source_subpass: 0,
+            destination_subpass: vk_sys::SUBPASS_EXTERNAL as usize,
             source_stages: PipelineStages {
                 all_graphics: true,
                 ..PipelineStages::none()

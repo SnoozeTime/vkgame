@@ -60,7 +60,9 @@ impl ECS {
 
     pub fn load_templates() -> HashMap<String, ComponentTemplate> {
         let mut templates = HashMap::new();
-        let paths = fs::read_dir("./templates/")
+        let template_path = option_env!("TWENGINE_TEMPLATE_FOLDER").unwrap_or("./templates/");
+        println!("TEMPALTE PATH {:?}", template_path);
+        let paths = fs::read_dir(template_path)
             .unwrap()
             .map(|p| p.unwrap().path());
 

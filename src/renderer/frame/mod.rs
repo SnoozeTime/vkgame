@@ -291,7 +291,7 @@ impl FrameSystem {
                 .expect("Cannot build framebuffer"),
         );
         let clear_values = vec![
-            [0.0, 0.0, 0.0, 0.0].into(),
+            [0.0, 0.0, 0.0, 1.0].into(),
             [0.0, 0.0, 0.0, 1.0].into(),
             [0.0, 0.0, 0.0, 0.0].into(),
             [0.0, 0.0, 0.0, 0.0].into(),
