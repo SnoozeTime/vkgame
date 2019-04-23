@@ -115,6 +115,7 @@ impl ShadowSystem {
                 .triangle_list()
                 .viewports_dynamic_scissors_irrelevant(1)
                 .depth_stencil_simple_depth()
+                .cull_mode_front()
                 .viewports(std::iter::once(Viewport {
                     origin: [0.0, 0.0],
                     dimensions: [dimensions[0] as f32, dimensions[1] as f32],
