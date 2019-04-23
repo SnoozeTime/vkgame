@@ -32,7 +32,7 @@ float shadow_factor(vec2 uv_offset) {
         float closestDepth = texture(u_shadow, shadowCoord.xy+uv_offset).r;
         float currentDepth = shadowCoord.z;
 
-        float offset = 0.000;
+        float offset = 0.005;
         if (closestDepth+offset < currentDepth) {
                 shadow = 0.25;
         }
