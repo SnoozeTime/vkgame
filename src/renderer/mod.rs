@@ -288,7 +288,8 @@ impl<'a> Renderer<'a> {
             self.images = new_images;
             let dimensions = self.images[0].dimensions();
 
-            self.gui.rebuild_pipeline(self.frame_system.ui_subpass());
+            self.gui
+                .rebuild_after_resize(dimensions, self.frame_system.ui_subpass());
             self.scene_system
                 .rebuild_pipeline(self.frame_system.deferred_subpass(), dimensions);
             self.object_picker.rebuild_pipeline(dimensions);
