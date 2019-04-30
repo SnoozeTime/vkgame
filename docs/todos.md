@@ -1,10 +1,9 @@
 
 # Graphics
-- [ ] Simple shadows
+- [X] Simple shadows
 - [ ] Refactor recompilation (should have Trait that register path and recompile shaders)
 - [ ] Show lights
 - [ ] Post processing: Sun + flare, Bloom, ambient occlusion
-- [ ] If too light (3 render passes...), move shadow map gen to second renderpass (same as gbuffer) and do lighting in third 
 
 # Animation
 Figure it out
@@ -25,6 +24,6 @@ Figure it out
 - [ ] Create template from entity in editor
 
 # BUGS:
-- [ ] GUI does not resize (imgui renderer problem)
+- [X] GUI does not resize (imgui renderer problem)
 - [ ] When window out of focuse sometime the input is stuck in one direction (network)
 - [ ] Vulkano panic with device lost error 
